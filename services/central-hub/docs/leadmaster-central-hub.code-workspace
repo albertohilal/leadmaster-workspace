@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"path": "../../whatsapp-massive-sender-V2"
+		},
+		{
+			"path": "../../desarrolloydisenio-api"
+		},
+		{
+			"path": "../../whatsapp-bot-responder"
+		}
+	],
+	"settings": {}
+}

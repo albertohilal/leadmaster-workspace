@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  # Backend API
+  backend:
+    build: .
+    ports:
+      - "3011:3011"
+    environment:
+      - NODE_ENV=production
+      - PORT=3011
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+      - SESSION_SECRET=${SESSION_SECRET}
+      - JWT_SECRET=${JWT_SECRET}
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - leadmaster-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3011/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Frontend Web App
+  frontend:
+    build: ./frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - leadmaster-network
+    restart: unless-stopped
+
+  # Database (opcional - si quieres usar contenedor)
+  # mysql:
+  #   image: mysql:8.0
+  #   environment:
+  #     MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+  #     MYSQL_DATABASE: ${DB_NAME}
+  #     MYSQL_USER: ${DB_USER}
+  #     MYSQL_PASSWORD: ${DB_PASSWORD}
+  #   volumes:
+  #     - mysql_data:/var/lib/mysql
+  #     - ./AUXILIAR:/docker-entrypoint-initdb.d
+  #   ports:
+  #     - "3306:3306"
+  #   networks:
+  #     - leadmaster-network
+
+  # Redis (para caché y sesiones)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - leadmaster-network
+    restart: unless-stopped
+
+networks:
+  leadmaster-network:
+    driver: bridge
+
+volumes:
+  # mysql_data:
+  redis_data:
