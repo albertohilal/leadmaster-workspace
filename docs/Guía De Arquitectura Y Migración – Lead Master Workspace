@@ -1,0 +1,250 @@
+# Guía de Arquitectura y Migración
+
+## LeadMaster Workspace (Versión Operativa)
+
+---
+
+## 1. Objetivo del documento
+
+Este documento funciona como **guía única de referencia** para:
+
+* Entender la **nueva arquitectura** de LeadMaster
+* Guiar la **migración progresiva** desde el estado actual
+* Evitar errores operativos (downtime, pérdida de sesión WhatsApp)
+* Servir como material de consulta durante el desarrollo con **VS Code + Copilot vía SSH en Contabo**
+
+No es documentación comercial: es **documentación técnica-operativa**.
+
+---
+
+## 2. Principio rector
+
+> **No se rompe lo que funciona.**
+> Todo cambio se hace de forma incremental, reversible y validada.
+
+Por eso:
+
+* Se crea un **workspace contenedor**
+* Los servicios se desacoplan **uno por uno**
+* WhatsApp queda **aislado y protegido**
+
+---
+
+## 3. Arquitectura objetivo (visión general)
+
+El sistema LeadMaster se diseña **desde el inicio como multicliente (multi-tenant)**.
+
+Esto significa que **un mismo workspace y la misma base de código** deben poder operar **para múltiples clientes**, manteniendo **aislamiento lógico, operativo y de datos** entre ellos.
+
+### Principio multicliente
+
+> Un cliente **nunca** debe poder:
+>
+> * acceder a datos de otro cliente
+> * interferir con sesiones WhatsApp ajenas
+> * afectar campañas, listeners o envíos de terceros
+
+El multicliente **no es una feature**, es una **condición estructural** del sistema.
+
+### Servicios principales
+
+| Servicio               | Rol                        | Alcance multicliente   | Reinicio    |
+| ---------------------- | -------------------------- | ---------------------- | ----------- |
+| Servicio               | Rol                        | Alcance multicliente   | Reinicio    |
+| --------               | -----                      | ---------------------- | ----------  |
+| session-manager        | Mantiene conexión WhatsApp | 1 sesión por cliente   | Excepcional |
+| listener               | Mensajes entrantes         | Aislado por cliente    | Permitido   |
+| massive-sender         | Envíos masivos             | Aislado por cliente    | Permitido   |
+| leadmaster-central-hub | API, IA, dashboard, lógica | Multi-tenant           | Permitido   |
+
+📌 **Regla crítica**:
+Existe **un solo `Client()` de whatsapp-web.js por cuenta**, dentro de `session-manager`.
+
+---
+
+## 4. Workspace: estructura oficial
+
+Ubicación actual en el servidor:
+
+```
+/root/leadmaster-workspace
+```
+
+Estructura validada:
+
+```
+leadmaster-workspace/
+├── services/
+│   ├── leadmaster-central-hub/
+│   ├── session-manager/
+│   ├── listener/
+│   └── massive-sender/
+│
+├── shared/
+│   ├── config/
+│   ├── db/
+│   ├── logger/
+│   └── types/
+│
+├── scripts/
+│   ├── pm2/
+│   └── deploy/
+│
+├── ecosystem.config.js
+└── README.md
+```
+
+---
+
+## 5. Estado actual de la migración
+
+### PASO 1 — Workspace creado ✅
+
+* Carpeta `leadmaster-workspace` creada
+* Estructura base validada
+* No se tocó ningún proyecto activo
+
+### PASO 2 — leadmaster-central-hub integrado ✅
+
+* Copiado dentro de `services/`
+* Proyecto original intacto en `/root`
+* PM2 sigue apuntando al proyecto viejo
+
+👉 **Sistema productivo sin cambios**
+
+---
+
+## 6. Estrategia de migración (orden obligatorio)
+
+El orden **no es negociable**, porque protege la sesión de WhatsApp **y la separación por cliente**.
+
+### Paso 3 — Crear `session-manager` (multicliente)
+
+* Servicio nuevo
+* Usa `whatsapp-web.js`
+* Mantiene `LocalAuth`
+* **Una instancia por cliente** (una cuenta WhatsApp)
+* Carpeta de auth separada por `cliente_id`
+* Expone API mínima (`/status`, `/send`)
+* Se ejecuta como proceso independiente en PM2
+
+### Paso 4 — Conectar API al session-manager
+
+* `leadmaster-central-hub` deja de usar WhatsApp directamente
+* Toda comunicación se hace por HTTP
+* Cada request incluye `cliente_id`
+
+### Paso 5 — Extraer listener (multicliente)
+
+* El listener pasa a su propio proceso
+* Opera **por cliente**
+* Consume eventos desde el session-manager correspondiente
+* Llama a IA / DB / API siempre filtrando por `cliente_id`
+
+### Paso 6 — Extraer massive-sender (multicliente)
+
+* Servicio batch
+* Opera campañas **por cliente**
+* Usa cola separada por `cliente_id`
+* Controla rate-limit, pausas y retries por cliente
+
+---
+
+## 7. Política de reinicios
+
+### session-manager
+
+* ❌ No se reinicia en deploys
+* ❌ No se reinicia por cambios de lógica
+* ✅ Se reinicia solo si:
+
+  * WhatsApp queda en estado irrecuperable
+  * Se actualiza whatsapp-web.js
+  * Hay mantenimiento programado
+
+### Resto de servicios
+
+* Reinicio libre
+* Deploys frecuentes
+* Sin impacto en WhatsApp
+
+---
+
+## 8. PM2: criterio operativo
+
+Todos los procesos se gestionan desde **un único `ecosystem.config.js`** en la raíz del workspace.
+
+Principio:
+
+* Reiniciar **solo el proceso necesario**
+* Nunca usar `pm2 restart all` en producción
+
+---
+
+## 9. Uso con VS Code + Copilot (SSH)
+
+Este workspace está pensado para:
+
+* Abrirse como carpeta raíz en VS Code
+* Permitir que Copilot tenga **contexto completo** del sistema
+* Facilitar refactors seguros entre servicios
+* Trabajar directamente por SSH en Contabo
+
+Buenas prácticas:
+
+* No abrir servicios aislados fuera del workspace
+* Mantener contratos visibles para Copilot
+* Usar prompts que refieran a otros servicios existentes
+
+---
+
+## 9.1 Rollback y reversibilidad
+
+Cada paso de la migración cumple estas reglas:
+
+* No se elimina código existente
+* Se copian proyectos, no se mueven
+* PM2 no se modifica hasta validar
+* Cada servicio nuevo puede apagarse sin afectar producción
+
+Esto garantiza rollback inmediato ante cualquier fallo.
+
+---
+
+## 10. Reglas de oro
+
+1. El sistema es **multicliente por diseño**, no por parche
+2. Nunca mezclar datos entre clientes
+3. Nunca más de un `Client()` de WhatsApp por cliente
+4. Nunca reiniciar session-manager sin motivo
+5. Todo request debe conocer su `cliente_id`
+6. Todo cambio debe ser reversible
+7. Primero estabilidad, después features
+
+---
+
+## 11. Próximos pasos inmediatos
+
+1. Definir contratos HTTP entre servicios (prioridad)
+2. Documentar payloads y errores esperados
+3. Implementar `session-manager` multicliente
+4. Conectar API al session-manager
+5. Extraer listener
+6. Extraer massive-sender
+
+---
+
+## 12. Nota sobre escalabilidad y límites
+
+WhatsApp Web impone límites estructurales:
+
+* 1 cuenta WhatsApp = 1 sesión activa
+* Cada sesión consume recursos (Chrome headless)
+* El límite real no es técnico sino operativo (números, bans, costo)
+
+El diseño multicliente asume **un número controlado de clientes**, típico de un micro-SaaS B2B.
+
+---
+
+**Este documento se mantiene vivo.**
+Debe actualizarse cada vez que se consolida un paso de la migración.
