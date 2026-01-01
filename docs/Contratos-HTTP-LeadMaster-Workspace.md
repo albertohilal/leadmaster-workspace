@@ -59,14 +59,18 @@ X-Cliente-Id: 51
 
 Responsable de:
 
-* Mantener sesión WhatsApp
+* Mantener sesión WhatsApp por cliente
+* Exponer estado operativo
 * Enviar mensajes
-* Emitir eventos de mensajes entrantes
+* Proveer información básica de la cuenta
+* Permitir operaciones de mantenimiento controladas
+
+---
 
 ### 4.1 GET /status
 
 **Descripción**
-Devuelve el estado de la sesión WhatsApp para un cliente.
+Devuelve el estado actual de la sesión WhatsApp para un cliente.
 
 **Request**
 
@@ -91,6 +95,136 @@ X-Cliente-Id: 51
 * `QR_REQUIRED`
 * `READY`
 * `DISCONNECTED`
+
+---
+
+### 4.2 GET /qr-code
+
+**Descripción**
+Devuelve el QR code actual cuando la sesión requiere autenticación.
+
+**Condición**
+Solo disponible cuando `state = QR_REQUIRED`.
+
+**Request**
+
+```http
+GET /qr-code
+X-Cliente-Id: 51
+```
+
+**Response 200**
+
+```json
+{
+  "qr": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgA..."
+}
+```
+
+**Errores**
+
+* `409` → sesión no requiere QR
+
+---
+
+### 4.3 POST /send
+
+**Descripción**
+Envía un mensaje WhatsApp.
+
+**Request**
+
+```json
+{
+  "cliente_id": 51,
+  "to": "5491123456789",
+  "message": "Hola, este es un mensaje de prueba"
+}
+```
+
+**Response 200**
+
+```json
+{
+  "ok": true,
+  "message_id": "wamid.HBgLM..."
+}
+```
+
+**Errores comunes**
+
+* `400` → datos inválidos
+* `409` → sesión no lista (`state != READY`)
+* `500` → error interno WhatsApp
+
+---
+
+### 4.4 POST /disconnect
+
+**Descripción**
+Desconecta la sesión WhatsApp de forma controlada.
+
+**Uso**
+Solo para mantenimiento o recuperación.
+
+**Request**
+
+```json
+{
+  "cliente_id": 51
+}
+```
+
+**Response 200**
+
+```json
+{
+  "disconnected": true
+}
+```
+
+---
+
+### 4.5 GET /account-info
+
+**Descripción**
+Devuelve información básica de la cuenta WhatsApp conectada.
+
+**Request**
+
+```http
+GET /account-info
+X-Cliente-Id: 51
+```
+
+**Response 200**
+
+```json
+{
+  "number": "5491123456789",
+  "name": "Empresa Cliente",
+  "platform": "whatsapp"
+}
+```
+
+---
+
+### 4.6 GET /health
+
+**Descripción**
+Healthcheck del servicio session-manager.
+
+**Response 200**
+
+```json
+{
+  "service": "session-manager",
+  "status": "healthy",
+  "cliente_id": 51,
+  "uptime": 86400,
+  "whatsapp": "connected"
+}
+```
 
 ---
 
