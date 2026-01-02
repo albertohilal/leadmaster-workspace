@@ -4,6 +4,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const { sessionManagerClient } = require('./integrations/sessionManager');
 const app = express();
 
 // Middleware
@@ -82,7 +83,7 @@ app.get('*', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3010;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`🚀 Leadmaster Central Hub corriendo en http://localhost:${PORT}`);
   console.log('📋 Endpoints disponibles:');
   console.log('   - GET / (info general)');
@@ -92,4 +93,11 @@ app.listen(PORT, () => {
   console.log('   - GET /sender/* (envíos masivos)');
   console.log('   - GET /listener/* (respuestas automáticas)');
   console.log('   - GET /sync-contacts/* (sincronización Gmail Contacts)');
+  
+  // Health check de Session Manager en startup
+  try {
+    await sessionManagerClient.checkHealth();
+  } catch (error) {
+    console.warn(`⚠️ Session Manager no disponible en startup: ${error.message}`);
+  }
 });
