@@ -6,17 +6,32 @@ Arquitectura basada en múltiples procesos Node.js independientes, gestionados c
 
 ## Estructura
 
-- services/
+- **services/**  
   Servicios independientes (WhatsApp session-manager, listener, sender, API, etc.)
 
-- shared/
+- **shared/**  
   Código y configuración compartida entre servicios
 
-- scripts/
+- **scripts/**  
   Scripts de despliegue y configuración PM2
+
+- **infra/**  
+  Infraestructura: configuraciones Nginx, SSL, deployment
+
+- **docs/**  
+  Documentación técnica y guías operativas
+
+## Infraestructura
+
+- **Servidor**: VPS Contabo
+- **Web Server**: Nginx + Cloudflare Origin SSL
+- **SSL/TLS**: Full (strict) con Origin Certificates
+- **Dominios**: desarrolloydisenioweb.com.ar
+
+Ver documentación SSL: [`docs/SSL-Cloudflare-Setup.md`](docs/SSL-Cloudflare-Setup.md)
 
 ## Notas
 
 - Trabajo remoto vía VS Code + SSH
 - Uso intensivo de Copilot
-- Producción en VPS Contabo
+- Configuraciones sensibles (certificados, claves) NO versionadas

@@ -239,7 +239,7 @@ Return state to caller
 - [x] Create HTTP client utility (axios/fetch)
 - [x] Implement `/send` integration only
 - [x] Add error handling and logging
-- [ ] Test with session-manager running locally
+- [x] Test with session-manager running locally
 
 **After implementation:**
 - [ ] Validate error scenarios (timeout, 409, 500)
