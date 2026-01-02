@@ -21,6 +21,8 @@ router.get('/status', (req, res) => {
 router.use('/campaigns', require('./campaigns'));
 // Nueva ruta modular para mensajes
 router.use('/messages', require('./messages'));
+// Nueva ruta para envío directo vía session-manager (integración HTTP)
+router.use('/', require('./sender.routes'));
 // Nueva ruta modular para leads/lugares (multi-cliente)
 router.use('/lugares', require('./lugares'));
 // Nueva ruta modular para destinatarios
