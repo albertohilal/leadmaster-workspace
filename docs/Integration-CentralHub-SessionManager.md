@@ -237,8 +237,8 @@ Return state to caller
 **During implementation:**
 - [x] Add `SESSION_MANAGER_BASE_URL` env var
 - [x] Create HTTP client utility (axios/fetch)
-- [ ] Implement `/send` integration only
-- [ ] Add error handling and logging
+- [x] Implement `/send` integration only
+- [x] Add error handling and logging
 - [ ] Test with session-manager running locally
 
 **After implementation:**
