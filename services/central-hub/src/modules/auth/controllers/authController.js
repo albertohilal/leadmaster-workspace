@@ -8,7 +8,9 @@ class AuthController {
    */
   async login(req, res) {
     try {
-      const { usuario, password } = req.body;
+      // Soportar tanto "usuario" como "username" para mayor flexibilidad
+      const usuario = req.body.usuario || req.body.username;
+      const { password } = req.body;
 
       if (!usuario || !password) {
         return res.status(400).json({
