@@ -11,7 +11,10 @@ const {
   SessionManagerError,
   SessionManagerUnreachableError,
   SessionManagerTimeoutError,
-  SessionManagerInvalidConfigError
+  SessionManagerInvalidConfigError,
+  SessionManagerSessionNotReadyError,
+  SessionManagerWhatsAppError,
+  SessionManagerValidationError
 } = require('./errors');
 
 module.exports = {
@@ -19,5 +22,8 @@ module.exports = {
   SessionManagerError,
   SessionManagerUnreachableError,
   SessionManagerTimeoutError,
-  SessionManagerInvalidConfigError
+  SessionManagerInvalidConfigError,
+  SessionManagerSessionNotReadyError,
+  SessionManagerWhatsAppError,
+  SessionManagerValidationError
 };

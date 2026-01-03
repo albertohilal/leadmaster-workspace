@@ -15,7 +15,10 @@
 const {
   SessionManagerUnreachableError,
   SessionManagerTimeoutError,
-  SessionManagerInvalidConfigError
+  SessionManagerInvalidConfigError,
+  SessionManagerSessionNotReadyError,
+  SessionManagerWhatsAppError,
+  SessionManagerValidationError
 } = require('./errors');
 
 class SessionManagerClient {
@@ -153,6 +156,92 @@ class SessionManagerClient {
       console.error(`[SessionManager] ❌ Error inesperado en health check:`, error);
       throw new SessionManagerUnreachableError(
         `Error inesperado al verificar salud de Session Manager: ${error.message}`,
+        error
+      );
+    }
+  }
+
+  /**
+   * Envía un mensaje de WhatsApp a través de Session Manager
+   * @param {Object} params - Parámetros del mensaje
+   * @param {number} params.clienteId - ID del cliente
+   * @param {string} params.to - Número de teléfono destino
+   * @param {string} params.message - Contenido del mensaje
+   * @returns {Promise<Object>} Respuesta del Session Manager
+   * @throws {SessionManagerValidationError} Si hay error de validación (400)
+   * @throws {SessionManagerSessionNotReadyError} Si la sesión no está lista (409)
+   * @throws {SessionManagerWhatsAppError} Si hay error interno de WhatsApp (500)
+   * @throws {SessionManagerTimeoutError} Si se excede el timeout
+   * @throws {SessionManagerUnreachableError} Si no se puede conectar
+   */
+  async sendMessage({ clienteId, to, message }) {
+    try {
+      const response = await this._fetchWithTimeout('/send', {
+        method: 'POST',
+        headers: {
+          'X-Cliente-Id': String(clienteId)
+        },
+        body: JSON.stringify({
+          cliente_id: clienteId,
+          to,
+          message
+        })
+      });
+
+      // 200 OK - Éxito
+      if (response.ok) {
+        const result = await response.json();
+        console.log(`[SessionManager] ✅ Mensaje enviado a ${to}`);
+        return result;
+      }
+
+      // Manejo de errores HTTP
+      const errorText = await response.text().catch(() => 'Sin detalles');
+      
+      // 400 Bad Request - Error de validación
+      if (response.status === 400) {
+        console.error(`[SessionManager] ❌ Error de validación: ${errorText}`);
+        throw new SessionManagerValidationError(
+          `Error de validación en Session Manager: ${errorText}`
+        );
+      }
+
+      // 409 Conflict - Sesión no está lista
+      if (response.status === 409) {
+        console.error(`[SessionManager] ❌ Sesión no lista: ${errorText}`);
+        throw new SessionManagerSessionNotReadyError(
+          `Sesión de WhatsApp no está lista: ${errorText}`
+        );
+      }
+
+      // 500 Internal Server Error - Error de WhatsApp
+      if (response.status === 500) {
+        console.error(`[SessionManager] ❌ Error interno de WhatsApp: ${errorText}`);
+        throw new SessionManagerWhatsAppError(
+          `Error interno de WhatsApp en Session Manager: ${errorText}`
+        );
+      }
+
+      // Otros códigos de error no esperados
+      console.error(`[SessionManager] ❌ Error inesperado (${response.status}): ${errorText}`);
+      throw new SessionManagerUnreachableError(
+        `Session Manager respondió con status ${response.status}: ${errorText}`
+      );
+
+    } catch (error) {
+      // Re-lanzar errores tipados ya procesados
+      if (error instanceof SessionManagerValidationError ||
+          error instanceof SessionManagerSessionNotReadyError ||
+          error instanceof SessionManagerWhatsAppError ||
+          error instanceof SessionManagerTimeoutError ||
+          error instanceof SessionManagerUnreachableError) {
+        throw error;
+      }
+
+      // Otros errores no esperados
+      console.error(`[SessionManager] ❌ Error inesperado al enviar mensaje:`, error);
+      throw new SessionManagerUnreachableError(
+        `Error inesperado al enviar mensaje: ${error.message}`,
         error
       );
     }

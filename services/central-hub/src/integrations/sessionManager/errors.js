@@ -38,9 +38,39 @@ class SessionManagerInvalidConfigError extends SessionManagerError {
   }
 }
 
+/**
+ * Error cuando la sesión de WhatsApp no está lista (409 Conflict)
+ */
+class SessionManagerSessionNotReadyError extends SessionManagerError {
+  constructor(message = 'Sesión de WhatsApp no está lista', originalError = null) {
+    super(message, originalError);
+  }
+}
+
+/**
+ * Error interno de WhatsApp en Session Manager (500 Internal Error)
+ */
+class SessionManagerWhatsAppError extends SessionManagerError {
+  constructor(message = 'Error interno de WhatsApp', originalError = null) {
+    super(message, originalError);
+  }
+}
+
+/**
+ * Error de validación en la petición (400 Bad Request)
+ */
+class SessionManagerValidationError extends SessionManagerError {
+  constructor(message = 'Error de validación en la petición', originalError = null) {
+    super(message, originalError);
+  }
+}
+
 module.exports = {
   SessionManagerError,
   SessionManagerUnreachableError,
   SessionManagerTimeoutError,
-  SessionManagerInvalidConfigError
+  SessionManagerInvalidConfigError,
+  SessionManagerSessionNotReadyError,
+  SessionManagerWhatsAppError,
+  SessionManagerValidationError
 };
