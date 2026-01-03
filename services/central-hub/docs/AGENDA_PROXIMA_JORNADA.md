@@ -5,6 +5,38 @@
 
 ---
 
+## 🔒 COMPLETADO Y CERRADO: Session Manager WhatsApp 24×7
+
+**Fecha de cierre:** 3 de enero de 2026  
+**Estado:** ✅ **STABLE - FROZEN - NO MODIFICAR**  
+**Tag de seguridad:** `session-manager-whatsapp-24x7-v1.0`  
+**Declaración oficial:** Ver `DECLARACION-ESTABILIDAD.md`
+
+### Tareas Completadas y Cerradas
+
+- ✅ **COMPLETADO:** WhatsApp Session Manager refactor to 9-state model
+- ✅ **COMPLETADO:** Persistent LocalAuth session surviving restarts
+- ✅ **COMPLETADO:** Elimination of unnecessary QR regeneration
+- ✅ **COMPLETADO:** Automatic reconnection with max retry limit (3 attempts)
+- ✅ **COMPLETADO:** Stable /status endpoint with backward compatibility
+- ✅ **COMPLETADO:** Smoke test validation for session persistence
+- ✅ **COMPLETADO:** Security tag creation: `session-manager-whatsapp-24x7-v1.0`
+- ✅ **COMPLETADO:** Architectural stability declaration (core frozen)
+
+### Archivos Congelados (No Modificar)
+
+- 🔒 `/services/session-manager/whatsapp/client.js` (260 líneas)
+- 🔒 `/services/session-manager/routes/status.js` (45 líneas)
+
+### Regla de Oro
+
+**⚠️ Todo trabajo futuro debe implementarse en Central Hub como consumidor.**  
+**⚠️ Cambios directos al core requieren RFC + aprobación arquitectónica.**
+
+**Documentación completa:** `/services/central-hub/docs/session-manager/`
+
+---
+
 ## ✅ Completado Hoy
 
 ### 1. Configuración Google Cloud OAuth

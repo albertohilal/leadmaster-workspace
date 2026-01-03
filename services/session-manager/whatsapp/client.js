@@ -37,6 +37,7 @@ let currentState = SessionState.INITIALIZING;
 let clienteId = null;
 let reconnectionAttempts = 0;
 const MAX_RECONNECTION_ATTEMPTS = 3;
+let lastQRCode = null; // Almacena el último QR generado (solo lectura)
 
 /**
  * Centralizes state transitions with logging
@@ -106,6 +107,7 @@ export function initialize(id) {
   
   // QR code event
   clientInstance.on('qr', (qr) => {
+    lastQRCode = qr; // Guardar en memoria para lectura posterior
     updateState(SessionState.QR_REQUIRED, 'QR code generated - waiting for scan');
     console.log('[WhatsApp] QR Code received - scan with your phone:');
     qrcode.generate(qr, { small: true });
@@ -114,6 +116,7 @@ export function initialize(id) {
   // Ready event
   clientInstance.on('ready', () => {
     reconnectionAttempts = 0; // Reset contador al conectar exitosamente
+    lastQRCode = null; // Limpiar QR cuando la sesión está lista
     updateState(SessionState.READY, 'WhatsApp session ready - can send messages');
     console.log('[WhatsApp] Client is READY');
   });
@@ -225,6 +228,14 @@ export function isRecoverable() {
     SessionState.RECONNECTING,
     SessionState.DISCONNECTED_RECOVERABLE
   ].includes(currentState);
+}
+
+/**
+ * Obtiene el último QR generado (si existe)
+ * @returns {string|null} QR code string o null
+ */
+export function getLastQR() {
+  return lastQRCode;
 }
 
 /**

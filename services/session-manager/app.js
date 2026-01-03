@@ -2,6 +2,7 @@ import express from 'express';
 import healthRouter from './routes/health.js';
 import statusRouter from './routes/status.js';
 import sendRouter from './routes/send.js';
+import qrRouter from './routes/qr.js';
 
 const app = express();
 
@@ -18,6 +19,7 @@ app.use((req, res, next) => {
 app.use('/health', healthRouter);
 app.use('/status', statusRouter);
 app.use('/send', sendRouter);
+app.use('/qr', qrRouter);
 
 // 404 handler
 app.use((req, res) => {
