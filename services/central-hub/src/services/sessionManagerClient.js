@@ -156,6 +156,16 @@ async function getStatus(clienteId) {
 }
 
 /**
+ * GET /qr
+ * Get WhatsApp QR code for a client
+ * @param {number} clienteId - Cliente ID
+ * @returns {Promise<Object>} QR code data (qr string or base64 image)
+ */
+async function getQR(clienteId) {
+  return makeRequest('GET', '/qr', clienteId);
+}
+
+/**
  * POST /send
  * Send a WhatsApp message
  * @param {number} clienteId - Cliente ID
@@ -175,6 +185,7 @@ async function sendMessage(clienteId, to, message) {
 module.exports = {
   getHealth,
   getStatus,
+  getQR,
   sendMessage,
   SESSION_MANAGER_BASE_URL
 };
