@@ -29,7 +29,8 @@ app.get('/health', (req, res) => {
 
 // Proxy QR / status WhatsApp (OBLIGATORIO antes del static)
 const whatsappQrProxy = require('./routes/whatsappQrProxy');
-app.use('/api/whatsapp', whatsappQrProxy);
+app.use('/session-manager', require('./modules/session-manager/routes'));
+
 
 /* =========================
    Rutas de módulos internos

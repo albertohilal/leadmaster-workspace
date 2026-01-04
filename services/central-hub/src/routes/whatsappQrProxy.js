@@ -18,6 +18,7 @@
 
 const express = require('express');
 const sessionManagerClient = require('../services/sessionManagerClient');
+const qrAuthService = require('../services/qrAuthorizationService');
 
 const router = express.Router();
 
@@ -85,8 +86,10 @@ router.get('/:clienteId/status', async (req, res) => {
  * 
  * Respuestas:
  * - 200: QR disponible (JSON con campo qr)
+ * - 403: Cliente no autorizado para escanear QR
  * - 409: WhatsApp ya conectado (no hay QR)
  * - 404: QR no disponible aún
+ * - 500: Error de base de datos
  * - 502: Session Manager no disponible
  * - 504: Timeout
  */
@@ -104,7 +107,17 @@ router.get('/:clienteId/qr', async (req, res) => {
   }
 
   try {
-    // Llamar al Session Manager a través del cliente
+    // ⚠️ FASE 2: Verificar autorización ANTES de proxy
+    const authorized = await qrAuthService.isAuthorized(clienteIdNum);
+    
+    if (!authorized) {
+      return res.status(403).json({
+        error: 'QR_NOT_AUTHORIZED',
+        message: 'QR no autorizado para este cliente'
+      });
+    }
+    
+    // Cliente autorizado → continuar con proxy al Session Manager
     const qrData = await sessionManagerClient.getQR(clienteIdNum);
     
     // Devolver respuesta tal cual (proxy transparente)
@@ -112,6 +125,15 @@ router.get('/:clienteId/qr', async (req, res) => {
     
   } catch (error) {
     console.error(`[whatsapp-proxy] Error obteniendo QR para cliente ${clienteId}:`, error.message);
+    
+    // Error de base de datos (isAuthorized falló)
+    if (error.code === 'ER_ACCESS_DENIED_ERROR' || error.code === 'ECONNREFUSED' || error.sqlMessage) {
+      return res.status(500).json({
+        ok: false,
+        error: 'DATABASE_ERROR',
+        message: 'Error verificando autorización'
+      });
+    }
     
     // Mapear errores según statusCode del Session Manager
     if (error.statusCode) {
@@ -141,9 +163,9 @@ router.get('/:clienteId/qr', async (req, res) => {
     }
     
     // Error genérico
-    res.status(502).json({
+    res.status(500).json({
       ok: false,
-      error: 'SESSION_MANAGER_ERROR',
+      error: 'INTERNAL_ERROR',
       message: error.message
     });
   }
