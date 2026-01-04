@@ -5,6 +5,7 @@ Sistema modular para la gestión centralizada de:
 - Listener/bot responder con IA
 - Scraper de Google Places
 - Gestión de leads multicliente
+- **Control de autorización de QR WhatsApp** ⭐ NUEVO
 
 ## 📁 Estructura del Proyecto
 
@@ -18,7 +19,7 @@ leadmaster-central-hub/
 │   │   ├── listener/      # Respuestas automáticas
 │   │   └── sync-contacts/ # Sincronización Gmail Contacts
 │   └── index.js           # Entry point
-├── frontend/              # Frontend React/Vue
+├── frontend/              # Frontend (HTML / futuro React/Vue)
 ├── docs/                  # Documentación
 │   ├── guides/           # Guías de uso y TODOs
 │   └── deployment/       # Guías de despliegue
@@ -49,7 +50,28 @@ pm2 start src/index.js --name leadmaster-hub
 
 ## 📚 Documentación
 
-- **Guías de uso:** `docs/guides/`
+### 🆕 Nuevo Sistema de Autorización de QR (Enero 2026)
+
+**Documentación completa:**
+- **📋 [Resumen Ejecutivo](docs/QR_AUTHORIZATION_SUMMARY.md)** - Lectura rápida (5 min)
+- **🏗️ [Arquitectura Completa](docs/QR_AUTHORIZATION_ARCHITECTURE.md)** - Decisión arquitectónica, modelo de datos, flujos
+- **🛠️ [Guía de Implementación](docs/QR_AUTHORIZATION_IMPLEMENTATION_GUIDE.md)** - Paso a paso con código
+- **💼 [Resumen para Stakeholders](docs/QR_AUTHORIZATION_STAKEHOLDER_SUMMARY.md)** - Impacto de negocio
+- **✅ [Checklist Ejecutiva](CHECKLIST_QR_AUTHORIZATION.md)** - Testing y deployment
+- **📦 [Migration SQL](migrations/001_create_whatsapp_qr_sessions.sql)** - Tabla de base de datos
+
+**Estado:** Documentación completa, listo para implementar Fase 1
+
+---
+
+### Arquitectura General
+
+- **🔌 [WhatsApp Proxy Architecture](docs/WHATSAPP_PROXY_ARCHITECTURE.md)** - Proxy robusto al Session Manager
+- **📖 [Índice de Documentación](docs/INDEX.md)** - Navegación completa
+
+### Guías de Uso
+
+- **Guías:** `docs/guides/`
   - `GUIA_DESTINATARIOS.md` - Gestión de destinatarios
   - `GUIA_VSCODE_REMOTE_SSH.md` - Desarrollo remoto
   - `TODO_2025-12-31.md` - Tareas pendientes
@@ -58,8 +80,8 @@ pm2 start src/index.js --name leadmaster-hub
   - `DEPLOY_CONTABO.md` - Despliegue en Contabo VPS
 
 - **Arquitectura:** `docs/`
-  - `ARQUITECTURA_UNIFICACION.md`
-  - `AUTENTICACION.md`
+  - `ARQUITECTURA_MODULAR.md` - Estructura de módulos
+  - `AUTENTICACION.md` - Sistema JWT y RBAC
 
 ## 🧪 Testing
 
@@ -93,4 +115,4 @@ Scripts de testing disponibles en `scripts/`:
 
 **Puerto:** 3012  
 **Estado:** En desarrollo activo  
-**Próximo milestone:** Migración de venom-bot a whatsapp-web.js (ver `docs/guides/TODO_2025-12-31.md`)
+**Próximo milestone:** Completar migración de venom-bot a whatsapp-web.js (ver `docs/guides/TODO_2025-12-31.md`)
