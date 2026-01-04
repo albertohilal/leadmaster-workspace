@@ -92,9 +92,17 @@ function getOrCreateClient(clienteId, sessionName = null) {
           '--disable-accelerated-2d-canvas',
           '--no-first-run',
           '--no-zygote',
-          '--disable-gpu'
+          '--disable-gpu',
+          '--disable-software-rasterizer',
+          '--disable-blink-features=AutomationControlled',
+          '--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         ]
       }
+
+
+
+
+
     });
 
     // Evento: QR recibido

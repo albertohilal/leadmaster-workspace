@@ -27,10 +27,19 @@ app.get('/health', (req, res) => {
    API ROUTES (ANTES del frontend)
 ========================= */
 
-// Proxy QR / status WhatsApp (OBLIGATORIO antes del static)
+/**
+ * Proxy público de WhatsApp (QR + status)
+ *
+ * RUTAS FINALES EXPUESTAS:
+ *   GET /api/whatsapp/:clienteId/status
+ *   GET /api/whatsapp/:clienteId/qr
+ *
+ * IMPORTANTE:
+ * - Debe montarse ANTES del static
+ * - Es la ÚNICA vía pública hacia WhatsApp
+ */
 const whatsappQrProxy = require('./routes/whatsappQrProxy');
-app.use('/session-manager', require('./modules/session-manager/routes'));
-
+app.use('/api/whatsapp', whatsappQrProxy);
 
 /* =========================
    Rutas de módulos internos
@@ -39,13 +48,13 @@ app.use('/session-manager', require('./modules/session-manager/routes'));
 // Autenticación
 app.use('/auth', require('./modules/auth/routes/authRoutes'));
 
-// Session Manager
+// Session Manager (uso interno del Hub)
 app.use('/session-manager', require('./modules/session-manager/routes'));
 
 // Envíos
 app.use('/sender', require('./modules/sender/routes'));
 
-// ⚠️ Listener DESACTIVADO (el módulo no existe)
+// ⚠️ Listener DESACTIVADO (módulo inexistente)
 // app.use('/listener', require('./modules/listener/routes'));
 
 // Sync Contacts
