@@ -230,16 +230,16 @@ Return state to caller
 ## 9. Implementation Checklist
 
 **Before coding:**
-- [ ] Review HTTP contracts document
-- [ ] Confirm session-manager is stable and tested
-- [ ] Define HTTP client module structure in central-hub
+- [x] Review HTTP contracts document
+- [x] Confirm session-manager is stable and tested
+- [x] Define HTTP client module structure in central-hub
 
 **During implementation:**
-- [ ] Add `SESSION_MANAGER_BASE_URL` env var
-- [ ] Create HTTP client utility (axios/fetch)
-- [ ] Implement `/send` integration only
-- [ ] Add error handling and logging
-- [ ] Test with session-manager running locally
+- [x] Add `SESSION_MANAGER_BASE_URL` env var
+- [x] Create HTTP client utility (axios/fetch)
+- [x] Implement `/send` integration only
+- [x] Add error handling and logging
+- [x] Test with session-manager running locally
 
 **After implementation:**
 - [ ] Validate error scenarios (timeout, 409, 500)

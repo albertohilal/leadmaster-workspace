@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp QR Test - LeadMaster</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        h1 {
+            color: #25D366;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        #qr-image {
+            max-width: 300px;
+            margin: 20px auto;
+            border: 2px solid #25D366;
+            border-radius: 10px;
+        }
+        #status {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f0f0f0;
+            border-radius: 5px;
+        }
+        .state {
+            font-weight: bold;
+            color: #25D366;
+        }
+        button {
+            background: #25D366;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+        }
+        button:hover {
+            background: #128C7E;
+        }
+        .error {
+            color: #e74c3c;
+            padding: 15px;
+            background: #fadbd8;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .success {
+            color: #27ae60;
+            padding: 15px;
+            background: #d5f4e6;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        #loading {
+            color: #666;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 WhatsApp QR Scanner</h1>
+        <p class="subtitle">LeadMaster Session Manager - Cliente 51</p>
+        
+        <div id="status">
+            <div id="loading">Cargando estado...</div>
+        </div>
+        
+        <div id="qr-container" style="display:none;">
+            <img id="qr-image" alt="WhatsApp QR Code" />
+            <p style="color:#666; font-size:14px;">Escanea este QR con WhatsApp</p>
+        </div>
+        
+        <div id="error-message" class="error" style="display:none;"></div>
+        <div id="success-message" class="success" style="display:none;"></div>
+        
+        <button onclick="checkStatus()">🔄 Actualizar Estado</button>
+        <button onclick="loadQR()">📱 Obtener QR</button>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001';
+
+        async function checkStatus() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('error-message').style.display = 'none';
+            document.getElementById('success-message').style.display = 'none';
+            
+            try {
+                const response = await fetch(`${API_BASE}/status`);
+                const data = await response.json();
+                
+                document.getElementById('status').innerHTML = `
+                    <strong>Estado:</strong> <span class="state">${data.state}</span><br>
+                    <strong>Cliente ID:</strong> ${data.cliente_id}<br>
+                    <strong>Conectado:</strong> ${data.connected ? '✅ Sí' : '❌ No'}<br>
+                    <strong>Necesita QR:</strong> ${data.needs_qr ? '⚠️ Sí' : '✅ No'}<br>
+                    <strong>Puede enviar:</strong> ${data.can_send_messages ? '✅ Sí' : '❌ No'}
+                `;
+                
+                if (data.needs_qr) {
+                    loadQR();
+                } else if (data.state === 'READY') {
+                    document.getElementById('qr-container').style.display = 'none';
+                    document.getElementById('success-message').textContent = '✅ Sesión lista - No se requiere QR';
+                    document.getElementById('success-message').style.display = 'block';
+                }
+                
+            } catch (error) {
+                document.getElementById('error-message').textContent = `Error: ${error.message}`;
+                document.getElementById('error-message').style.display = 'block';
+            }
+            
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        async function loadQR() {
+            document.getElementById('error-message').style.display = 'none';
+            document.getElementById('success-message').style.display = 'none';
+            
+            try {
+                const response = await fetch(`${API_BASE}/qr`);
+                
+                if (response.status === 409) {
+                    const data = await response.json();
+                    document.getElementById('qr-container').style.display = 'none';
+                    document.getElementById('error-message').textContent = `QR no disponible - Estado: ${data.state}`;
+                    document.getElementById('error-message').style.display = 'block';
+                    return;
+                }
+                
+                const data = await response.json();
+                
+                if (data.qr) {
+                    document.getElementById('qr-image').src = data.qr;
+                    document.getElementById('qr-container').style.display = 'block';
+                    document.getElementById('success-message').textContent = `✅ QR disponible - Expira en ${data.expires_in}s`;
+                    document.getElementById('success-message').style.display = 'block';
+                }
+                
+            } catch (error) {
+                document.getElementById('error-message').textContent = `Error: ${error.message}`;
+                document.getElementById('error-message').style.display = 'block';
+            }
+        }
+
+        // Auto-cargar estado al iniciar
+        checkStatus();
+        
+        // Auto-refresh cada 10 segundos
+        setInterval(checkStatus, 10000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,132 @@
+// contexts/AuthContext.jsx - Context para autenticación global
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import axios from 'axios';
+import { buildApiUrl } from '../config/api';
+
+const AuthContext = createContext(null);
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth debe usarse dentro de AuthProvider');
+  }
+  return context;
+};
+
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [token, setToken] = useState(localStorage.getItem('token'));
+
+  // Configurar axios con el token
+  useEffect(() => {
+    if (token) {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    } else {
+      delete axios.defaults.headers.common['Authorization'];
+    }
+  }, [token]);
+
+  // Verificar token al cargar
+  useEffect(() => {
+    const verifyToken = async () => {
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const response = await axios.post(
+          buildApiUrl('/auth/verify'),
+          {},
+          {
+            headers: { Authorization: `Bearer ${token}` }
+          }
+        );
+
+        if (response.data.success) {
+          setUser(response.data.user);
+        } else {
+          // Token inválido
+          localStorage.removeItem('token');
+          setToken(null);
+        }
+      } catch (error) {
+        console.error('Error verificando token:', error);
+        localStorage.removeItem('token');
+        setToken(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    verifyToken();
+  }, [token]);
+
+  const login = async (usuario, password) => {
+    try {
+      const response = await axios.post(
+        buildApiUrl('/auth/login'),
+        { usuario, password }
+      );
+
+      if (response.data.success) {
+        const { token: newToken, user: userData } = response.data;
+        localStorage.setItem('token', newToken);
+        setToken(newToken);
+        setUser(userData);
+        return { success: true };
+      } else {
+        return { success: false, message: response.data.message };
+      }
+    } catch (error) {
+      console.error('Error en login:', error);
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Error de conexión'
+      };
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await axios.post(buildApiUrl('/auth/logout'));
+    } catch (error) {
+      console.error('Error en logout:', error);
+    } finally {
+      localStorage.removeItem('token');
+      setToken(null);
+      setUser(null);
+    }
+  };
+
+  const changePassword = async (oldPassword, newPassword) => {
+    try {
+      const response = await axios.post(
+        buildApiUrl('/auth/change-password'),
+        { oldPassword, newPassword }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error('Error cambiando contraseña:', error);
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Error de conexión'
+      };
+    }
+  };
+
+  const value = {
+    user,
+    token,
+    loading,
+    login,
+    logout,
+    changePassword,
+    isAuthenticated: !!user,
+    isAdmin: user?.tipo === 'admin'
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};

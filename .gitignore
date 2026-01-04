@@ -26,3 +26,10 @@ logs/
 # Backups
 *.tar.gz
 *.backup
+
+# SSL Certificates (never commit)
+*.crt
+*.key
+*.pem
+ssl/
+infra/nginx/ssl/

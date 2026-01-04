@@ -1,0 +1,59 @@
+# Node
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Logs
+logs/
+*.log
+
+# Test results
+test-results/
+playwright-report/
+playwright/.cache/
+
+# dotenv
+.env
+.env.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# VSCode
+.vscode/
+
+# Build
+/dist
+/build
+
+# WhatsApp session data
+.session/
+.wwebjs_auth/
+
+# Venom-bot tokens (session data)
+tokens/
+
+# Test
+coverage/
+
+# Misc
+*.tgz
+*.swp
+.idea/
+
+# Ignore database dumps and sensitive data
+*.sql
+*.sqlite
+*.db
+*.bak
+
+# Carpeta auxiliar con archivos de trabajo
+AUXILIAR/
+
+# Ignore output
+*.out
+
+# Ignore tokens and secrets
+tokens/
