@@ -1,24 +1,33 @@
 /**
- * HTTP Client for Session Manager Service
+ * @deprecated DUPLICATE CLIENT - VIOLATES SESSION_MANAGER_API_CONTRACT
  * 
- * Handles communication with the standalone session-manager service.
+ * Este archivo es un cliente duplicado que debe ser eliminado.
  * 
- * Responsibilities:
- * - Forward requests to session-manager
- * - Add X-Cliente-Id header
- * - Handle timeouts
- * - Propagate errors transparently
+ * REEMPLAZO OFICIAL: src/integrations/sessionManager/sessionManagerClient.js
  * 
- * Does NOT:
- * - Retry failed requests
- * - Queue messages
- * - Manage WhatsApp state
- * - Add business logic
+ * El contrato establece que debe existir EXACTAMENTE UN cliente para
+ * interactuar con Session Manager.
+ * 
+ * MIGRACIÓN:
+ * Cambiar:
+ *   const sessionManagerClient = require('../services/sessionManagerClient');
+ * 
+ * Por:
+ *   const { sessionManagerClient } = require('../integrations/sessionManager');
+ * 
+ * ESTADO: Marcado para eliminación. NO USAR.
  */
 
-const http = require('http');
-const https = require('https');
-const { URL } = require('url');
+module.exports = {
+  __deprecated: true,
+  __replacement: 'src/integrations/sessionManager/sessionManagerClient.js',
+  __error: 'Este cliente está deprecado. Usa el cliente oficial del contrato.'
+};
+
+throw new Error(
+  'DEPRECATED CLIENT: Este archivo viola el contrato Session Manager. ' +
+  'Usa: require("../integrations/sessionManager").sessionManagerClient'
+);
 
 // Environment validation
 const SESSION_MANAGER_BASE_URL = process.env.SESSION_MANAGER_BASE_URL;

@@ -1,33 +1,45 @@
 /**
  * WhatsApp QR Proxy Routes
  * 
- * Expone el estado y QR de WhatsApp del Session Manager externo (puerto 3001)
- * a través del Central Hub (puerto 3012).
+ * Expone el estado y QR de WhatsApp del Session Manager
+ * a través del Central Hub.
  * 
- * ARQUITECTURA:
- * - Este archivo solo define rutas públicas
- * - Toda comunicación con Session Manager pasa por sessionManagerClient.js
- * - NO usa axios directo
- * - NO duplica lógica HTTP
- * - Solo actúa como proxy transparente
+ * ARQUITECTURA CONTRACT-BASED:
+ * - Consume ÚNICAMENTE el contrato oficial SESSION_MANAGER_API_CONTRACT.md
+ * - NO infiere estados ni traduce enums
+ * - Reacciona exclusivamente a status y qr_status
+ * - NO cachea ni mantiene estado local
  * 
  * Endpoints públicos:
- * - GET /api/whatsapp/:clienteId/status → Devuelve estado WhatsApp
- * - GET /api/whatsapp/:clienteId/qr     → Devuelve QR como JSON
+ * - GET /api/whatsapp/:clienteId/status → Estado de sesión (usa getSession)
+ * - GET /api/whatsapp/:clienteId/qr     → Genera/devuelve QR (usa requestQR)
  */
 
 const express = require('express');
-const sessionManagerClient = require('../services/sessionManagerClient');
+const { 
+  sessionManagerClient, 
+  SessionStatus,
+  QRStatus,
+  SessionNotFoundError,
+  SessionAlreadyConnectedError,
+  QRGenerationFailedError,
+  SessionManagerTimeoutError,
+  SessionManagerUnreachableError
+} = require('../integrations/sessionManager');
 const qrAuthService = require('../services/qrAuthorizationService');
 
 const router = express.Router();
 
 /**
  * GET /api/whatsapp/:clienteId/status
- * Obtiene el estado de la sesión WhatsApp para un cliente
+ * Obtiene el estado de la sesión WhatsApp según el contrato oficial
+ * 
+ * Consume: getSession(instance_id)
+ * Reacciona a: session.status, session.qr_status
  * 
  * Respuestas:
- * - 200: Estado exitoso desde Session Manager
+ * - 200: Sesión encontrada (retorna WhatsAppSession completo)
+ * - 404: Sesión no existe
  * - 502: Session Manager no disponible
  * - 504: Timeout
  */
@@ -43,9 +55,17 @@ router.get('/:clienteId/status', async (req, res) => {
     });
   }
 
+  const instanceId = `sender_${clienteIdNum}`;
+
   try {
-    const status = await sessionManagerClient.getStatus(clienteIdNum);
-    res.json(status);
+    // Obtener sesión completa según contrato
+    const session = await sessionManagerClient.getSession(instanceId);
+    
+    // Retornar sesión completa sin modificar
+    res.json({
+      ok: true,
+      session
+    });
     
   } catch (error) {
     console.error(
@@ -53,7 +73,16 @@ router.get('/:clienteId/status', async (req, res) => {
       error.message
     );
     
-    if (error.message.includes('TIMEOUT')) {
+    // Errores tipados del contrato
+    if (error instanceof SessionNotFoundError) {
+      return res.status(404).json({
+        ok: false,
+        error: 'SESSION_NOT_FOUND',
+        message: `Sesión no encontrada para cliente ${clienteId}`
+      });
+    }
+    
+    if (error instanceof SessionManagerTimeoutError) {
       return res.status(504).json({
         ok: false,
         error: 'GATEWAY_TIMEOUT',
@@ -61,10 +90,7 @@ router.get('/:clienteId/status', async (req, res) => {
       });
     }
     
-    if (
-      error.message.includes('UNREACHABLE') ||
-      error.message.includes('ECONNREFUSED')
-    ) {
+    if (error instanceof SessionManagerUnreachableError) {
       return res.status(502).json({
         ok: false,
         error: 'SESSION_MANAGER_UNAVAILABLE',
@@ -72,9 +98,10 @@ router.get('/:clienteId/status', async (req, res) => {
       });
     }
     
-    res.status(502).json({
+    // Otros errores
+    res.status(500).json({
       ok: false,
-      error: 'SESSION_MANAGER_ERROR',
+      error: 'INTERNAL_ERROR',
       message: error.message
     });
   }
@@ -82,13 +109,22 @@ router.get('/:clienteId/status', async (req, res) => {
 
 /**
  * GET /api/whatsapp/:clienteId/qr
- * Obtiene el código QR de WhatsApp para un cliente
+ * Solicita generación de QR según el contrato oficial
+ * 
+ * Flujo:
+ * 1. Verificar autorización del cliente
+ * 2. Obtener estado actual con getSession()
+ * 3. Reaccionar según session.status:
+ *    - 'init' o 'qr_required': llamar requestQR()
+ *    - 'connected': retornar error lógico (ya conectado)
+ *    - otros: mostrar estado actual
  * 
  * Respuestas:
- * - 200: QR disponible
+ * - 200: QR generado o disponible
  * - 403: Cliente no autorizado
- * - 404 / 409: Propagado desde Session Manager
- * - 500: Error de base de datos
+ * - 404: Sesión no existe
+ * - 409: Sesión ya conectada
+ * - 500: Error generando QR
  * - 502: Session Manager no disponible
  * - 504: Timeout
  */
@@ -104,27 +140,132 @@ router.get('/:clienteId/qr', async (req, res) => {
     });
   }
 
+  const instanceId = `sender_${clienteIdNum}`;
+
   try {
-    // FASE 2: Verificar autorización ANTES de proxy
+    // FASE 2: Verificar autorización ANTES de cualquier operación
     const authorized = await qrAuthService.isAuthorized(clienteIdNum);
     
     if (!authorized) {
       return res.status(403).json({
+        ok: false,
         error: 'QR_NOT_AUTHORIZED',
         message: 'QR no autorizado para este cliente'
       });
     }
     
-    const qrData = await sessionManagerClient.getQR(clienteIdNum);
-    res.json(qrData);
+    // Paso 1: Obtener estado actual de la sesión
+    let session;
+    try {
+      session = await sessionManagerClient.getSession(instanceId);
+    } catch (error) {
+      // Si la sesión no existe, esto es un caso válido que debe manejarse
+      if (error instanceof SessionNotFoundError) {
+        return res.status(404).json({
+          ok: false,
+          error: 'SESSION_NOT_FOUND',
+          message: `Sesión no encontrada para cliente ${clienteId}. Debe inicializarse primero.`
+        });
+      }
+      throw error; // Re-lanzar otros errores
+    }
+
+    // Paso 2: Reaccionar según session.status (contrato oficial)
+    switch (session.status) {
+      case SessionStatus.INIT:
+      case SessionStatus.QR_REQUIRED:
+        // Necesita QR - solicitar generación
+        try {
+          const qrData = await sessionManagerClient.requestQR(instanceId);
+          return res.json({
+            ok: true,
+            qr_string: qrData.qr_string,
+            qr_expires_at: qrData.qr_expires_at,
+            status: session.status
+          });
+        } catch (qrError) {
+          if (qrError instanceof SessionAlreadyConnectedError) {
+            // Race condition: se conectó entre getSession y requestQR
+            return res.status(409).json({
+              ok: false,
+              error: 'SESSION_ALREADY_CONNECTED',
+              message: 'La sesión ya está conectada'
+            });
+          }
+          if (qrError instanceof QRGenerationFailedError) {
+            return res.status(500).json({
+              ok: false,
+              error: 'QR_GENERATION_FAILED',
+              message: 'No se pudo generar el código QR'
+            });
+          }
+          throw qrError; // Re-lanzar otros errores
+        }
+
+      case SessionStatus.CONNECTED:
+        // Ya está conectado - no se necesita QR
+        return res.status(409).json({
+          ok: false,
+          error: 'SESSION_ALREADY_CONNECTED',
+          message: 'La sesión ya está conectada. No se necesita escanear QR.',
+          phone_number: session.phone_number
+        });
+
+      case SessionStatus.CONNECTING:
+        // QR ya fue escaneado, esperando autenticación
+        return res.status(200).json({
+          ok: true,
+          status: SessionStatus.CONNECTING,
+          message: 'QR escaneado, esperando conexión...'
+        });
+
+      case SessionStatus.DISCONNECTED:
+        // Desconectado - puede necesitar nuevo QR
+        try {
+          const qrData = await sessionManagerClient.requestQR(instanceId);
+          return res.json({
+            ok: true,
+            qr_string: qrData.qr_string,
+            qr_expires_at: qrData.qr_expires_at,
+            status: SessionStatus.DISCONNECTED
+          });
+        } catch (qrError) {
+          if (qrError instanceof QRGenerationFailedError) {
+            return res.status(500).json({
+              ok: false,
+              error: 'QR_GENERATION_FAILED',
+              message: 'No se pudo generar el código QR'
+            });
+          }
+          throw qrError;
+        }
+
+      case SessionStatus.ERROR:
+        // Error irrecuperable
+        return res.status(500).json({
+          ok: false,
+          error: 'SESSION_ERROR',
+          message: 'La sesión está en estado de error',
+          last_error_code: session.last_error_code,
+          last_error_message: session.last_error_message
+        });
+
+      default:
+        // Estado desconocido (no debería ocurrir si el contrato se respeta)
+        return res.status(500).json({
+          ok: false,
+          error: 'UNKNOWN_SESSION_STATUS',
+          message: `Estado de sesión desconocido: ${session.status}`
+        });
+    }
     
   } catch (error) {
     console.error(
-      `[whatsapp-proxy] Error obteniendo QR para cliente ${clienteId}:`,
+      `[whatsapp-proxy] Error en endpoint QR para cliente ${clienteId}:`,
       error.message
     );
     
-    // 🔒 Error real de base de datos (hardening)
+    // Errores de base de datos (al verificar autorización)
     if (
       error.code === 'ER_ACCESS_DENIED_ERROR' ||
       error.code === 'ER_BAD_DB_ERROR' ||
@@ -137,18 +278,8 @@ router.get('/:clienteId/qr', async (req, res) => {
       });
     }
     
-    // Errores explícitos del Session Manager
-    if (error.statusCode) {
-      return res.status(error.statusCode).json(
-        error.response || {
-          ok: false,
-          error: error.code || 'SESSION_MANAGER_ERROR',
-          message: error.message
-        }
-      );
-    }
-    
-    if (error.message.includes('TIMEOUT')) {
+    // Errores tipados del contrato
+    if (error instanceof SessionManagerTimeoutError) {
       return res.status(504).json({
         ok: false,
         error: 'GATEWAY_TIMEOUT',
@@ -156,10 +287,7 @@ router.get('/:clienteId/qr', async (req, res) => {
       });
     }
     
-    if (
-      error.message.includes('UNREACHABLE') ||
-      error.message.includes('ECONNREFUSED')
-    ) {
+    if (error instanceof SessionManagerUnreachableError) {
       return res.status(502).json({
         ok: false,
         error: 'SESSION_MANAGER_UNAVAILABLE',
@@ -167,6 +295,7 @@ router.get('/:clienteId/qr', async (req, res) => {
       });
     }
     
+    // Otros errores
     res.status(500).json({
       ok: false,
       error: 'INTERNAL_ERROR',

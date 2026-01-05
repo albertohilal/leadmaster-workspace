@@ -1,4 +1,20 @@
-// Integración con el session-manager centralizado para WhatsApp
+/**
+ * @deprecated VIOLATES SESSION_MANAGER_API_CONTRACT
+ * 
+ * Este archivo usa el módulo legacy session-manager/services/sessionService
+ * que viola el contrato oficial.
+ * 
+ * REEMPLAZO: src/integrations/sessionManager/sessionManagerClient.js
+ * 
+ * Este archivo NO debe ser usado. Todo código debe migrar a:
+ * - sessionManagerClient.getSession()
+ * - sessionManagerClient.sendMessage()
+ * - SessionStatus enum
+ * 
+ * ESTADO: Sin referencias activas. Pendiente eliminación.
+ */
+
+// DEPRECATED - DO NOT USE
 const sessionService = require('../../session-manager/services/sessionService');
 
 async function isWhatsappSessionActive(cliente_id) {
