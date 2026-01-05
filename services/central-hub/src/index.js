@@ -61,6 +61,48 @@ app.use(express.static(path.join(__dirname, '../frontend/dist')));
 ========================= */
 const PORT = process.env.PORT || 3012;
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀 Leadmaster Central Hub corriendo en http://localhost:${PORT}`);
+  
+  // Signal to PM2 that app is ready (wait_ready: true)
+  if (process.send) {
+    process.send('ready');
+  }
+});
+
+/* =========================
+   Graceful Shutdown
+========================= */
+const gracefulShutdown = (signal) => {
+  console.log(`\n⚠️  ${signal} recibido. Cerrando servidor...`);
+  
+  server.close(() => {
+    console.log('✅ Servidor cerrado correctamente');
+    process.exit(0);
+  });
+  
+  // Forzar cierre si no responde en 10 segundos
+  setTimeout(() => {
+    console.error('❌ Tiempo de espera excedido. Forzando cierre.');
+    process.exit(1);
+  }, 10000);
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+/* =========================
+   Global Error Handlers
+========================= */
+process.on('uncaughtException', (error) => {
+  console.error('❌ UNCAUGHT EXCEPTION:', error);
+  console.error(error.stack);
+  // En producción, loguear y continuar (no crash)
+  // PM2 reiniciará si es crítico
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ UNHANDLED REJECTION at:', promise);
+  console.error('Reason:', reason);
+  // En producción, loguear y continuar
 });
