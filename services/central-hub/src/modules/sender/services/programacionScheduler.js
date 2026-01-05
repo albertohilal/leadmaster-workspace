@@ -1,7 +1,25 @@
-// Servicio que ejecuta el envío de campañas según la programación
-// Inspirado en el scheduler de whatsapp-massive-sender-V2
+/**
+ * Servicio que ejecuta el envío de campañas según la programación
+ * 
+ * ARQUITECTURA CONTRACT-BASED:
+ * - Consulta Session Manager ANTES de cada ejecución
+ * - NO asume estado de sesión
+ * - NO cachea estado entre ejecuciones
+ * - Aborta si session.status !== 'connected'
+ * 
+ * Responsabilidades:
+ * - Scheduler decide CUÁNDO ejecutar
+ * - Session Manager decide SI puede ejecutar
+ */
+
 const connection = require('../db/connection');
-const sessionService = require('../../session-manager/services/sessionService');
+const { 
+  sessionManagerClient, 
+  SessionStatus,
+  SessionNotFoundError,
+  SessionManagerTimeoutError,
+  SessionManagerUnreachableError
+} = require('../../../integrations/sessionManager');
 
 const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const PROCESS_INTERVAL_MS = 60 * 1000; // cada minuto
@@ -69,42 +87,151 @@ async function marcarEnviado(id) {
   );
 }
 
+/**
+ * Procesa una programación según el contrato Session Manager
+ * 
+ * Flujo obligatorio:
+ * 1. Consultar estado de sesión (NO inferir)
+ * 2. Verificar status === 'connected'
+ * 3. Si NO conectado, abortar con log descriptivo
+ * 4. Si conectado, proceder con envíos
+ */
 async function procesarProgramacion(programacion) {
   const clienteId = Number(programacion.cliente_id);
-  const estadoSesion = sessionService.getSessionState(clienteId);
-  if (!estadoSesion.ready) {
-    console.warn(`⚠️ Programación ${programacion.id}: sesión cliente ${clienteId} no disponible (${estadoSesion.state})`);
+  const instanceId = `sender_${clienteId}`;
+
+  // PASO 1: Consultar estado de sesión (OBLIGATORIO según contrato)
+  let session;
+  try {
+    session = await sessionManagerClient.getSession(instanceId);
+  } catch (error) {
+    if (error instanceof SessionNotFoundError) {
+      console.warn(
+        `⏸️  Programación ${programacion.id} ABORTADA: ` +
+        `Sesión no existe para cliente ${clienteId}. Debe inicializarse primero.`
+      );
+      return;
+    }
+    
+    if (error instanceof SessionManagerTimeoutError) {
+      console.error(
+        `⏸️  Programación ${programacion.id} ABORTADA: ` +
+        `Session Manager no respondió (timeout). Reintentará en el próximo ciclo.`
+      );
+      return;
+    }
+    
+    if (error instanceof SessionManagerUnreachableError) {
+      console.error(
+        `⏸️  Programación ${programacion.id} ABORTADA: ` +
+        `Session Manager no disponible. Reintentará en el próximo ciclo.`
+      );
+      return;
+    }
+    
+    // Error inesperado
+    console.error(
+      `⏸️  Programación ${programacion.id} ABORTADA: ` +
+      `Error consultando sesión: ${error.message}`
+    );
     return;
   }
 
+  // PASO 2: Verificar estado según contrato (NO NEGOCIABLE)
+  if (session.status !== SessionStatus.CONNECTED) {
+    const statusMessages = {
+      [SessionStatus.INIT]: 'Sesión inicializando. Requiere escaneo de QR.',
+      [SessionStatus.QR_REQUIRED]: 'QR no escaneado. Debe escanearse para conectar.',
+      [SessionStatus.CONNECTING]: 'Sesión conectando. Esperar autenticación.',
+      [SessionStatus.DISCONNECTED]: 'WhatsApp desconectado. Requiere reconexión.',
+      [SessionStatus.ERROR]: `Error en sesión: ${session.last_error_message || 'desconocido'}`
+    };
+    
+    const reason = statusMessages[session.status] || `Estado: ${session.status}`;
+    
+    console.warn(
+      `⏸️  Programación ${programacion.id} ABORTADA: ` +
+      `Cliente ${clienteId} no conectado. ${reason}`
+    );
+    return;
+  }
+
+  // PASO 3: Sesión conectada - proceder con envíos
+  console.log(
+    `✅ Programación ${programacion.id}: Sesión verificada (cliente ${clienteId}, ` +
+    `teléfono: ${session.phone_number || 'N/A'})`
+  );
+
   const enviados = await enviadosHoy(programacion.id);
   const disponible = programacion.cupo_diario - enviados;
-  if (disponible <= 0) return;
+  
+  if (disponible <= 0) {
+    console.log(`⏸️  Programación ${programacion.id}: Cupo diario agotado (${enviados}/${programacion.cupo_diario})`);
+    return;
+  }
 
   const pendientes = await obtenerPendientes(programacion.campania_id, disponible);
-  if (!pendientes.length) return;
+  
+  if (!pendientes.length) {
+    console.log(`⏸️  Programación ${programacion.id}: No hay mensajes pendientes`);
+    return;
+  }
 
-  console.log(`🕒 Programación ${programacion.id}: enviando ${pendientes.length} mensajes`);
+  console.log(`🕒 Programación ${programacion.id}: Enviando ${pendientes.length} mensajes`);
+  
   let enviadosAhora = 0;
+  let falladosAhora = 0;
+  
   for (const envio of pendientes) {
-    if (!envio.telefono_wapp || !envio.mensaje_final) continue;
+    if (!envio.telefono_wapp || !envio.mensaje_final) {
+      console.warn(`⚠️  Envío ${envio.id}: Datos incompletos (teléfono o mensaje vacío)`);
+      continue;
+    }
+    
     try {
+      // Formatear número para WhatsApp
       const destinatario = envio.telefono_wapp.includes('@c.us')
         ? envio.telefono_wapp
         : `${envio.telefono_wapp}@c.us`;
 
-      await sessionService.sendMessage(clienteId, destinatario, envio.mensaje_final);
+      // Enviar usando el cliente del contrato
+      await sessionManagerClient.sendMessage({
+        clienteId,
+        to: destinatario,
+        message: envio.mensaje_final
+      });
+      
       await marcarEnviado(envio.id);
       enviadosAhora += 1;
+      
+      // Delay aleatorio entre mensajes (anti-spam)
       const randomDelay = 2000 + Math.floor(Math.random() * 4000);
       await delay(randomDelay);
+      
     } catch (err) {
-      console.error(`❌ Error al enviar mensaje programado ${envio.id}:`, err.message);
+      falladosAhora += 1;
+      console.error(
+        `❌ Envío ${envio.id} FALLIDO: ${err.message} ` +
+        `(destinatario: ${envio.telefono_wapp})`
+      );
+      
+      // Si falla por sesión no lista, abortar el resto
+      if (err.message.includes('not ready') || err.message.includes('no está listo')) {
+        console.error(
+          `🛑 Programación ${programacion.id}: Abortando envíos restantes ` +
+          `por problema de sesión`
+        );
+        break;
+      }
     }
   }
 
   if (enviadosAhora > 0) {
     await incrementarConteo(programacion.id, enviadosAhora);
+    console.log(
+      `📊 Programación ${programacion.id}: Completado ` +
+      `(${enviadosAhora} enviados, ${falladosAhora} fallidos)`
+    );
   }
 }
 

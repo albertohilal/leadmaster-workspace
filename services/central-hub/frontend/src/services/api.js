@@ -38,14 +38,35 @@ api.interceptors.response.use(
 );
 
 // ===== SESSION MANAGER API =====
+/**
+ * API alineada con whatsappQrProxy.js (backend real)
+ * Endpoints: /api/whatsapp/:clienteId/status y /api/whatsapp/:clienteId/qr
+ * 
+ * IMPORTANTE:
+ * - response.data.session contiene el objeto sesión completo
+ * - response.data.qr_string contiene la imagen QR (no qr_code)
+ */
 export const sessionAPI = {
-  getStatus: () => api.get('/session-manager/status'),
-  getState: () => api.get('/session-manager/state'),
-  getQR: () => api.get('/session-manager/qr'),
-  connect: () => api.post('/session-manager/login'),
-  disconnect: () => api.post('/session-manager/logout'),
-  getLogs: () => api.get('/session-manager/logs'),
-  // Admin endpoints
+  /**
+   * Obtiene el estado actual de la sesión WhatsApp
+   * GET /api/whatsapp/:clienteId/status
+   * @param {number|string} clienteId - ID del cliente
+   * @returns {Promise} { ok, session: { status, qr_status, qr_code?, phone_number?, ... } }
+   */
+  getSession: (clienteId) => api.get(`/api/whatsapp/${clienteId}/status`),
+  
+  /**
+   * Solicita generación de código QR
+   * GET /api/whatsapp/:clienteId/qr
+   * @param {number|string} clienteId - ID del cliente
+   * @returns {Promise} { ok, qr_string, qr_expires_at, status }
+   * @throws {409} Si la sesión ya está conectada
+   * @throws {403} Si el cliente no está autorizado
+   * @throws {500} Si falla la generación del QR
+   */
+  requestQR: (clienteId) => api.get(`/api/whatsapp/${clienteId}/qr`),
+  
+  // Admin endpoints (mantener si existen en backend)
   listSessions: async () => (await api.get('/session-manager/sessions')).data,
   adminLogin: async (clienteId) => (await api.post('/session-manager/admin/login', { cliente_id: clienteId })).data,
   adminLogout: async (clienteId) => (await api.post('/session-manager/admin/logout', { cliente_id: clienteId })).data,

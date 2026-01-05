@@ -160,7 +160,11 @@ function getLogs() {
 
 // Procesamiento real de mensajes entrantes
 const iaService = require('./../ia/iaService');
-const { isWhatsappSessionActive, enviarWhatsapp } = require('./whatsappService');
+const { 
+  sessionManagerClient, 
+  SessionStatus,
+  SessionNotFoundError
+} = require('../../../integrations/sessionManager');
 
 /**
  * Procesa un mensaje entrante y responde si corresponde (IA/reglas)
@@ -208,14 +212,37 @@ async function onMessageReceived(message) {
     return { respuesta: null, enviado: false, error: 'IA deshabilitada para este lead' };
   }
 
-  // Validar sesión de WhatsApp
-  const sesionActiva = await isWhatsappSessionActive(message.cliente_id);
-  if (!sesionActiva) {
-    const sessionService = require('../../session-manager/services/sessionService');
-    const state = sessionService.getSessionState();
-    const errorMsg = `Sesión de WhatsApp ${state.state}. ${state.state === 'qr' ? 'Escanea el QR en /session-manager/qr' : 'Verifica /session-manager/state'}`;
+  // Validar sesión de WhatsApp según contrato oficial
+  const instanceId = `sender_${message.cliente_id}`;
+  let session;
+  
+  try {
+    session = await sessionManagerClient.getSession(instanceId);
+  } catch (error) {
+    let errorMsg;
+    if (error instanceof SessionNotFoundError) {
+      errorMsg = `Sesión no encontrada para cliente ${message.cliente_id}. Debe inicializarse.`;
+    } else {
+      errorMsg = `Error verificando sesión: ${error.message}`;
+    }
     
     console.warn(`⚠️ [listener] ${errorMsg}`);
+    logs.push({ timestamp: Date.now(), error: errorMsg });
+    return { respuesta: null, enviado: false, error: errorMsg };
+  }
+  
+  // Verificar que la sesión esté conectada
+  if (session.status !== SessionStatus.CONNECTED) {
+    const statusMessages = {
+      [SessionStatus.INIT]: 'Sesión inicializando. Escanea el QR.',
+      [SessionStatus.QR_REQUIRED]: 'QR no escaneado. Escanea en /api/whatsapp/qr',
+      [SessionStatus.CONNECTING]: 'Sesión conectando. Espera unos segundos.',
+      [SessionStatus.DISCONNECTED]: 'WhatsApp desconectado. Reconecta.',
+      [SessionStatus.ERROR]: `Error en sesión: ${session.last_error_message || 'desconocido'}`
+    };
+    
+    const errorMsg = statusMessages[session.status] || `Estado de sesión: ${session.status}`;
+    console.warn(`⚠️ [listener] Sesión no conectada: ${errorMsg}`);
     logs.push({ timestamp: Date.now(), error: errorMsg });
     return { respuesta: null, enviado: false, error: errorMsg };
   }
@@ -227,11 +254,15 @@ async function onMessageReceived(message) {
   let conversacionIAId = null;
   
   if (respuesta) {
-    enviado = await enviarWhatsapp(message.cliente_id, message.telefono, respuesta);
-    if (!enviado) {
-      error = 'No se pudo enviar el mensaje por WhatsApp';
-      console.error(`❌ [listener] ${error}`);
-    } else {
+    // Enviar usando el cliente del contrato
+    try {
+      await sessionManagerClient.sendMessage({
+        clienteId: message.cliente_id,
+        to: message.telefono,
+        message: respuesta
+      });
+      
+      enviado = true;
       console.log(`✅ [listener] Respuesta IA enviada a ${telefonoLimpio}: "${respuesta}"`);
       
       // Registrar respuesta de IA en conversaciones
@@ -242,6 +273,10 @@ async function onMessageReceived(message) {
         'ia'
       );
       conversacionIAId = registro.conversacionId;
+      
+    } catch (err) {
+      error = `No se pudo enviar el mensaje: ${err.message}`;
+      console.error(`❌ [listener] ${error}`);
     }
   }
   
