@@ -17,19 +17,19 @@ Implementar control de autorización temporal para escaneo de QR WhatsApp con pe
 
 ### 1. Base de Datos
 
-- [ ] Migration ejecutada: `001_create_whatsapp_qr_sessions.sql`
+- [ ] Migration ejecutada: `001_create_ll_whatsapp_qr_sessions.sql`
   ```bash
-  mysql -u root -p leadmaster < migrations/001_create_whatsapp_qr_sessions.sql
+  mysql -u root -p leadmaster < migrations/001_create_ll_whatsapp_qr_sessions.sql
   ```
 
 - [ ] Tabla creada correctamente
   ```sql
-  DESCRIBE whatsapp_qr_sessions;
+  DESCRIBE ll_whatsapp_qr_sessions;
   ```
 
 - [ ] Índices verificados (4 índices)
   ```sql
-  SHOW INDEX FROM whatsapp_qr_sessions;
+  SHOW INDEX FROM ll_whatsapp_qr_sessions;
   ```
 
 ### 2. Backend - Servicios
@@ -111,7 +111,7 @@ curl -X POST http://localhost:3012/admin/whatsapp/authorize-qr \
 
 ```sql
 -- Ver todas las sesiones
-SELECT * FROM whatsapp_qr_sessions ORDER BY id DESC LIMIT 10;
+SELECT * FROM ll_whatsapp_qr_sessions ORDER BY id DESC LIMIT 10;
 ```
 - [ ] Registros creados correctamente
 - [ ] Campos `enabled_at`, `expires_at` con timestamps correctos
@@ -198,7 +198,7 @@ curl http://localhost:3012/api/whatsapp/51/qr
 - [ ] Verificar log: `"Cleaned X expired QR authorization(s)"`
 - [ ] Verificar en MySQL:
   ```sql
-  SELECT * FROM whatsapp_qr_sessions 
+  SELECT * FROM ll_whatsapp_qr_sessions 
   WHERE enabled = false AND expires_at < NOW();
   ```
 
@@ -241,11 +241,11 @@ SELECT
   enabled,
   expires_at,
   TIMESTAMPDIFF(MINUTE, NOW(), expires_at) as remaining_min
-FROM whatsapp_qr_sessions
+FROM ll_whatsapp_qr_sessions
 WHERE enabled = true;
 
 -- Ver sesiones expiradas (limpiadas por cron)
-SELECT COUNT(*) FROM whatsapp_qr_sessions 
+SELECT COUNT(*) FROM ll_whatsapp_qr_sessions 
 WHERE enabled = false AND expires_at < NOW();
 ```
 - [ ] Sesiones expiradas tienen `enabled = false`
@@ -287,12 +287,12 @@ WHERE enabled = false AND expires_at < NOW();
 ```sql
 -- Sesiones activas ahora
 SELECT COUNT(*) as active_sessions
-FROM whatsapp_qr_sessions
+FROM ll_whatsapp_qr_sessions
 WHERE enabled = true AND expires_at > NOW();
 
 -- Autorizaciones creadas hoy
 SELECT COUNT(*) as today_authorizations
-FROM whatsapp_qr_sessions
+FROM ll_whatsapp_qr_sessions
 WHERE DATE(enabled_at) = CURDATE();
 
 -- Autorizaciones por admin (última semana)
@@ -300,7 +300,7 @@ SELECT
   enabled_by_admin_id,
   COUNT(*) as total,
   AVG(TIMESTAMPDIFF(MINUTE, enabled_at, expires_at)) as avg_duration_min
-FROM whatsapp_qr_sessions
+FROM ll_whatsapp_qr_sessions
 WHERE enabled_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
 GROUP BY enabled_by_admin_id;
 ```
@@ -394,7 +394,7 @@ cron.schedule('*/5 * * * *', async () => {
 - [ ] `docs/QR_AUTHORIZATION_IMPLEMENTATION_GUIDE.md` (guía de implementación)
 - [ ] `docs/QR_AUTHORIZATION_SUMMARY.md` (resumen ejecutivo)
 - [ ] `docs/INDEX.md` (índice actualizado)
-- [ ] `migrations/001_create_whatsapp_qr_sessions.sql` (migration)
+- [ ] `migrations/001_create_ll_whatsapp_qr_sessions.sql` (migration)
 
 ---
 

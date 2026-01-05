@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp QR - LeadMaster</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 100%;
+            padding: 40px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #25D366;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .status-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+            text-align: left;
+        }
+
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+
+        .status-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .status-label {
+            color: #666;
+            font-weight: 500;
+        }
+
+        .status-value {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .state-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .state-qr-required {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .state-ready {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .state-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .state-initializing {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        #qr-container {
+            margin: 24px 0;
+        }
+
+        #qr-image {
+            max-width: 300px;
+            width: 100%;
+            height: auto;
+            border: 3px solid #25D366;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .qr-instructions {
+            color: #666;
+            font-size: 14px;
+            margin-top: 16px;
+            line-height: 1.6;
+        }
+
+        .message {
+            padding: 16px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .message-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .message-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .message-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .button {
+            background: #25D366;
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 8px;
+        }
+
+        .button:hover {
+            background: #128C7E;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
+        }
+
+        .button:active {
+            transform: translateY(0);
+        }
+
+        .button-secondary {
+            background: #6c757d;
+        }
+
+        .button-secondary:hover {
+            background: #5a6268;
+        }
+
+        .loading {
+            color: #666;
+            font-style: italic;
+            margin: 20px 0;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #25D366;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+            color: #999;
+            font-size: 12px;
+        }
+
+        .auto-refresh-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #25D366;
+            border-radius: 50%;
+            margin-right: 6px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 WhatsApp QR Scanner</h1>
+        <p class="subtitle">LeadMaster Central Hub</p>
+
+        <!-- Estado del Session Manager -->
+        <div class="status-card" id="status-card" style="display: none;">
+            <div class="status-row">
+                <span class="status-label">Cliente ID:</span>
+                <span class="status-value" id="cliente-id">-</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">Estado:</span>
+                <span class="status-value">
+                    <span class="state-badge" id="state-badge">-</span>
+                </span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">Conectado:</span>
+                <span class="status-value" id="connected-status">-</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">Puede enviar:</span>
+                <span class="status-value" id="can-send-status">-</span>
+            </div>
+        </div>
+
+        <!-- Loading spinner -->
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Consultando estado...</p>
+        </div>
+
+        <!-- Contenedor del QR -->
+        <div id="qr-container" style="display: none;">
+            <img id="qr-image" alt="WhatsApp QR Code" />
+            <p class="qr-instructions">
+                📱 Abre WhatsApp en tu teléfono<br>
+                ⚙️ Ve a Configuración → Dispositivos vinculados<br>
+                📷 Escanea este código QR
+            </p>
+        </div>
+
+        <!-- Mensajes -->
+        <div id="message-container"></div>
+
+        <!-- Botones -->
+        <div>
+            <button class="button" onclick="refreshStatus()">🔄 Actualizar</button>
+        </div>
+
+        <div class="footer">
+            <span class="auto-refresh-indicator"></span>
+            Auto-actualización cada 10 segundos
+        </div>
+    </div>
+
+    <script>
+        // Configuración
+        const CLIENTE_ID = 51; // Cambiar según cliente
+        const API_BASE_URL = window.location.origin; // Usa el mismo dominio (central hub)
+        const POLL_INTERVAL = 10000; // 10 segundos
+
+        let pollTimer = null;
+
+        // Función principal: verificar estado y obtener QR si corresponde
+        async function refreshStatus() {
+            showLoading(true);
+            clearMessages();
+
+            try {
+                // Paso 1: Consultar estado vía proxy del Central Hub
+                const statusResponse = await fetch(`${API_BASE_URL}/api/whatsapp/${CLIENTE_ID}/qr`);
+                const data = await statusResponse.json();
+
+                // Actualizar UI con estado
+                updateStatusDisplay(data);
+
+                // Paso 2: Manejar respuestas según status code
+                if (statusResponse.status === 200) {
+                    // QR disponible
+                    displayQR(data.qr);
+                    showMessage('QR disponible - Escanéalo con WhatsApp', 'info');
+                } else if (statusResponse.status === 409) {
+                    // QR no disponible
+                    hideQR();
+                    
+                    if (data.state === 'READY') {
+                        showMessage('✅ Sesión lista - WhatsApp conectado correctamente', 'success');
+                    } else {
+                        showMessage(`QR no disponible - Estado: ${data.state}`, 'info');
+                    }
+                } else if (statusResponse.status === 502) {
+                    // Session Manager no responde
+                    showMessage('⚠️ Session Manager no disponible - Contacta al administrador', 'error');
+                } else {
+                    // Error inesperado
+                    showMessage(`Error inesperado: ${data.error || 'Desconocido'}`, 'error');
+                }
+
+            } catch (error) {
+                console.error('Error al consultar estado:', error);
+                showMessage('❌ Error de conexión - Verifica tu red', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Actualizar display de estado
+        function updateStatusDisplay(data) {
+            const statusCard = document.getElementById('status-card');
+            const clienteId = document.getElementById('cliente-id');
+            const stateBadge = document.getElementById('state-badge');
+            const connectedStatus = document.getElementById('connected-status');
+            const canSendStatus = document.getElementById('can-send-status');
+
+            statusCard.style.display = 'block';
+            clienteId.textContent = data.cliente_id || CLIENTE_ID;
+            
+            // Estado con badge colorido
+            const state = data.state || 'UNKNOWN';
+            stateBadge.textContent = state;
+            stateBadge.className = 'state-badge ' + getStateBadgeClass(state);
+
+            // Conectado
+            connectedStatus.textContent = data.can_send_messages ? '✅ Sí' : '❌ No';
+
+            // Puede enviar
+            canSendStatus.textContent = data.can_send_messages ? '✅ Sí' : '❌ No';
+        }
+
+        // Clase CSS según estado
+        function getStateBadgeClass(state) {
+            const stateMap = {
+                'QR_REQUIRED': 'state-qr-required',
+                'READY': 'state-ready',
+                'INITIALIZING': 'state-initializing',
+                'RECONNECTING': 'state-initializing',
+                'ERROR': 'state-error',
+                'AUTH_FAILURE': 'state-error',
+                'DISCONNECTED_LOGOUT': 'state-error',
+                'DISCONNECTED_BANNED': 'state-error'
+            };
+            return stateMap[state] || 'state-initializing';
+        }
+
+        // Mostrar QR
+        function displayQR(qrDataURL) {
+            const qrContainer = document.getElementById('qr-container');
+            const qrImage = document.getElementById('qr-image');
+
+            qrImage.src = qrDataURL;
+            qrContainer.style.display = 'block';
+        }
+
+        // Ocultar QR
+        function hideQR() {
+            const qrContainer = document.getElementById('qr-container');
+            qrContainer.style.display = 'none';
+        }
+
+        // Mostrar/ocultar loading
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+
+        // Mostrar mensaje
+        function showMessage(text, type = 'info') {
+            const container = document.getElementById('message-container');
+            const message = document.createElement('div');
+            message.className = `message message-${type}`;
+            message.textContent = text;
+            container.appendChild(message);
+        }
+
+        // Limpiar mensajes
+        function clearMessages() {
+            document.getElementById('message-container').innerHTML = '';
+        }
+
+        // Iniciar polling automático
+        function startPolling() {
+            if (pollTimer) {
+                clearInterval(pollTimer);
+            }
+            pollTimer = setInterval(refreshStatus, POLL_INTERVAL);
+        }
+
+        // Detener polling
+        function stopPolling() {
+            if (pollTimer) {
+                clearInterval(pollTimer);
+                pollTimer = null;
+            }
+        }
+
+        // Inicialización
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('[WhatsApp QR] Iniciando...');
+            refreshStatus(); // Primera carga
+            startPolling(); // Auto-refresh
+        });
+
+        // Limpiar al salir
+        window.addEventListener('beforeunload', () => {
+            stopPolling();
+        });
+    </script>
+</body>
+</html>

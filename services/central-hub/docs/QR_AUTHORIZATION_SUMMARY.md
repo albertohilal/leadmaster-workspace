@@ -20,7 +20,7 @@ Admin Dashboard
     ↓ POST /admin/whatsapp/authorize-qr
 Central Hub
     ↓ checkAuthorization(clienteId)
-MySQL (whatsapp_qr_sessions)
+MySQL (ll_whatsapp_qr_sessions)
     ↓ authorized = true/false
 Client Dashboard (GET /api/whatsapp/:clienteId/qr)
 ```
@@ -40,7 +40,7 @@ Client Dashboard (GET /api/whatsapp/:clienteId/qr)
 ## 🗄️ Modelo de Datos
 
 ```sql
-CREATE TABLE whatsapp_qr_sessions (
+CREATE TABLE ll_whatsapp_qr_sessions (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   cliente_id BIGINT NOT NULL,
   enabled BOOLEAN NOT NULL DEFAULT false,
@@ -174,12 +174,12 @@ Cada acción genera un log JSON:
 
 ```sql
 -- Verificar autorización (usado en cada GET /qr)
-SELECT id FROM whatsapp_qr_sessions
+SELECT id FROM ll_whatsapp_qr_sessions
 WHERE cliente_id = ? AND enabled = true AND expires_at > NOW()
 LIMIT 1;
 
 -- Limpiar expiradas (cron cada 5 min)
-UPDATE whatsapp_qr_sessions SET enabled = false
+UPDATE ll_whatsapp_qr_sessions SET enabled = false
 WHERE enabled = true AND expires_at < NOW();
 ```
 
@@ -211,7 +211,7 @@ WHERE enabled = true AND expires_at < NOW();
 
 ### Nuevos Archivos
 ```
-migrations/001_create_whatsapp_qr_sessions.sql
+migrations/001_create_ll_whatsapp_qr_sessions.sql
 src/services/qrAuthorizationService.js
 src/middleware/adminMiddleware.js
 src/routes/adminWhatsappRoutes.js
@@ -279,7 +279,7 @@ package.json (añadir node-cron)
 
 1. **Arquitectura detallada:** `docs/QR_AUTHORIZATION_ARCHITECTURE.md`
 2. **Guía de implementación:** `docs/QR_AUTHORIZATION_IMPLEMENTATION_GUIDE.md`
-3. **Migration SQL:** `migrations/001_create_whatsapp_qr_sessions.sql`
+3. **Migration SQL:** `migrations/001_create_ll_whatsapp_qr_sessions.sql`
 
 ---
 

@@ -28,18 +28,18 @@ mysql -u root -p
 USE leadmaster;
 
 # Ejecutar migration
-source /root/leadmaster-workspace/services/central-hub/migrations/001_create_whatsapp_qr_sessions.sql
+source /root/leadmaster-workspace/services/central-hub/migrations/001_create_ll_whatsapp_qr_sessions.sql
 
 # Verificar tabla creada
-DESCRIBE whatsapp_qr_sessions;
+DESCRIBE ll_whatsapp_qr_sessions;
 
 # Verificar índices
-SHOW INDEX FROM whatsapp_qr_sessions;
+SHOW INDEX FROM ll_whatsapp_qr_sessions;
 ```
 
 **Resultado esperado:**
 ```
-Table: whatsapp_qr_sessions
+Table: ll_whatsapp_qr_sessions
 Rows: 9 columns (id, cliente_id, enabled, enabled_by_admin_id, enabled_at, expires_at, revoked_at, created_at)
 Indexes: 4 (PRIMARY, idx_cliente_id, idx_expires_at, idx_enabled)
 ```
@@ -79,7 +79,7 @@ async function createAuthorization(clienteId, adminId, durationMinutes = 60) {
   try {
     // 1. Verificar si ya existe autorización activa
     const [existing] = await connection.query(
-      `SELECT id FROM whatsapp_qr_sessions 
+      `SELECT id FROM ll_whatsapp_qr_sessions 
        WHERE cliente_id = ? AND enabled = true AND expires_at > NOW()`,
       [clienteId]
     );
@@ -93,7 +93,7 @@ async function createAuthorization(clienteId, adminId, durationMinutes = 60) {
     const expiresAt = new Date(enabledAt.getTime() + durationMinutes * 60000);
     
     const [result] = await connection.query(
-      `INSERT INTO whatsapp_qr_sessions 
+      `INSERT INTO ll_whatsapp_qr_sessions 
        (cliente_id, enabled_by_admin_id, enabled_at, expires_at, enabled)
        VALUES (?, ?, ?, ?, true)`,
       [clienteId, adminId, enabledAt, expiresAt]
@@ -126,7 +126,7 @@ async function createAuthorization(clienteId, adminId, durationMinutes = 60) {
  */
 async function checkAuthorization(clienteId) {
   const [rows] = await pool.query(
-    `SELECT id FROM whatsapp_qr_sessions 
+    `SELECT id FROM ll_whatsapp_qr_sessions 
      WHERE cliente_id = ? AND enabled = true AND expires_at > NOW()
      LIMIT 1`,
     [clienteId]
@@ -140,7 +140,7 @@ async function checkAuthorization(clienteId) {
  */
 async function revokeAuthorization(clienteId, adminId) {
   const [result] = await pool.query(
-    `UPDATE whatsapp_qr_sessions 
+    `UPDATE ll_whatsapp_qr_sessions 
      SET enabled = false, revoked_at = NOW() 
      WHERE cliente_id = ? AND enabled = true`,
     [clienteId]
@@ -163,7 +163,7 @@ async function revokeAuthorization(clienteId, adminId) {
  */
 async function getActiveSession(clienteId) {
   const [rows] = await pool.query(
-    `SELECT * FROM whatsapp_qr_sessions 
+    `SELECT * FROM ll_whatsapp_qr_sessions 
      WHERE cliente_id = ? AND enabled = true AND expires_at > NOW()
      LIMIT 1`,
     [clienteId]
@@ -184,7 +184,7 @@ async function listActiveSessions() {
        enabled_at,
        expires_at,
        TIMESTAMPDIFF(MINUTE, NOW(), expires_at) as remaining_minutes
-     FROM whatsapp_qr_sessions 
+     FROM ll_whatsapp_qr_sessions 
      WHERE enabled = true AND expires_at > NOW()
      ORDER BY expires_at ASC`
   );
@@ -197,7 +197,7 @@ async function listActiveSessions() {
  */
 async function cleanExpiredSessions() {
   const [result] = await pool.query(
-    `UPDATE whatsapp_qr_sessions 
+    `UPDATE ll_whatsapp_qr_sessions 
      SET enabled = false 
      WHERE enabled = true AND expires_at < NOW()`
   );
@@ -535,7 +535,7 @@ SELECT
   enabled_at,
   expires_at,
   revoked_at
-FROM whatsapp_qr_sessions
+FROM ll_whatsapp_qr_sessions
 ORDER BY id DESC;
 ```
 
@@ -544,7 +544,7 @@ ORDER BY id DESC;
 ### ✅ Checklist Fase 1
 
 - [ ] Migration ejecutada correctamente
-- [ ] Tabla `whatsapp_qr_sessions` existe con todos los índices
+- [ ] Tabla `ll_whatsapp_qr_sessions` existe con todos los índices
 - [ ] `qrAuthorizationService.js` implementado y testeado
 - [ ] `adminMiddleware.js` implementado
 - [ ] `adminWhatsappRoutes.js` implementado
@@ -794,7 +794,7 @@ SELECT
   enabled_at,
   expires_at,
   TIMESTAMPDIFF(MINUTE, NOW(), expires_at) as remaining_min
-FROM whatsapp_qr_sessions
+FROM ll_whatsapp_qr_sessions
 WHERE enabled = true AND expires_at > NOW();
 
 -- Contar autorizaciones por admin (últimos 7 días)
@@ -802,7 +802,7 @@ SELECT
   enabled_by_admin_id,
   COUNT(*) as total_authorizations,
   AVG(TIMESTAMPDIFF(MINUTE, enabled_at, expires_at)) as avg_duration_min
-FROM whatsapp_qr_sessions
+FROM ll_whatsapp_qr_sessions
 WHERE enabled_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
 GROUP BY enabled_by_admin_id;
 
@@ -818,10 +818,10 @@ grep "QR_ACCESS_DENIED" logs/central-hub.log | tail -20
 
 ```bash
 # Verificar que la tabla no exista
-mysql -u root -p leadmaster -e "SHOW TABLES LIKE 'whatsapp_qr_sessions';"
+mysql -u root -p leadmaster -e "SHOW TABLES LIKE 'll_whatsapp_qr_sessions';"
 
 # Si existe, borrar y recrear
-mysql -u root -p leadmaster -e "DROP TABLE IF EXISTS whatsapp_qr_sessions;"
+mysql -u root -p leadmaster -e "DROP TABLE IF EXISTS ll_whatsapp_qr_sessions;"
 ```
 
 ### Problema: Admin no puede autorizar (403)
@@ -847,7 +847,7 @@ npm list node-cron
 
 ```sql
 -- Verificar en MySQL si la autorización existe y está activa
-SELECT * FROM whatsapp_qr_sessions 
+SELECT * FROM ll_whatsapp_qr_sessions 
 WHERE cliente_id = 51 
   AND enabled = true 
   AND expires_at > NOW();

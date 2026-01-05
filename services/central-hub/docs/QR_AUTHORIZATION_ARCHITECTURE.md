@@ -70,7 +70,7 @@ LeadMaster es una plataforma de **envíos controlados de WhatsApp** con estas re
 │                       ▼                                              │
 │  ┌──────────────────────────────────────────────────────────────┐ │
 │  │                   MySQL Database                              │ │
-│  │         TABLE: whatsapp_qr_sessions                           │ │
+│  │         TABLE: ll_whatsapp_qr_sessions                           │ │
 │  └──────────────────────────────────────────────────────────────┘ │
 │                       ▲                                              │
 │                       │ check authorization                          │
@@ -92,10 +92,10 @@ LeadMaster es una plataforma de **envíos controlados de WhatsApp** con estas re
 
 ## 🗄️ Modelo de Datos
 
-### Tabla: `whatsapp_qr_sessions`
+### Tabla: `ll_whatsapp_qr_sessions`
 
 ```sql
-CREATE TABLE whatsapp_qr_sessions (
+CREATE TABLE ll_whatsapp_qr_sessions (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   cliente_id BIGINT NOT NULL,
   enabled BOOLEAN NOT NULL DEFAULT false,
@@ -142,8 +142,8 @@ Implementar el control básico de autorización sin modificar rutas existentes.
 #### Componentes a Crear
 
 1. **Migration SQL**
-   - Crear tabla `whatsapp_qr_sessions`
-   - Ubicación: `/migrations/001_create_whatsapp_qr_sessions.sql`
+   - Crear tabla `ll_whatsapp_qr_sessions`
+   - Ubicación: `/migrations/001_create_ll_whatsapp_qr_sessions.sql`
 
 2. **Service: QR Authorization Service**
    - Ubicación: `/src/services/qrAuthorizationService.js`
@@ -191,7 +191,7 @@ Aplicar verificación en rutas públicas y automatizar limpieza.
 2. **Cron Job: Limpieza Automática**
    - Ubicación: `/src/jobs/cleanExpiredQrSessions.js`
    - Frecuencia: Cada 5 minutos
-   - Acción: `UPDATE whatsapp_qr_sessions SET enabled=false WHERE expires_at < NOW() AND enabled=true`
+   - Acción: `UPDATE ll_whatsapp_qr_sessions SET enabled=false WHERE expires_at < NOW() AND enabled=true`
 
 3. **Registro de Cron en `index.js`**
    - Usar `node-cron` o similar
@@ -406,7 +406,7 @@ if (!authorized) {
    │                           │ Check existing auth        │
    │                           ├───────────────────────────►│
    │                           │ SELECT * FROM              │
-   │                           │ whatsapp_qr_sessions       │
+   │                           │ ll_whatsapp_qr_sessions       │
    │                           │ WHERE cliente_id=51        │
    │                           │ AND enabled=true           │
    │                           │◄───────────────────────────┤
@@ -415,7 +415,7 @@ if (!authorized) {
    │                           │ Create authorization       │
    │                           ├───────────────────────────►│
    │                           │ INSERT INTO                │
-   │                           │ whatsapp_qr_sessions       │
+   │                           │ ll_whatsapp_qr_sessions       │
    │                           │ (cliente_id,               │
    │                           │  enabled_by_admin_id,      │
    │                           │  enabled_at,               │
@@ -452,7 +452,7 @@ if (!authorized) {
     │                       │ Check authorization     │                          │
     │                       ├────────────────────────►│                          │
     │                       │ SELECT * FROM           │                          │
-    │                       │ whatsapp_qr_sessions    │                          │
+    │                       │ ll_whatsapp_qr_sessions    │                          │
     │                       │ WHERE cliente_id=51     │                          │
     │                       │ AND enabled=true        │                          │
     │                       │ AND expires_at > NOW()  │                          │
@@ -490,7 +490,7 @@ if (!authorized) {
     │                       │ Check authorization     │
     │                       ├────────────────────────►│
     │                       │ SELECT * FROM           │
-    │                       │ whatsapp_qr_sessions    │
+    │                       │ ll_whatsapp_qr_sessions    │
     │                       │ WHERE cliente_id=51     │
     │                       │ AND enabled=true        │
     │                       │ AND expires_at > NOW()  │
@@ -522,7 +522,7 @@ if (!authorized) {
      │                             │ Clean expired sessions       │
      │                             ├─────────────────────────────►│
      │                             │ UPDATE                       │
-     │                             │ whatsapp_qr_sessions         │
+     │                             │ ll_whatsapp_qr_sessions         │
      │                             │ SET enabled=false            │
      │                             │ WHERE enabled=true           │
      │                             │ AND expires_at < NOW()       │
@@ -583,14 +583,14 @@ console.log({
 ```sql
 -- Verificar autorización (usado en cada request GET /qr)
 SELECT id, expires_at
-FROM whatsapp_qr_sessions
+FROM ll_whatsapp_qr_sessions
 WHERE cliente_id = ?
   AND enabled = true
   AND expires_at > NOW()
 LIMIT 1;
 
 -- Limpiar expiradas (cron cada 5 minutos)
-UPDATE whatsapp_qr_sessions
+UPDATE ll_whatsapp_qr_sessions
 SET enabled = false
 WHERE enabled = true
   AND expires_at < NOW();
@@ -603,7 +603,7 @@ SELECT
   ws.enabled_at,
   ws.expires_at,
   TIMESTAMPDIFF(MINUTE, NOW(), ws.expires_at) as remaining_minutes
-FROM whatsapp_qr_sessions ws
+FROM ll_whatsapp_qr_sessions ws
 WHERE ws.enabled = true
   AND ws.expires_at > NOW()
 ORDER BY ws.expires_at ASC;
@@ -722,7 +722,7 @@ describe('POST /admin/whatsapp/authorize-qr', () => {
 
 ### Fase 1: Autorización Básica
 
-- [ ] Crear migration `001_create_whatsapp_qr_sessions.sql`
+- [ ] Crear migration `001_create_ll_whatsapp_qr_sessions.sql`
 - [ ] Implementar `qrAuthorizationService.js`
   - [ ] `createAuthorization()`
   - [ ] `checkAuthorization()`

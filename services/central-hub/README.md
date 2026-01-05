@@ -58,7 +58,7 @@ pm2 start src/index.js --name leadmaster-hub
 - **🛠️ [Guía de Implementación](docs/QR_AUTHORIZATION_IMPLEMENTATION_GUIDE.md)** - Paso a paso con código
 - **💼 [Resumen para Stakeholders](docs/QR_AUTHORIZATION_STAKEHOLDER_SUMMARY.md)** - Impacto de negocio
 - **✅ [Checklist Ejecutiva](CHECKLIST_QR_AUTHORIZATION.md)** - Testing y deployment
-- **📦 [Migration SQL](migrations/001_create_whatsapp_qr_sessions.sql)** - Tabla de base de datos
+- **📦 [Migration SQL](migrations/001_create_ll_whatsapp_qr_sessions.sql)** - Tabla de base de datos
 
 **Estado:** Documentación completa, listo para implementar Fase 1
 

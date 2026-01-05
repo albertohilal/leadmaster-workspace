@@ -18,7 +18,10 @@ const {
   SessionManagerInvalidConfigError,
   SessionManagerSessionNotReadyError,
   SessionManagerWhatsAppError,
-  SessionManagerValidationError
+  SessionManagerValidationError,
+  SessionNotFoundError,
+  SessionAlreadyConnectedError,
+  QRGenerationFailedError
 } = require('./errors');
 
 class SessionManagerClient {
@@ -242,6 +245,124 @@ class SessionManagerClient {
       console.error(`[SessionManager] ❌ Error inesperado al enviar mensaje:`, error);
       throw new SessionManagerUnreachableError(
         `Error inesperado al enviar mensaje: ${error.message}`,
+        error
+      );
+    }
+  }
+
+  /**
+   * Obtiene el estado completo de una sesión WhatsApp según el contrato oficial
+   * @param {string} instanceId - ID de la instancia (ej: 'sender_51')
+   * @returns {Promise<Object>} WhatsAppSession object con status, qr_status, qr_string, etc.
+   * @throws {SessionNotFoundError} Si la sesión no existe (404)
+   * @throws {SessionManagerTimeoutError} Si se excede el timeout
+   * @throws {SessionManagerUnreachableError} Si no se puede conectar
+   */
+  async getSession(instanceId) {
+    try {
+      const response = await this._fetchWithTimeout(`/api/session-manager/sessions/${instanceId}`, {
+        method: 'GET'
+      });
+
+      if (response.ok) {
+        const session = await response.json();
+        console.log(`[SessionManager] ✅ Sesión obtenida: ${instanceId} (status: ${session.status})`);
+        return session;
+      }
+
+      // Manejo de errores HTTP
+      const errorText = await response.text().catch(() => 'Sin detalles');
+
+      // 404 Not Found - Sesión no existe
+      if (response.status === 404) {
+        console.error(`[SessionManager] ❌ Sesión no encontrada: ${instanceId}`);
+        throw new SessionNotFoundError(
+          `Sesión ${instanceId} no encontrada en Session Manager`
+        );
+      }
+
+      // Otros códigos de error no esperados
+      console.error(`[SessionManager] ❌ Error inesperado (${response.status}): ${errorText}`);
+      throw new SessionManagerUnreachableError(
+        `Session Manager respondió con status ${response.status}: ${errorText}`
+      );
+
+    } catch (error) {
+      // Re-lanzar errores tipados ya procesados
+      if (error instanceof SessionNotFoundError ||
+          error instanceof SessionManagerTimeoutError ||
+          error instanceof SessionManagerUnreachableError) {
+        throw error;
+      }
+
+      // Otros errores no esperados
+      console.error(`[SessionManager] ❌ Error inesperado al obtener sesión:`, error);
+      throw new SessionManagerUnreachableError(
+        `Error inesperado al obtener sesión: ${error.message}`,
+        error
+      );
+    }
+  }
+
+  /**
+   * Solicita la generación de un código QR para una sesión
+   * @param {string} instanceId - ID de la instancia (ej: 'sender_51')
+   * @returns {Promise<Object>} { qr_string, qr_expires_at }
+   * @throws {SessionAlreadyConnectedError} Si la sesión ya está conectada (409)
+   * @throws {QRGenerationFailedError} Si falla la generación del QR (500)
+   * @throws {SessionManagerTimeoutError} Si se excede el timeout
+   * @throws {SessionManagerUnreachableError} Si no se puede conectar
+   */
+  async requestQR(instanceId) {
+    try {
+      const response = await this._fetchWithTimeout(`/api/session-manager/sessions/${instanceId}/qr`, {
+        method: 'POST'
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log(`[SessionManager] ✅ QR generado para ${instanceId}`);
+        return result;
+      }
+
+      // Manejo de errores HTTP
+      const errorText = await response.text().catch(() => 'Sin detalles');
+
+      // 409 Conflict - Sesión ya está conectada
+      if (response.status === 409) {
+        console.error(`[SessionManager] ❌ Sesión ya conectada: ${instanceId}`);
+        throw new SessionAlreadyConnectedError(
+          `La sesión ${instanceId} ya está conectada. No se puede generar QR.`
+        );
+      }
+
+      // 500 Internal Server Error - Error generando QR
+      if (response.status === 500) {
+        console.error(`[SessionManager] ❌ Error generando QR: ${errorText}`);
+        throw new QRGenerationFailedError(
+          `Falló la generación del QR para ${instanceId}: ${errorText}`
+        );
+      }
+
+      // Otros códigos de error no esperados
+      console.error(`[SessionManager] ❌ Error inesperado (${response.status}): ${errorText}`);
+      throw new SessionManagerUnreachableError(
+        `Session Manager respondió con status ${response.status}: ${errorText}`
+      );
+
+    } catch (error) {
+      // Re-lanzar errores tipados ya procesados
+      if (error instanceof SessionAlreadyConnectedError ||
+          error instanceof QRGenerationFailedError ||
+          error instanceof SessionManagerTimeoutError ||
+          error instanceof SessionManagerUnreachableError) {
+        throw error;
+      }
+
+      // Otros errores no esperados
+      console.error(`[SessionManager] ❌ Error inesperado al solicitar QR:`, error);
+      throw new SessionManagerUnreachableError(
+        `Error inesperado al solicitar QR: ${error.message}`,
         error
       );
     }
