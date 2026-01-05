@@ -1,59 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import { sessionAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
+import { SessionStatus, getStatusColor, getStatusText } from '../../constants/sessionStatus';
 
 const Header = () => {
-  const [connectionStatus, setConnectionStatus] = useState('CHECKING');
+  const [connectionStatus, setConnectionStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const { user, logout } = useAuth();
+  const clienteId = localStorage.getItem('cliente_id');
 
   useEffect(() => {
     checkStatus();
     const interval = setInterval(checkStatus, 10000); // cada 10 segundos
     return () => clearInterval(interval);
-  }, []);
+  }, [clienteId]);
 
   const checkStatus = async () => {
+    if (!clienteId) {
+      console.warn('No hay cliente_id configurado');
+      setConnectionStatus(SessionStatus.ERROR);
+      setLoading(false);
+      return;
+    }
+
     try {
-      const response = await sessionAPI.getStatus();
-      setConnectionStatus(response.data.status || 'DISCONNECTED');
+      const response = await sessionAPI.getSession(clienteId);
+      setConnectionStatus(response.data.session.status);
     } catch (error) {
       console.error('Error checking status:', error);
-      setConnectionStatus('ERROR');
+      setConnectionStatus(SessionStatus.ERROR);
     } finally {
       setLoading(false);
     }
   };
 
-  const getStatusColor = () => {
-    switch (connectionStatus) {
-      case 'CONNECTED':
-        return 'bg-success';
-      case 'DISCONNECTED':
-      case 'ERROR':
-        return 'bg-danger';
-      case 'QR':
-        return 'bg-warning';
-      default:
-        return 'bg-gray-400';
-    }
-  };
 
-  const getStatusText = () => {
-    switch (connectionStatus) {
-      case 'CONNECTED':
-        return 'Conectado';
-      case 'DISCONNECTED':
-        return 'Desconectado';
-      case 'QR':
-        return 'Esperando QR';
-      case 'ERROR':
-        return 'Error';
-      default:
-        return 'Verificando...';
-    }
-  };
 
   return (
     <header className="bg-white shadow-md px-6 py-4">
@@ -74,9 +56,11 @@ const Header = () => {
           <div className="flex items-center space-x-2">
             <span className="text-sm text-gray-600">WhatsApp:</span>
             <div className="flex items-center space-x-2">
-              <div className={`w-3 h-3 rounded-full ${getStatusColor()} ${loading ? 'animate-pulse' : ''}`}></div>
+              <div className={`w-3 h-3 rounded-full ${
+                connectionStatus ? getStatusColor(connectionStatus) : 'bg-gray-400'
+              } ${loading ? 'animate-pulse' : ''}`}></div>
               <span className="text-sm font-medium text-gray-700">
-                {getStatusText()}
+                {connectionStatus ? getStatusText(connectionStatus) : 'Cargando...'}
               </span>
             </div>
           </div>
