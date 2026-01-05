@@ -26,7 +26,10 @@ const {
   SessionManagerTimeoutError,
   SessionManagerUnreachableError
 } = require('../integrations/sessionManager');
-const qrAuthService = require('../services/qrAuthorizationService');
+const qrAuthService = require(
+  '../modules/whatsappQrAuthorization/services/qrAuthorizationService'
+);
+
 
 const router = express.Router();
 
