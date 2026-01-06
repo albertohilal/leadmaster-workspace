@@ -1,0 +1,31 @@
+name: Central Hub CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: lts/*
+
+      - name: Install dependencies
+        run: |
+          npm ci || npm install
+        working-directory: services/central-hub
+
+      - name: Run tests
+        run: npm test
+        working-directory: services/central-hub
