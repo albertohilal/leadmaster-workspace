@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import Card from '../common/Card';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { sessionAPI, listenerAPI, statsAPI } from '../../services/api';
+import { SessionStatus, getStatusColor, getStatusText } from '../../constants/sessionStatus';
 
 const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
-    whatsappStatus: 'CHECKING',
+    whatsappStatus: null, // null mientras carga (NO inventar 'CHECKING')
     listenerMode: 'off',
     totalLeads: 0,
     leadsWithIA: 0,
@@ -15,22 +16,28 @@ const Dashboard = () => {
     messagesReceived: 0
   });
 
+  const clienteId = localStorage.getItem('cliente_id');
+
   useEffect(() => {
     loadDashboardData();
     const interval = setInterval(loadDashboardData, 10000); // actualizar cada 10 segundos
     return () => clearInterval(interval);
-  }, []);
+  }, [clienteId]);
 
   const loadDashboardData = async () => {
     try {
       // Cargar datos en paralelo
-      const [sessionStatus, listenerStatus] = await Promise.all([
-        sessionAPI.getStatus().catch(() => ({ data: { status: 'ERROR' } })),
+      const [sessionResponse, listenerStatus] = await Promise.all([
+        sessionAPI.getSession(clienteId).catch((err) => {
+          console.error('Error loading session:', err);
+          return { data: { session: { status: SessionStatus.ERROR } } };
+        }),
         listenerAPI.getStatus().catch(() => ({ data: { mode: 'off' } }))
       ]);
 
+      // Usar session.status DIRECTAMENTE del backend (NO mapear)
       setStats({
-        whatsappStatus: sessionStatus.data.status || 'DISCONNECTED',
+        whatsappStatus: sessionResponse.data.session?.status || SessionStatus.ERROR,
         listenerMode: listenerStatus.data.mode || 'off',
         totalLeads: 0, // Por implementar en backend
         leadsWithIA: 0, // Por implementar en backend
@@ -40,37 +47,9 @@ const Dashboard = () => {
       });
     } catch (error) {
       console.error('Error loading dashboard data:', error);
+      setStats(prev => ({ ...prev, whatsappStatus: SessionStatus.ERROR }));
     } finally {
       setLoading(false);
-    }
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'CONNECTED':
-        return 'bg-success';
-      case 'DISCONNECTED':
-      case 'ERROR':
-        return 'bg-danger';
-      case 'QR':
-        return 'bg-warning';
-      default:
-        return 'bg-gray-400';
-    }
-  };
-
-  const getStatusText = (status) => {
-    switch (status) {
-      case 'CONNECTED':
-        return 'Conectado';
-      case 'DISCONNECTED':
-        return 'Desconectado';
-      case 'QR':
-        return 'Esperando QR';
-      case 'ERROR':
-        return 'Error';
-      default:
-        return 'Verificando...';
     }
   };
 
@@ -107,15 +86,15 @@ const Dashboard = () => {
             <div>
               <p className="text-sm text-gray-600">WhatsApp</p>
               <p className="text-2xl font-bold text-gray-800 mt-1">
-                {getStatusText(stats.whatsappStatus)}
+                {stats.whatsappStatus ? getStatusText(stats.whatsappStatus) : 'Cargando...'}
               </p>
             </div>
-            <div className={`w-12 h-12 ${getStatusColor(stats.whatsappStatus)} rounded-full flex items-center justify-center text-white text-2xl`}>
+            <div className={`w-12 h-12 ${stats.whatsappStatus ? getStatusColor(stats.whatsappStatus) : 'bg-gray-400'} rounded-full flex items-center justify-center text-white text-2xl`}>
               💬
             </div>
           </div>
           <div className="mt-4 flex items-center space-x-2">
-            <div className={`w-2 h-2 rounded-full ${getStatusColor(stats.whatsappStatus)} animate-pulse`}></div>
+            <div className={`w-2 h-2 rounded-full ${stats.whatsappStatus ? getStatusColor(stats.whatsappStatus) : 'bg-gray-400'} animate-pulse`}></div>
             <span className="text-xs text-gray-500">Actualizado hace 10s</span>
           </div>
         </Card>
