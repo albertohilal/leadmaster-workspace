@@ -8,15 +8,22 @@ const db = require('../../../config/db');
  */
 
 /**
- * Listar campañas del cliente autenticado
+ * Listar campañas del cliente autenticado (o todas si es admin)
  * GET /sender/campaigns
  */
 exports.list = async (req, res) => {
   try {
     console.log('🔍 [campaigns] Starting list request for client:', req.user.cliente_id);
     const clienteId = req.user.cliente_id;
+    const esAdmin = req.user.tipo === 'admin';
     
-    const query = `
+    // Si es admin, ver todas las campañas, sino solo las de su cliente
+    const query = esAdmin ? `
+      SELECT 
+        id, nombre, mensaje, fecha_creacion, estado, cliente_id
+      FROM ll_campanias_whatsapp 
+      ORDER BY fecha_creacion DESC
+    ` : `
       SELECT 
         id, nombre, mensaje, fecha_creacion, estado, cliente_id
       FROM ll_campanias_whatsapp 
@@ -25,7 +32,9 @@ exports.list = async (req, res) => {
     `;
     
     console.log('🔍 [campaigns] Executing query...');
-    const [rows] = await db.execute(query, [clienteId]);
+    const [rows] = esAdmin ? 
+      await db.execute(query) : 
+      await db.execute(query, [clienteId]);
     console.log('🔍 [campaigns] Query result count:', rows.length);
     
     // Agregar campos compatibles con el frontend
@@ -330,16 +339,13 @@ exports.create = async (req, res) => {
     // Crear campaña
     const insertQuery = `
       INSERT INTO ll_campanias_whatsapp 
-      (nombre, descripcion, mensaje, programada, fecha_envio, cliente_id, estado, fecha_creacion)
-      VALUES (?, ?, ?, ?, ?, ?, 'pendiente_aprobacion', NOW())
+      (nombre, mensaje, cliente_id, estado, fecha_creacion)
+      VALUES (?, ?, ?, 'pendiente_aprobacion', NOW())
     `;
     
     const [result] = await db.execute(insertQuery, [
       nombre.trim(),
-      descripcion?.trim() || '',
       mensaje.trim(),
-      programada ? 1 : 0,
-      fechaEnvioFinal,
       clienteId
     ]);
     
@@ -368,3 +374,84 @@ exports.create = async (req, res) => {
     });
   }
 };
+
+/**
+ * Aprobar campaña (solo admin)
+ * POST /sender/campaigns/:id/approve
+ */
+exports.approve = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { comentario } = req.body;
+    const esAdmin = req.user.tipo === 'admin';
+    
+    // Validar que sea admin
+    if (!esAdmin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Solo los administradores pueden aprobar campañas'
+      });
+    }
+    
+    // Verificar que la campaña existe
+    const [campaniaRows] = await db.execute(
+      'SELECT id, nombre, estado FROM ll_campanias_whatsapp WHERE id = ?',
+      [id]
+    );
+    
+    if (campaniaRows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Campaña no encontrada'
+      });
+    }
+    
+    const campania = campaniaRows[0];
+    
+    // Validar que esté en estado pendiente
+    if (campania.estado !== 'pendiente') {
+      return res.status(400).json({
+        success: false,
+        error: `No se puede aprobar. Estado actual: ${campania.estado}`,
+        estadoActual: campania.estado
+      });
+    }
+    
+    // Actualizar estado a 'en_progreso' (aprobada lista para enviar)
+    const [result] = await db.execute(
+      'UPDATE ll_campanias_whatsapp SET estado = ? WHERE id = ?',
+      ['en_progreso', id]
+    );
+    
+    if (result.affectedRows === 0) {
+      return res.status(500).json({
+        success: false,
+        error: 'No se pudo actualizar la campaña'
+      });
+    }
+    
+    console.log(`[AUDIT] Campaña aprobada - ID: ${id}, Nombre: ${campania.nombre}, Admin: ${req.user.usuario}`);
+    
+    res.json({
+      success: true,
+      message: 'Campaña aprobada correctamente',
+      data: {
+        id: parseInt(id),
+        nombre: campania.nombre,
+        estadoAnterior: 'pendiente',
+        estadoNuevo: 'aprobada',
+        aprobadoPor: req.user.usuario,
+        comentario: comentario || null
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error al aprobar campaña:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor',
+      details: error.message
+    });
+  }
+};
+

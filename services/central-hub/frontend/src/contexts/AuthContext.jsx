@@ -46,14 +46,21 @@ export const AuthProvider = ({ children }) => {
 
         if (response.data.success) {
           setUser(response.data.user);
+          
+          // Guardar cliente_id en localStorage si viene en la respuesta
+          if (response.data.user?.cliente_id) {
+            localStorage.setItem('cliente_id', response.data.user.cliente_id);
+          }
         } else {
           // Token inválido
           localStorage.removeItem('token');
+          localStorage.removeItem('cliente_id');
           setToken(null);
         }
       } catch (error) {
         console.error('Error verificando token:', error);
         localStorage.removeItem('token');
+        localStorage.removeItem('cliente_id');
         setToken(null);
       } finally {
         setLoading(false);
@@ -73,6 +80,12 @@ export const AuthProvider = ({ children }) => {
       if (response.data.success) {
         const { token: newToken, user: userData } = response.data;
         localStorage.setItem('token', newToken);
+        
+        // Guardar cliente_id en localStorage para polling de WhatsApp
+        if (userData.cliente_id) {
+          localStorage.setItem('cliente_id', userData.cliente_id);
+        }
+        
         setToken(newToken);
         setUser(userData);
         return { success: true };
@@ -95,6 +108,7 @@ export const AuthProvider = ({ children }) => {
       console.error('Error en logout:', error);
     } finally {
       localStorage.removeItem('token');
+      localStorage.removeItem('cliente_id');
       setToken(null);
       setUser(null);
     }

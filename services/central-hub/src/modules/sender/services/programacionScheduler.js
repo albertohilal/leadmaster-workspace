@@ -162,6 +162,35 @@ async function procesarProgramacion(programacion) {
     `teléfono: ${session.phone_number || 'N/A'})`
   );
 
+  // PASO 4: Validar estado de la campaña (OBLIGATORIO)
+  const [campaniaRows] = await connection.query(
+    'SELECT id, nombre, estado FROM ll_campanias_whatsapp WHERE id = ?',
+    [programacion.campania_id]
+  );
+
+  if (!campaniaRows.length) {
+    console.error(
+      `⏸️  Programación ${programacion.id} ABORTADA: ` +
+      `Campaña ${programacion.campania_id} no encontrada`
+    );
+    return;
+  }
+
+  const campania = campaniaRows[0];
+
+  if (campania.estado !== 'en_progreso') {
+    console.warn(
+      `[SENDER BLOCKED] Programación ${programacion.id} ABORTADA: ` +
+      `Campaña ${campania.id} "${campania.nombre}" no está aprobada para envío ` +
+      `(estado actual: ${campania.estado})`
+    );
+    return;
+  }
+
+  console.log(
+    `✅ Campaña ${campania.id} "${campania.nombre}": Estado validado (en_progreso)`
+  );
+
   const enviados = await enviadosHoy(programacion.id);
   const disponible = programacion.cupo_diario - enviados;
   

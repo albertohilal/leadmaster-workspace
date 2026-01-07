@@ -9,12 +9,13 @@ const prospectosController = {
         area = '',
         rubro = '',
         direccion = '',
-        estado = 'sin_envio',
+        estado = '',
         tipoCliente = '',
         soloWappValido = 'true'
       } = req.query;
       
-      const clienteId = req.user.cliente_id;
+      const userId = req.user.id;  // ID del usuario en ll_usuarios
+      const clienteId = req.user.cliente_id;  // ID del cliente
 
       // Query principal que combina llxbx_societe (tabla Dolibarr) con nuestras tablas
       let sql = `
@@ -27,12 +28,12 @@ const prospectosController = {
           s.town as ciudad,
           COALESCE(r.nombre, 'Sin rubro') as rubro,
           r.area as area_rubro,
-          lc.cliente_id,
+          MIN(lc.cliente_id) as cliente_id,
           CASE 
-            WHEN env.id IS NOT NULL THEN env.estado
+            WHEN MAX(env.id) IS NOT NULL THEN MAX(env.estado)
             ELSE 'disponible'
           END as estado,
-          env.fecha_envio,
+          MAX(env.fecha_envio) as fecha_envio,
           CASE 
             WHEN s.phone_mobile IS NOT NULL AND s.phone_mobile != '' THEN 1 
             ELSE 0 
@@ -40,33 +41,21 @@ const prospectosController = {
           s.client as es_cliente,
           s.fournisseur as es_proveedor
         FROM llxbx_societe s
-        LEFT JOIN ll_lugares_clientes lc ON lc.societe_id = s.rowid
+        INNER JOIN ll_lugares_clientes lc ON lc.societe_id = s.rowid AND lc.cliente_id = ?
         LEFT JOIN ll_societe_extended se ON se.societe_id = s.rowid
         LEFT JOIN ll_rubros r ON se.rubro_id = r.id
         LEFT JOIN ll_envios_whatsapp env ON env.lugar_id = s.rowid${campania_id ? ' AND env.campania_id = ?' : ''}
         WHERE s.entity = 1
-          AND lc.cliente_id = ?
+        GROUP BY s.rowid, s.nom, s.phone_mobile, s.email, s.address, s.town, r.nombre, r.area, s.client, s.fournisseur
+        HAVING 1=1
       `;
       
       const params = [clienteId];
-      if (campania_id) params.push(campania_id);
+      if (campania_id) params.unshift(campania_id);
 
       // Filtro por números válidos de WhatsApp
       if (soloWappValido === 'true') {
         sql += ` AND s.phone_mobile IS NOT NULL AND s.phone_mobile != ''`;
-      }
-
-      // Filtro por estado
-      // Si hay campaña seleccionada, excluir contactos ya enviados o pendientes para ESA campaña
-      if (campania_id && estado === 'sin_envio') {
-        sql += ` AND env.id IS NULL`;
-      } else if (!campania_id && estado === 'sin_envio') {
-        // Sin campaña seleccionada, mostrar solo sin envío en ninguna campaña
-        sql += ` AND env.id IS NULL`;
-      } else if (estado === 'enviado') {
-        sql += ` AND env.estado = 'enviado'`;
-      } else if (estado === 'pendiente') {
-        sql += ` AND env.estado = 'pendiente'`;
       }
 
       // Filtro por rubro
@@ -81,9 +70,9 @@ const prospectosController = {
         params.push(`%${direccion}%`);
       }
 
-      // Filtro por área/ciudad
+      // Filtro por área (de rubros)
       if (area) {
-        sql += ` AND s.town LIKE ?`;
+        sql += ` AND r.area LIKE ?`;
         params.push(`%${area}%`);
       }
 
@@ -94,6 +83,20 @@ const prospectosController = {
         sql += ` AND (s.client = 0 OR s.client IS NULL)`;
       } else if (tipoCliente === 'ambos') {
         sql += ` AND (s.client = 1 OR s.fournisseur = 1)`;
+      }
+
+      // Filtro por estado (después del GROUP BY en el HAVING ya que usa MAX)
+      // Si hay campaña seleccionada, excluir contactos ya enviados o pendientes para ESA campaña
+      if (campania_id && estado === 'sin_envio') {
+        // Usar HAVING porque env.id usa MAX
+        sql = sql.replace('HAVING 1=1', 'HAVING MAX(env.id) IS NULL');
+      } else if (!campania_id && estado === 'sin_envio') {
+        // Sin campaña seleccionada, mostrar solo sin envío en ninguna campaña
+        sql = sql.replace('HAVING 1=1', 'HAVING MAX(env.id) IS NULL');
+      } else if (estado === 'enviado') {
+        sql = sql.replace('HAVING 1=1', "HAVING MAX(env.estado) = 'enviado'");
+      } else if (estado === 'pendiente') {
+        sql = sql.replace('HAVING 1=1', "HAVING MAX(env.estado) = 'pendiente'");
       }
 
       sql += ` ORDER BY s.nom ASC LIMIT 1000`;
@@ -136,12 +139,11 @@ const prospectosController = {
       const clienteId = req.user.cliente_id;
 
       const [rows] = await db.execute(`
-        SELECT DISTINCT s.town as nombre
-        FROM llxbx_societe s
-        WHERE s.entity = 1 
-          AND s.town IS NOT NULL 
-          AND s.town != ''
-        ORDER BY s.town ASC
+        SELECT DISTINCT ll_rubros.area as nombre
+        FROM ll_rubros
+        WHERE ll_rubros.area IS NOT NULL 
+          AND ll_rubros.area != ''
+        ORDER BY ll_rubros.area ASC
       `);
 
       const areas = rows.map(row => ({ 
@@ -167,9 +169,9 @@ const prospectosController = {
   async obtenerRubros(req, res) {
     try {
       const [rows] = await db.execute(`
-        SELECT id, nombre, area, keyword_google
+        SELECT ll_rubros.id, ll_rubros.nombre, ll_rubros.area, ll_rubros.keyword_google
         FROM ll_rubros
-        ORDER BY nombre ASC
+        ORDER BY ll_rubros.nombre ASC
       `);
 
       res.json({
@@ -179,6 +181,40 @@ const prospectosController = {
 
     } catch (error) {
       console.error('❌ [prospectos] Error al obtener rubros:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor',
+        error: error.message
+      });
+    }
+  },
+
+  // Obtener estados disponibles de envíos
+  async obtenerEstados(req, res) {
+    try {
+      const [rows] = await db.execute(`
+        SELECT DISTINCT ll_envios_whatsapp.estado as nombre
+        FROM ll_envios_whatsapp
+        WHERE ll_envios_whatsapp.estado IS NOT NULL 
+          AND ll_envios_whatsapp.estado != ''
+        ORDER BY ll_envios_whatsapp.estado ASC
+      `);
+
+      const estados = rows.map(row => ({ 
+        id: row.nombre, 
+        nombre: row.nombre 
+      }));
+
+      // Agregar estado "sin_envio" para prospectos que no han sido enviados
+      estados.unshift({ id: 'sin_envio', nombre: 'sin_envio' });
+
+      res.json({
+        success: true,
+        estados: estados
+      });
+
+    } catch (error) {
+      console.error('❌ [prospectos] Error al obtener estados:', error);
       res.status(500).json({
         success: false,
         message: 'Error interno del servidor',

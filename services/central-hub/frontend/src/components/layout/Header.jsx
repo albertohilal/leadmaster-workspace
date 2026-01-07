@@ -18,8 +18,8 @@ const Header = () => {
 
   const checkStatus = async () => {
     if (!clienteId) {
-      console.warn('No hay cliente_id configurado');
-      setConnectionStatus(SessionStatus.ERROR);
+      // No mostrar error si no hay cliente_id (puede ser admin sin WhatsApp configurado)
+      setConnectionStatus(null);
       setLoading(false);
       return;
     }
@@ -28,8 +28,13 @@ const Header = () => {
       const response = await sessionAPI.getSession(clienteId);
       setConnectionStatus(response.data.session.status);
     } catch (error) {
-      console.error('Error checking status:', error);
-      setConnectionStatus(SessionStatus.ERROR);
+      // Silenciar errores 404 - puede que el servicio de WhatsApp no esté disponible
+      if (error.response?.status === 404) {
+        setConnectionStatus(null); // No mostrar estado si no está disponible
+      } else {
+        console.warn('WhatsApp status check failed:', error.message);
+        setConnectionStatus(SessionStatus.ERROR);
+      }
     } finally {
       setLoading(false);
     }

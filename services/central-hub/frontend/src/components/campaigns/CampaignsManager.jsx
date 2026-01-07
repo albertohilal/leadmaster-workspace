@@ -5,6 +5,7 @@ import LoadingSpinner from '../common/LoadingSpinner';
 import Modal from '../common/Modal';
 import { senderAPI, leadsAPI } from '../../services/api';
 import { destinatariosService } from '../../services/destinatarios';
+import { campanasService } from '../../services/campanas';
 import { useAuth } from '../../contexts/AuthContext';
 import ProgramacionesForm from './ProgramacionesForm';
 import ProgramacionesList from './ProgramacionesList';
@@ -36,144 +37,41 @@ const CampaignsManager = () => {
   });
 
   useEffect(() => {
+    console.log('🔄 useEffect ejecutándose, cargando campañas...');
+    console.log('👤 Usuario actual:', user);
     loadCampaigns();
   }, []);
 
   const loadCampaigns = async () => {
+    console.log('🚀 loadCampaigns iniciando...');
     try {
-      // Mock data con diferentes estados para mostrar funcionalidad admin
-      const mockCampaigns = [
-        {
-          id: 1766019279587,
-          nombre: 'Campaña QA 1766019279587',
-          descripcion: 'Campaña de Quality Assurance para verificar el funcionamiento completo del sistema de envío masivo de WhatsApp.',
-          mensaje: '🔍 Campaña QA en proceso.\n\nEsta campaña forma parte del proceso de verificación de calidad del sistema LeadMaster Central Hub.\n\n✅ Todos los sistemas operativos\n📊 Métricas en tiempo real\n🚀 Listo para producción',
-          estado: isAdmin ? 'programada' : 'pendiente_aprobacion',
-          fecha_creacion: '2025-12-18',
-          fecha_modificacion: '2025-12-19',
-          programada: true,
-          fecha_envio: '2025-12-20T09:00:00',
-          total_destinatarios: 100,
-          enviados: 0,
-          fallidos: 0,
-          pendientes: 100,
-          cliente_id: 51,
-          cliente_nombre: 'Haby',
-          activa: true,
-          destinatarios: [
-            { id: 1, nombre: 'Juan Pérez', telefono: '+54911234567', estado: 'pendiente', fecha_envio: null },
-            { id: 2, nombre: 'María García', telefono: '+54911234568', estado: 'pendiente', fecha_envio: null },
-            { id: 3, nombre: 'Carlos López', telefono: '+54911234569', estado: 'pendiente', fecha_envio: null },
-            { id: 4, nombre: 'Ana Martínez', telefono: '+54911234570', estado: 'pendiente', fecha_envio: null },
-            { id: 5, nombre: 'Luis Rodríguez', telefono: '+54911234571', estado: 'pendiente', fecha_envio: null }
-          ]
-        },
-        {
-          id: 1,
-          nombre: '1-Campaña de Prueba',
-          descripcion: 'Primera campaña de prueba del sistema LeadMaster Central Hub para validar la funcionalidad de envío masivo.',
-          mensaje: '🧪 Campaña de Prueba #1\n\nEsta es la primera campaña de prueba del sistema.\n\nObjetivos:\n✅ Validar envío masivo\n✅ Verificar entrega\n✅ Medir respuesta\n\n¡Gracias por ser parte de las pruebas!',
-          estado: isAdmin ? 'lista_envio' : 'pendiente_aprobacion',
-          fecha_creacion: '2025-12-17',
-          fecha_modificacion: '2025-12-19',
-          programada: true,
-          fecha_envio: '2025-12-20T12:00:00',
-          total_destinatarios: 50,
-          enviados: 0,
-          fallidos: 0,
-          pendientes: 50,
-          cliente_id: 51,
-          cliente_nombre: 'Haby',
-          activa: true
-        },
-        {
-          id: 2,
-          nombre: '1-Campaña de Prueba',
-          descripcion: 'Segunda instancia de campaña de prueba para testear diferentes configuraciones y horarios de envío.',
-          mensaje: '📱 Campaña de Prueba - Instancia 2\n\nSegunda prueba del sistema de envíos.\n\nCaracterísticas:\n🔄 Horario diferente\n📈 Métricas mejoradas\n🎯 Segmentación específica\n\n¡Funcionando perfectamente!',
-          estado: 'aprobada',
-          fecha_creacion: '2025-12-17',
-          fecha_modificacion: '2025-12-19',
-          programada: true,
-          fecha_envio: '2025-12-20T13:00:00',
-          total_destinatarios: 50,
-          enviados: 0,
-          fallidos: 0,
-          pendientes: 50,
-          cliente_id: 51,
-          cliente_nombre: 'Haby',
-          activa: true,
-          destinatarios: [
-            { id: 6, nombre: 'Pedro González', telefono: '+54911234572', estado: 'pendiente', fecha_envio: null },
-            { id: 7, nombre: 'Sofía Ramírez', telefono: '+54911234573', estado: 'pendiente', fecha_envio: null },
-            { id: 8, nombre: 'Diego Castro', telefono: '+54911234574', estado: 'pendiente', fecha_envio: null }
-          ]
-        },
-        {
-          id: 3,
-          nombre: 'Campaña Navidad 2025',
-          descripcion: 'Promoción especial de fin de año con descuentos exclusivos para nuestros clientes más fieles. Esta campaña incluye ofertas en toda la línea de productos navideños.',
-          mensaje: '🎄 ¡Feliz Navidad! Aprovecha nuestras ofertas especiales de fin de año. Descuentos de hasta 50% en productos seleccionados. ¡No te lo pierdas! 🎁\n\nVálido hasta el 31 de diciembre.\nMás info: https://ejemplo.com/navidad',
-          estado: isAdmin ? 'programada' : 'pendiente_aprobacion',
-          fecha_creacion: '2025-12-10',
-          fecha_modificacion: '2025-12-15',
-          programada: true,
-          fecha_envio: '2025-12-25T09:00:00',
-          total_destinatarios: 150,
-          enviados: 0,
-          fallidos: 0,
-          pendientes: 150,
-          cliente_id: 51,
-          cliente_nombre: 'Haby',
-          activa: true,
-          destinatarios: [
-            { id: 11, nombre: 'Patricia Mendoza', telefono: '+54911234577', estado: 'pendiente', fecha_envio: null },
-            { id: 12, nombre: 'Fernando Jiménez', telefono: '+54911234578', estado: 'pendiente', fecha_envio: null },
-            { id: 13, nombre: 'Valeria Torres', telefono: '+54911234579', estado: 'pendiente', fecha_envio: null },
-            { id: 14, nombre: 'Gabriel Morales', telefono: '+54911234580', estado: 'pendiente', fecha_envio: null }
-          ],
-          destinatarios: [
-            { id: 11, nombre: 'Patricia Mendoza', telefono: '+54911234577', estado: 'pendiente', fecha_envio: null },
-            { id: 12, nombre: 'Fernando Jiménez', telefono: '+54911234578', estado: 'pendiente', fecha_envio: null },
-            { id: 13, nombre: 'Valeria Torres', telefono: '+54911234579', estado: 'pendiente', fecha_envio: null },
-            { id: 14, nombre: 'Gabriel Morales', telefono: '+54911234580', estado: 'pendiente', fecha_envio: null }
-          ]
-        },
-        {
-          id: 4,
-          nombre: 'Seguimiento Leads',
-          descripcion: 'Contacto automatizado con leads potenciales que mostraron interés en nuestros productos durante la última semana.',
-          mensaje: 'Hola! 👋 Vi que te interesa nuestros productos. ¿Te gustaría recibir más información personalizada? Estoy aquí para ayudarte.\n\n¿Cuál es el mejor horario para contactarte?',
-          estado: 'completada',
-          fecha_creacion: '2025-12-05',
-          fecha_modificacion: '2025-12-05',
-          programada: false,
-          fecha_envio: '2025-12-05T14:30:00',
-          total_destinatarios: 80,
-          enviados: 80,
-          fallidos: 0,
-          pendientes: 0,
-          cliente_id: 51,
-          cliente_nombre: 'Haby',
-          activa: false,
-          destinatarios: [
-            { id: 15, nombre: 'Isabella Cruz', telefono: '+54911234581', estado: 'enviado', fecha_envio: '2025-12-05T14:30:15' },
-            { id: 16, nombre: 'Alejandro Vargas', telefono: '+54911234582', estado: 'enviado', fecha_envio: '2025-12-05T14:30:18' },
-            { id: 17, nombre: 'Carmen Delgado', telefono: '+54911234583', estado: 'enviado', fecha_envio: '2025-12-05T14:30:22' },
-            { id: 18, nombre: 'Ricardo Peña', telefono: '+54911234584', estado: 'enviado', fecha_envio: '2025-12-05T14:30:25' }
-          ],
-          destinatarios: [
-            { id: 15, nombre: 'Isabella Cruz', telefono: '+54911234581', estado: 'enviado', fecha_envio: '2025-12-05T14:30:15' },
-            { id: 16, nombre: 'Alejandro Vargas', telefono: '+54911234582', estado: 'enviado', fecha_envio: '2025-12-05T14:30:18' },
-            { id: 17, nombre: 'Carmen Delgado', telefono: '+54911234583', estado: 'enviado', fecha_envio: '2025-12-05T14:30:22' },
-            { id: 18, nombre: 'Ricardo Peña', telefono: '+54911234584', estado: 'enviado', fecha_envio: '2025-12-05T14:30:25' }
-          ]
-        }
-      ];
+      setLoading(true);
+      console.log('📡 Llamando a senderAPI.getCampaigns()...');
+      // Llamar a la API real
+      const response = await senderAPI.getCampaigns();
+      console.log('📊 Campañas cargadas desde API (response completo):', response);
       
-      setCampaigns(mockCampaigns);
+      // Axios devuelve data en response.data
+      const campaniasData = response.data || response;
+      console.log('📊 Campañas data:', campaniasData);
+      
+      // Mapear respuesta para compatibilidad con la UI
+      const campaniasMapeadas = (Array.isArray(campaniasData) ? campaniasData : []).map(campania => ({
+        ...campania,
+        total_destinatarios: campania.total_destinatarios || 0,
+        enviados: campania.enviados || 0,
+        fallidos: campania.fallidos || 0,
+        pendientes: campania.pendientes || 0,
+        descripcion: campania.descripcion || '',
+        programada: campania.programada || false,
+        fecha_envio: campania.fecha_envio || null
+      }));
+      
+      console.log('📊 Campañas mapeadas:', campaniasMapeadas.length);
+      setCampaigns(campaniasMapeadas);
     } catch (error) {
-      console.error('Error loading campaigns:', error);
+      console.error('❌ Error loading campaigns:', error);
+      setCampaigns([]);
     } finally {
       setLoading(false);
     }
@@ -300,6 +198,41 @@ const CampaignsManager = () => {
     console.log('showDetailsModal establecido a:', true);
   };
 
+  const handleApproveCampaign = async (campaign) => {
+    if (!isAdmin) {
+      alert('Solo los administradores pueden aprobar campañas');
+      return;
+    }
+
+    const confirmar = window.confirm(
+      `¿Deseas aprobar la campaña "${campaign.nombre}"?\n\n` +
+      'Esta acción permitirá que la campaña pueda ser enviada.'
+    );
+
+    if (!confirmar) return;
+
+    try {
+      const response = await campanasService.aprobarCampana(campaign.id);
+      
+      alert(response.message || 'Campaña aprobada correctamente');
+      
+      // Actualizar el estado de la campaña en la lista
+      setCampaigns(campaigns.map(c => 
+        c.id === campaign.id 
+          ? { ...c, estado: 'en_progreso' }
+          : c
+      ));
+      
+      // Recargar campañas
+      await loadCampaigns();
+      
+    } catch (error) {
+      console.error('Error al aprobar campaña:', error);
+      const errorMessage = error.response?.data?.error || 'Error al aprobar la campaña';
+      alert(errorMessage);
+    }
+  };
+
   const handleViewRecipients = async (campaign) => {
     console.log('Abriendo lista de destinatarios:', campaign);
     setSelectedCampaign(campaign);
@@ -376,9 +309,15 @@ const CampaignsManager = () => {
       case 'activa':
         return 'bg-green-500';
       case 'completada':
+      case 'finalizado':
         return 'bg-blue-500';
       case 'programada':
         return 'bg-yellow-500';
+      case 'pendiente':
+        return 'bg-yellow-600';
+      case 'en_progreso':
+      case 'aprobada':
+        return 'bg-green-600';
       case 'pendiente_aprobacion':
         return 'bg-orange-500';
       case 'pausada':
@@ -396,8 +335,16 @@ const CampaignsManager = () => {
         return 'Activa';
       case 'completada':
         return 'Completada';
+      case 'finalizado':
+        return 'Finalizada';
       case 'programada':
         return isAdmin ? 'Lista para enviar' : 'Programada';
+      case 'pendiente':
+        return 'Pendiente Aprobación';
+      case 'en_progreso':
+        return 'Aprobada';
+      case 'aprobada':
+        return 'Aprobada';
       case 'pendiente_aprobacion':
         return 'Pendiente Aprobación';
       case 'pausada':
@@ -405,7 +352,7 @@ const CampaignsManager = () => {
       case 'rechazada':
         return 'Rechazada';
       default:
-        return estado;
+        return estado || 'Sin estado';
     }
   };
 
@@ -550,6 +497,13 @@ const CampaignsManager = () => {
                     {campaign.estado !== 'completada' && campaign.estado !== 'enviando' && (
                       <Button variant="info" onClick={() => handleEditCampaign(campaign)}>
                         ✏️ Editar
+                      </Button>
+                    )}
+                    
+                    {/* Botón de aprobar campaña (solo admin y campañas pendientes) */}
+                    {isAdmin && campaign.estado === 'pendiente' && (
+                      <Button variant="success" onClick={() => handleApproveCampaign(campaign)}>
+                        ✅ Aprobar Campaña
                       </Button>
                     )}
                     
