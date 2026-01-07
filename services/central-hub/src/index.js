@@ -31,15 +31,17 @@ app.get('/health', (req, res) => {
  * Proxy público de WhatsApp (QR + status)
  *
  * RUTAS FINALES EXPUESTAS:
- *   GET /api/whatsapp/:clienteId/status
- *   GET /api/whatsapp/:clienteId/qr
+ *   GET /whatsapp/:clienteId/status
+ *   GET /whatsapp/:clienteId/qr
  *
  * IMPORTANTE:
+ * - NGINX recibe /api/whatsapp/* y elimina /api antes de enviar a Express
+ * - Por eso Express debe montar en /whatsapp (sin /api)
  * - Debe montarse ANTES del static
  * - Es la ÚNICA vía pública hacia WhatsApp
  */
 const whatsappQrProxy = require('./routes/whatsappQrProxy');
-app.use('/api/whatsapp', whatsappQrProxy);
+app.use('/whatsapp', whatsappQrProxy);
 
 /* =========================
    Rutas de módulos internos
