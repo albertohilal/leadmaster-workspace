@@ -19,6 +19,7 @@ const SelectorProspectosPage = () => {
   // Estados para filtros
   const [areas, setAreas] = useState([]);
   const [rubros, setRubros] = useState([]);
+  const [estados, setEstados] = useState([]);
   const [filtros, setFiltros] = useState({
     area: '',
     rubro: '',
@@ -46,24 +47,27 @@ const SelectorProspectosPage = () => {
     try {
       setLoading(true);
       setError(null);
-      const [campanasData, areasData, rubrosData] = await Promise.all([
+      const [campanasData, areasData, rubrosData, estadosData] = await Promise.all([
         campanasService.obtenerCampanas(),
         prospectosService.obtenerAreas(),
-        prospectosService.obtenerRubros()
+        prospectosService.obtenerRubros(),
+        prospectosService.obtenerEstados()
       ]);
       
-      console.log('📊 Datos cargados:', { campanasData, areasData, rubrosData });
+      console.log('📊 Datos cargados:', { campanasData, areasData, rubrosData, estadosData });
       
       // Asegurar que sean arrays
       const campanasArray = Array.isArray(campanasData) ? campanasData : [];
       const areasArray = Array.isArray(areasData?.areas) ? areasData.areas : [];
       const rubrosArray = Array.isArray(rubrosData?.rubros) ? rubrosData.rubros : [];
+      const estadosArray = Array.isArray(estadosData?.estados) ? estadosData.estados : [];
       
-      console.log('📊 Arrays procesados:', { campanasArray, areasArray, rubrosArray });
+      console.log('📊 Arrays procesados:', { campanasArray, areasArray, rubrosArray, estadosArray });
       
       setCampanas(campanasArray);
       setAreas(areasArray);
       setRubros(rubrosArray);
+      setEstados(estadosArray);
     } catch (error) {
       console.error('❌ Error al cargar datos iniciales:', error);
       const errorMsg = error.response?.data?.message || error.message || 'Error al cargar datos';
@@ -343,8 +347,11 @@ const SelectorProspectosPage = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="">Todos los estados</option>
-                  <option value="activo">Activo</option>
-                  <option value="inactivo">Inactivo</option>
+                  {estados.map((estado, index) => (
+                    <option key={estado?.id || estado?.nombre || index} value={estado?.nombre || estado}>
+                      {estado?.nombre || estado}
+                    </option>
+                  ))}
                 </select>
               </div>
 

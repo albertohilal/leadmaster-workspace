@@ -54,6 +54,17 @@ export const campanasService = {
       console.error('Error al eliminar campaña:', error);
       throw error;
     }
+  },
+
+  // Aprobar campaña (solo admin)
+  async aprobarCampana(id, comentario = null) {
+    try {
+      const response = await apiService.post(`/sender/campaigns/${id}/approve`, { comentario });
+      return response.data;
+    } catch (error) {
+      console.error('Error al aprobar campaña:', error);
+      throw error;
+    }
   }
 };
 
