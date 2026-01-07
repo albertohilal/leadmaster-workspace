@@ -28,13 +28,18 @@ const qrAuthorizationService = require('../services/qrAuthorizationService');
 
 /**
  * GET /api/whatsapp/:clienteId/status
- * Obtiene el estado de la sesión WhatsApp según el contrato oficial
+ * Obtiene el estado de la sesión WhatsApp consultando el session-manager
  * 
- * Consume: getSession(instance_id)
- * Reacciona a: session.status, session.qr_status
+ * Consume: GET /status del session-manager
+ * Mapea estados del session-manager a respuesta de la UI
+ * 
+ * Estados mapeados:
+ * - QR_REQUIRED → needs_qr: true, qr_code_base64
+ * - READY → connected: true
+ * - INITIALIZING/RECONNECTING → connecting: true
  * 
  * Respuestas:
- * - 200: Sesión encontrada (retorna WhatsAppSession completo)
+ * - 200: Estado obtenido correctamente
  * - 400: clienteId inválido
  * - 404: Sesión no existe
  * - 500: Error interno
@@ -53,17 +58,43 @@ async function getWhatsappSessionStatus(req, res) {
     });
   }
 
-  const instanceId = `sender_${clienteIdNum}`;
-
   try {
-    // Obtener sesión completa según contrato
-    const session = await sessionManagerClient.getSession(instanceId);
+    // Consultar endpoint GET /status del session-manager
+    const sessionManagerUrl = process.env.SESSION_MANAGER_BASE_URL || 'http://localhost:3001';
+    const statusUrl = `${sessionManagerUrl}/status`;
     
-    // Retornar sesión completa sin modificar
-    res.json({
+    const response = await fetch(statusUrl);
+    
+    if (!response.ok) {
+      throw new Error(`Session Manager returned status ${response.status}`);
+    }
+    
+    const sessionStatus = await response.json();
+    
+    // Mapear estados del session-manager a respuesta de UI
+    const state = sessionStatus.state;
+    const mappedResponse = {
       ok: true,
-      session
-    });
+      cliente_id: sessionStatus.cliente_id || clienteIdNum,
+      state: state,
+      connected: state === 'READY',
+      connecting: state === 'INITIALIZING' || state === 'RECONNECTING',
+      needs_qr: state === 'QR_REQUIRED',
+      can_send_messages: sessionStatus.can_send_messages || false,
+      recommended_action: sessionStatus.recommended_action || ''
+    };
+    
+    // Si requiere QR y está disponible, incluir base64
+    if (state === 'QR_REQUIRED' && sessionStatus.qr_code_base64) {
+      mappedResponse.qr_code_base64 = sessionStatus.qr_code_base64;
+    }
+    
+    // Información adicional
+    if (sessionStatus.reconnection_attempts !== undefined) {
+      mappedResponse.reconnection_attempts = sessionStatus.reconnection_attempts;
+    }
+    
+    res.json(mappedResponse);
     
   } catch (error) {
     console.error(
@@ -71,28 +102,21 @@ async function getWhatsappSessionStatus(req, res) {
       error.message
     );
     
-    // Errores tipados del contrato
-    if (error instanceof SessionNotFoundError) {
-      return res.status(404).json({
-        ok: false,
-        error: 'SESSION_NOT_FOUND',
-        message: `Sesión no encontrada para cliente ${clienteId}`
-      });
-    }
-    
-    if (error instanceof SessionManagerTimeoutError) {
-      return res.status(504).json({
-        ok: false,
-        error: 'GATEWAY_TIMEOUT',
-        message: 'Session Manager no respondió a tiempo'
-      });
-    }
-    
-    if (error instanceof SessionManagerUnreachableError) {
+    // Errores de conexión con session-manager
+    if (error.cause?.code === 'ECONNREFUSED' || error.message.includes('fetch failed')) {
       return res.status(502).json({
         ok: false,
         error: 'SESSION_MANAGER_UNAVAILABLE',
         message: 'Session Manager no está disponible'
+      });
+    }
+    
+    // Timeout
+    if (error.name === 'AbortError' || error.message.includes('timeout')) {
+      return res.status(504).json({
+        ok: false,
+        error: 'GATEWAY_TIMEOUT',
+        message: 'Session Manager no respondió a tiempo'
       });
     }
     
