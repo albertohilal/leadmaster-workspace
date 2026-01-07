@@ -14,7 +14,7 @@ const express = require('express');
 const router = express.Router();
 
 const {
-  getWhatsappStatus,
+  getWhatsappSessionStatus,
   getWhatsappQr
 } = require('../modules/whatsappQrAuthorization/controllers/whatsappQrController');
 
@@ -22,7 +22,7 @@ const {
  * GET /api/whatsapp/:clienteId/status
  * Devuelve el estado actual de la sesión WhatsApp del cliente
  */
-router.get('/whatsapp/:clienteId/status', getWhatsappStatus);
+router.get('/whatsapp/:clienteId/status', getWhatsappSessionStatus);
 
 /**
  * GET /api/whatsapp/:clienteId/qr

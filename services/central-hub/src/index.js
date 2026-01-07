@@ -54,8 +54,8 @@ app.use('/session-manager', require('./modules/session-manager/routes'));
 // Envíos
 app.use('/sender', require('./modules/sender/routes'));
 
-// ⚠️ Listener DESACTIVADO (módulo inexistente)
-// app.use('/listener', require('./modules/listener/routes'));
+// Listener
+app.use('/listener', require('./modules/listener/routes/listenerRoutes'));
 
 // Sync Contacts
 app.use('/sync-contacts', require('./modules/sync-contacts/routes'));
