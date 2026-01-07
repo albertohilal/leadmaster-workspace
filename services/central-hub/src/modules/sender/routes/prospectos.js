@@ -15,6 +15,9 @@ router.get('/areas', prospectosController.obtenerAreas);
 // Obtener rubros disponibles  
 router.get('/rubros', prospectosController.obtenerRubros);
 
+// Obtener estados disponibles
+router.get('/estados', prospectosController.obtenerEstados);
+
 // Obtener estadísticas de prospectos
 router.get('/estadisticas', prospectosController.obtenerEstadisticas);
 

@@ -44,6 +44,17 @@ export const prospectosService = {
     }
   },
 
+  // Obtener estados disponibles
+  async obtenerEstados() {
+    try {
+      const response = await apiService.get('/sender/prospectos/estados');
+      return response.data;
+    } catch (error) {
+      console.error('Error al obtener estados:', error);
+      throw error;
+    }
+  },
+
   // Obtener estadísticas de prospectos
   async obtenerEstadisticas() {
     try {

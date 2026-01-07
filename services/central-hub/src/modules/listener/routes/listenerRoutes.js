@@ -16,7 +16,6 @@ router.post('/human-intervention', listenerController.registerHumanIntervention)
 router.post('/ia/enable', listenerController.enableIA);
 router.post('/ia/disable', listenerController.disableIA);
 router.post('/ia/reactivate', listenerController.reactivateIA);
-router.post('/reactivate-ia', listenerController.reactivateIA);
 
 // Historial de intervenciones
 router.get('/history/:telefono', listenerController.getInterventionHistory);
