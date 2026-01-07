@@ -7,9 +7,9 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
 
-    "test": "jest --config jest.config.js",
-    "test:unit": "jest src/modules/whatsappQrAuthorization/tests",
-    "test:coverage": "jest --config jest.config.js --coverage",
+    "test": "npx jest --config jest.config.js",
+    "test:unit": "npx jest src/modules/whatsappQrAuthorization/tests",
+    "test:coverage": "npx jest --config jest.config.js --coverage",
 
     "test:pw": "npx playwright test",
     "test:api": "npx playwright test --project=\"API Tests\"",
