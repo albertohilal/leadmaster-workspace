@@ -43,6 +43,18 @@ app.get('/health', (req, res) => {
 const whatsappQrProxy = require('./routes/whatsappQrProxy');
 app.use('/whatsapp', whatsappQrProxy);
 
+/**
+ * QR Code Read-Only Proxy
+ * 
+ * RUTA FINAL EXPUESTA:
+ *   GET /qr-code
+ * 
+ * Header requerido: X-Cliente-Id
+ * Solo lectura del QR ya generado por session-manager
+ */
+const qrCodeProxy = require('./routes/qrCodeProxy');
+app.use('/qr-code', qrCodeProxy);
+
 /* =========================
    Rutas de módulos internos
 ========================= */

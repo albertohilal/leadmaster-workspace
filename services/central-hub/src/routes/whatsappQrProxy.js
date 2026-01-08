@@ -33,6 +33,15 @@ router.get('/:clienteId/status', getWhatsappSessionStatus);
  * GET /:clienteId/qr
  * Solicita / devuelve el QR de WhatsApp para el cliente
  * 
+ * @deprecated Este endpoint será eliminado en la próxima versión
+ * Use GET /qr-code (con header X-Cliente-Id) en su lugar
+ * 
+ * Motivo de deprecación:
+ * - Valida autorizaciones artificiales que no deberían existir
+ * - Frontend no debe "solicitar generación" de QR
+ * - QR es generado automáticamente por whatsapp-web.js
+ * - Nuevo contrato: GET /qr-code (read-only)
+ * 
  * Ruta final: /whatsapp/:clienteId/qr (montado en index.js con app.use('/whatsapp'))
  */
 router.get('/:clienteId/qr', getWhatsappQr);
