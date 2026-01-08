@@ -30,14 +30,29 @@ const Dashboard = () => {
       const [sessionResponse, listenerStatus] = await Promise.all([
         sessionAPI.getSession(clienteId).catch((err) => {
           console.error('Error loading session:', err);
-          return { data: { session: { status: SessionStatus.ERROR } } };
+          return { data: { state: 'ERROR' } };
         }),
         listenerAPI.getStatus().catch(() => ({ data: { mode: 'off' } }))
       ]);
 
-      // Usar session.status DIRECTAMENTE del backend (NO mapear)
+      // Backend retorna FLAT response: { state, connected, needs_qr }
+      // NO hay data.session - acceder directamente a data.state
+      const whatsappState = sessionResponse?.data?.state;
+      
+      // Mapear estados del backend a constantes del frontend
+      let mappedStatus = SessionStatus.ERROR;
+      if (whatsappState === 'CONNECTED') {
+        mappedStatus = SessionStatus.CONNECTED;
+      } else if (whatsappState === 'QR_REQUIRED') {
+        mappedStatus = SessionStatus.QR_REQUIRED;
+      } else if (whatsappState === 'CONNECTING' || whatsappState === 'INITIALIZING' || whatsappState === 'RECONNECTING') {
+        mappedStatus = SessionStatus.CONNECTING;
+      } else if (whatsappState === 'DISCONNECTED') {
+        mappedStatus = SessionStatus.DISCONNECTED;
+      }
+
       setStats({
-        whatsappStatus: sessionResponse.data.session?.status || SessionStatus.ERROR,
+        whatsappStatus: mappedStatus,
         listenerMode: listenerStatus.data.mode || 'off',
         totalLeads: 0, // Por implementar en backend
         leadsWithIA: 0, // Por implementar en backend

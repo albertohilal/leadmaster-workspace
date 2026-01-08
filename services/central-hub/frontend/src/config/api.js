@@ -19,10 +19,10 @@ const getBaseUrl = () => {
   }
 
   if (typeof window !== 'undefined') {
-    return normalizeProtocol(`${window.location.origin}/api`);
+    return normalizeProtocol(window.location.origin);
   }
 
-  return 'http://localhost:3012/api';
+  return 'http://localhost:3012';
 };
 
 export const API_BASE_URL = getBaseUrl();

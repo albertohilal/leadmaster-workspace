@@ -4,25 +4,29 @@ import Button from '../common/Button';
 import LoadingSpinner from '../common/LoadingSpinner';
 import Modal from '../common/Modal';
 import { sessionAPI } from '../../services/api';
-import { SessionStatus, QRStatus, getStatusColor, getStatusText } from '../../constants/sessionStatus';
+import {
+  SessionStatus,
+  QRStatus,
+  getStatusColor,
+  getStatusText
+} from '../../constants/sessionStatus';
 
 const SessionManager = () => {
-  // Estado: Objeto COMPLETO de sesión del backend (NO inventar estados locales)
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [qrString, setQrString] = useState(null);
   const [showQRModal, setShowQRModal] = useState(false);
-  
+
   const clienteId = localStorage.getItem('cliente_id');
 
   useEffect(() => {
     loadSession();
-    const interval = setInterval(loadSession, 5000); // Polling cada 5 segundos
+    const interval = setInterval(loadSession, 5000);
     return () => clearInterval(interval);
   }, [clienteId]);
 
-  // Cerrar modal automáticamente si se conecta
+  // Cerrar modal automáticamente al conectar
   useEffect(() => {
     if (session?.status === SessionStatus.CONNECTED) {
       setShowQRModal(false);
@@ -31,8 +35,9 @@ const SessionManager = () => {
   }, [session?.status]);
 
   /**
-   * Carga el estado actual de la sesión desde el backend
-   * Consume ÚNICAMENTE sessionAPI.getSession(clienteId)
+   * ==========================
+   * Cargar estado de sesión
+   * ==========================
    */
   const loadSession = async () => {
     if (!clienteId) {
@@ -42,31 +47,51 @@ const SessionManager = () => {
 
     try {
       const response = await sessionAPI.getSession(clienteId);
-      
-      // Guardar objeto COMPLETO del backend sin modificar
-      setSession(response.data.session);
-      setError(null);
-      
-    } catch (err) {
-      console.error('Error al cargar sesión:', err);
-      
-      if (err.response?.status === 404) {
-        setError('Sesión no encontrada');
-      } else if (err.response?.status === 502) {
-        setError('Session Manager no disponible');
-      } else if (err.response?.status === 504) {
-        setError('Timeout al conectar con Session Manager');
-      } else {
-        setError(err.response?.data?.message || 'Error al cargar sesión');
+      const normalizedState = response?.data?.state?.toLowerCase();
+
+      let mappedStatus = SessionStatus.ERROR;
+
+      switch (normalizedState) {
+        case SessionStatus.CONNECTED:
+          mappedStatus = SessionStatus.CONNECTED;
+          break;
+        case SessionStatus.QR_REQUIRED:
+          mappedStatus = SessionStatus.QR_REQUIRED;
+          break;
+        case SessionStatus.CONNECTING:
+        case SessionStatus.INIT:
+        case 'initializing':
+        case 'reconnecting':
+          mappedStatus = SessionStatus.CONNECTING;
+          break;
+        case SessionStatus.DISCONNECTED:
+          mappedStatus = SessionStatus.DISCONNECTED;
+          break;
+        default:
+          mappedStatus = SessionStatus.ERROR;
       }
+
+      setSession({
+        status: mappedStatus,
+        connected: Boolean(response.data.connected),
+        needs_qr: Boolean(response.data.needs_qr),
+        qr_status: response.data.needs_qr ? QRStatus.REQUIRED : null,
+        phone_number: response.data.phone_number || null
+      });
+
+      setError(null);
+    } catch (err) {
+      console.error('[Session] Error cargando sesión:', err);
+      setError(err.response?.data?.message || 'Error al cargar sesión');
     }
   };
 
   /**
-   * Solicita generación de QR al backend
-   * Consume ÚNICAMENTE sessionAPI.requestQR(clienteId)
+   * ==========================
+   * Mostrar QR (read-only)
+   * ==========================
    */
-  const handleRequestQR = async () => {
+  const handleShowQR = async () => {
     if (!clienteId) {
       setError('No hay cliente_id configurado');
       return;
@@ -75,41 +100,47 @@ const SessionManager = () => {
     try {
       setLoading(true);
       setError(null);
-      
-      const response = await sessionAPI.requestQR(clienteId);
-      
-      // Backend retorna qr_string (no qr_code)
-      setQrString(response.data.qr_string);
-      setShowQRModal(true);
-      
-      // Actualizar sesión después de solicitar QR
-      await loadSession();
-      
-    } catch (err) {
-      console.error('Error al solicitar QR:', err);
-      
-      // Manejar errores específicos del contrato
-      if (err.response?.status === 409) {
-        setError('La sesión ya está conectada');
-      } else if (err.response?.status === 403) {
-        setError('No estás autorizado para generar QR');
-      } else if (err.response?.status === 404) {
-        setError('Sesión no encontrada. Debe inicializarse primero.');
-      } else if (err.response?.status === 500) {
-        setError('Error al generar código QR');
-      } else {
-        setError(err.response?.data?.message || 'Error desconocido');
+
+      console.log('[QR] GET /qr-code | cliente:', clienteId);
+
+      const response = await sessionAPI.getQRCode(clienteId);
+
+      // Defensa absoluta contra respuestas inválidas
+      const qr = response?.data?.qr;
+
+      if (
+        typeof qr !== 'string' ||
+        !qr.startsWith('data:image/')
+      ) {
+        console.error('[QR] QR inválido o respuesta incorrecta:', response.data);
+        setError('El servidor no devolvió un código QR válido');
+        return;
       }
-      
-      setShowQRModal(false);
+
+      setQrString(qr);
+      setShowQRModal(true);
+
+      console.log('[QR] QR válido recibido y renderizado');
+
+    } catch (err) {
+      console.error('[QR] Error obteniendo QR:', err);
+
+      if (err.response?.status === 404) {
+        setError('El código QR aún no está disponible. Reintentá en unos segundos.');
+      } else if (err.response?.status === 409) {
+        setError('La sesión no requiere QR en este momento');
+      } else {
+        setError(err.response?.data?.message || 'Error al obtener el QR');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   /**
-   * Renderiza el contenido según session.status (NO estados inventados)
-   * React ÚNICAMENTE con switch sobre SessionStatus del contrato
+   * ==========================
+   * Render por estado
+   * ==========================
    */
   const renderContent = () => {
     if (!session && !error) {
@@ -127,195 +158,67 @@ const SessionManager = () => {
       );
     }
 
-    if (!session) {
-      return <p className="text-gray-600 text-center py-8">No hay información de sesión</p>;
-    }
-
-    // Switch EXPLÍCITO sobre session.status (del contrato)
     switch (session.status) {
       case SessionStatus.CONNECTED:
         return (
           <div className="space-y-4">
-            <div className="flex items-center space-x-4">
-              <div className={`w-16 h-16 ${getStatusColor(session.status)} rounded-full flex items-center justify-center text-white text-3xl`}>
-                ✓
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-800">{getStatusText(session.status)}</p>
-                <p className="text-sm text-gray-600 mt-1">WhatsApp está conectado y listo para enviar mensajes</p>
-                {session.phone_number && (
-                  <p className="text-sm text-gray-500 mt-1">Teléfono: {session.phone_number}</p>
-                )}
-              </div>
-            </div>
-            <div className="flex space-x-2">
-              <Button variant="secondary" onClick={loadSession}>
-                Actualizar
-              </Button>
-            </div>
+            <p className="text-2xl font-bold text-green-600">WhatsApp conectado</p>
+            {session.phone_number && (
+              <p className="text-sm text-gray-500">
+                Teléfono: {session.phone_number}
+              </p>
+            )}
           </div>
         );
 
       case SessionStatus.QR_REQUIRED:
         return (
           <div className="space-y-4">
-            <div className="flex items-center space-x-4">
-              <div className={`w-16 h-16 ${getStatusColor(session.status)} rounded-full flex items-center justify-center text-white text-3xl`}>
-                📱
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-800">{getStatusText(session.status)}</p>
-                <p className="text-sm text-gray-600 mt-1">
-                  {session.qr_status === QRStatus.EXPIRED 
-                    ? 'El código QR ha expirado. Genera uno nuevo.'
-                    : 'Necesitas escanear un código QR para conectar'}
-                </p>
-              </div>
-            </div>
-            <div className="flex space-x-2">
-              <Button variant="primary" onClick={handleRequestQR} disabled={loading}>
-                {session.qr_status === QRStatus.EXPIRED ? 'Generar Nuevo QR' : 'Generar QR'}
-              </Button>
-              <Button variant="secondary" onClick={loadSession}>
-                Actualizar
-              </Button>
-            </div>
+            <p className="text-xl font-bold">Escaneá el QR para conectar</p>
+            <Button onClick={handleShowQR} disabled={loading}>
+              Mostrar QR
+            </Button>
           </div>
         );
 
       case SessionStatus.CONNECTING:
-        return (
-          <div className="space-y-4">
-            <div className="flex items-center space-x-4">
-              <div className={`w-16 h-16 ${getStatusColor(session.status)} rounded-full flex items-center justify-center text-white text-3xl`}>
-                ⏳
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-800">{getStatusText(session.status)}</p>
-                <p className="text-sm text-gray-600 mt-1">Estableciendo conexión con WhatsApp...</p>
-                {session.qr_status === QRStatus.USED && (
-                  <p className="text-sm text-green-600 mt-1">✓ Código QR escaneado exitosamente</p>
-                )}
-              </div>
-            </div>
-            <LoadingSpinner text="Conectando..." />
-          </div>
-        );
+        return <LoadingSpinner text="Conectando..." />;
 
       case SessionStatus.DISCONNECTED:
         return (
-          <div className="space-y-4">
-            <div className="flex items-center space-x-4">
-              <div className={`w-16 h-16 ${getStatusColor(session.status)} rounded-full flex items-center justify-center text-white text-3xl`}>
-                ×
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-800">{getStatusText(session.status)}</p>
-                <p className="text-sm text-gray-600 mt-1">La sesión de WhatsApp está desconectada</p>
-              </div>
-            </div>
-            <div className="flex space-x-2">
-              <Button variant="primary" onClick={handleRequestQR} disabled={loading}>
-                Conectar WhatsApp
-              </Button>
-              <Button variant="secondary" onClick={loadSession}>
-                Actualizar
-              </Button>
-            </div>
-          </div>
-        );
-
-      case SessionStatus.ERROR:
-        return (
-          <div className="space-y-4">
-            <div className="flex items-center space-x-4">
-              <div className={`w-16 h-16 ${getStatusColor(session.status)} rounded-full flex items-center justify-center text-white text-3xl`}>
-                ⚠️
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-800">{getStatusText(session.status)}</p>
-                <p className="text-sm text-red-600 mt-1">
-                  {session.last_error_message || 'Error desconocido en la sesión'}
-                </p>
-                {session.last_error_code && (
-                  <p className="text-xs text-gray-500 mt-1">Código: {session.last_error_code}</p>
-                )}
-              </div>
-            </div>
-            <div className="flex space-x-2">
-              <Button variant="warning" onClick={handleRequestQR} disabled={loading}>
-                Reconectar
-              </Button>
-              <Button variant="secondary" onClick={loadSession}>
-                Actualizar
-              </Button>
-            </div>
-          </div>
-        );
-
-      case SessionStatus.INIT:
-        return (
-          <div className="space-y-4">
-            <div className="flex items-center space-x-4">
-              <div className={`w-16 h-16 ${getStatusColor(session.status)} rounded-full flex items-center justify-center text-white text-3xl`}>
-                ⚙️
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-800">{getStatusText(session.status)}</p>
-                <p className="text-sm text-gray-600 mt-1">La sesión se está inicializando...</p>
-              </div>
-            </div>
-            <LoadingSpinner text="Inicializando..." />
-          </div>
+          <Button onClick={handleShowQR} disabled={loading}>
+            Conectar WhatsApp
+          </Button>
         );
 
       default:
-        return (
-          <div className="text-center py-8">
-            <p className="text-gray-600">Estado desconocido: {session.status}</p>
-            <Button variant="secondary" onClick={loadSession} className="mt-4">
-              Actualizar
-            </Button>
-          </div>
-        );
+        return <p>Error en la sesión</p>;
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Título */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-800">Gestión de Sesión WhatsApp</h1>
-        <p className="text-gray-600 mt-1">Administra tu conexión con WhatsApp</p>
-      </div>
-
-      {/* Estado de la Sesión */}
       <Card title="Estado de la Conexión" icon="💬">
         {renderContent()}
       </Card>
 
-      {/* Modal de QR Code */}
       <Modal
         isOpen={showQRModal}
         onClose={() => {
           setShowQRModal(false);
           setQrString(null);
         }}
-        title="Escanea el código QR"
+        title="Escaneá el código QR"
       >
         <div className="text-center">
           {qrString ? (
-            <div>
-              <img src={qrString} alt="QR Code" className="mx-auto mb-4 max-w-sm" />
-              <p className="text-sm text-gray-600">
-                Escanea este código QR con WhatsApp desde tu teléfono
-              </p>
-              <p className="text-xs text-gray-500 mt-2">
-                El código expira en unos segundos. Se actualizará automáticamente.
-              </p>
-            </div>
+            <img
+              src={qrString}
+              alt="QR WhatsApp"
+              className="mx-auto max-w-sm"
+            />
           ) : (
-            <LoadingSpinner text="Generando código QR..." />
+            <LoadingSpinner text="Cargando QR..." />
           )}
         </div>
       </Modal>

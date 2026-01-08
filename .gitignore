@@ -33,3 +33,7 @@ logs/
 *.pem
 ssl/
 infra/nginx/ssl/
+
+# Carpetas auxiliares / trabajo local
+AUXILIAR/
+

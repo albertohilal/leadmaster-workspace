@@ -367,6 +367,89 @@ class SessionManagerClient {
       );
     }
   }
+
+  /**
+   * Obtiene el código QR ya generado (read-only)
+   * @param {number} clienteId - ID del cliente
+   * @returns {Promise<Object>} { qr: "data:image/png;base64,..." }
+   * @throws {SessionManagerValidationError} Si clienteId inválido (400)
+   * @throws {SessionNotFoundError} Si QR no disponible (404)
+   * @throws {SessionAlreadyConnectedError} Si sesión no requiere QR (409)
+   * @throws {SessionManagerTimeoutError} Si se excede el timeout
+   * @throws {SessionManagerUnreachableError} Si no se puede conectar
+   */
+  async getQRCode(clienteId) {
+    try {
+      const response = await this._fetchWithTimeout('/qr-code', {
+        method: 'GET',
+        headers: {
+          'X-Cliente-Id': String(clienteId)
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log(`[SessionManager] ✅ QR obtenido para cliente ${clienteId}`);
+        return result;
+      }
+
+      // Manejo de errores HTTP
+      const errorText = await response.text().catch(() => 'Sin detalles');
+      let errorData = {};
+      try {
+        errorData = JSON.parse(errorText);
+      } catch (e) {
+        // Ignorar si no es JSON
+      }
+
+      // 400 Bad Request - Validación
+      if (response.status === 400) {
+        console.error(`[SessionManager] ❌ Validación fallida: ${errorText}`);
+        throw new SessionManagerValidationError(
+          errorData.message || `Validación fallida: ${errorText}`
+        );
+      }
+
+      // 404 Not Found - QR no disponible
+      if (response.status === 404) {
+        console.error(`[SessionManager] ❌ QR no disponible para cliente ${clienteId}`);
+        throw new SessionNotFoundError(
+          errorData.message || `QR no disponible para cliente ${clienteId}`
+        );
+      }
+
+      // 409 Conflict - Sesión no requiere QR
+      if (response.status === 409) {
+        console.error(`[SessionManager] ❌ Sesión no requiere QR: ${errorText}`);
+        throw new SessionAlreadyConnectedError(
+          errorData.message || `La sesión no requiere QR en este momento`
+        );
+      }
+
+      // Otros códigos de error
+      console.error(`[SessionManager] ❌ Error inesperado (${response.status}): ${errorText}`);
+      throw new SessionManagerUnreachableError(
+        `Session Manager respondió con status ${response.status}: ${errorText}`
+      );
+
+    } catch (error) {
+      // Re-lanzar errores tipados
+      if (error instanceof SessionManagerValidationError ||
+          error instanceof SessionNotFoundError ||
+          error instanceof SessionAlreadyConnectedError ||
+          error instanceof SessionManagerTimeoutError ||
+          error instanceof SessionManagerUnreachableError) {
+        throw error;
+      }
+
+      // Otros errores no esperados
+      console.error(`[SessionManager] ❌ Error inesperado al obtener QR:`, error);
+      throw new SessionManagerUnreachableError(
+        `Error inesperado al obtener QR: ${error.message}`,
+        error
+      );
+    }
+  }
 }
 
 // Exportar instancia singleton

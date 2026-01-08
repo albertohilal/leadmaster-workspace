@@ -191,10 +191,21 @@ async function sendMessage(clienteId, to, message) {
   return makeRequest('POST', '/send', clienteId, body);
 }
 
+/**
+ * GET /qr-code
+ * Obtiene el código QR ya generado (read-only)
+ * @param {number} clienteId - Cliente ID
+ * @returns {Promise<Object>} { qr: "data:image/png;base64,..." }
+ */
+async function getQRCode(clienteId) {
+  return makeRequest('GET', '/qr-code', clienteId);
+}
+
 module.exports = {
   getHealth,
   getStatus,
   getQR,
   sendMessage,
+  getQRCode,
   SESSION_MANAGER_BASE_URL
 };

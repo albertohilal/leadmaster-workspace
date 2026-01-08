@@ -50,8 +50,8 @@ const prospectosController = {
         HAVING 1=1
       `;
       
-      const params = [clienteId];
-      if (campania_id) params.unshift(campania_id);
+      // ✅ CORRECCIÓN: Construir params en orden correcto desde el inicio
+      const params = campania_id ? [campania_id, clienteId] : [clienteId];
 
       // Filtro por números válidos de WhatsApp
       if (soloWappValido === 'true') {
