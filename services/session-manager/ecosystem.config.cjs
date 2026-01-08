@@ -1,27 +1,25 @@
 /**
- * PM2 Ecosystem Config - Session Manager (Standalone)
- * 
- * ⚠️ USAR SOLO SI Session Manager ES UN SERVICIO INDEPENDIENTE
+ * PM2 Ecosystem Config - Session Manager (Multi-Client Singleton)
  * 
  * ARQUITECTURA:
  * - Puerto: 3001
- * - 1 instancia por cliente
+ * - 1 instancia ÚNICA para TODOS los clientes
+ * - Clientes se inicializan bajo demanda vía header X-Cliente-Id
  * - NO cluster mode
- * - Gestión manual de múltiples clientes
  */
 
 module.exports = {
   apps: [
     {
-      name: 'session-manager-51',
+      name: 'session-manager',
       script: 'index.js',
       cwd: '/root/leadmaster-workspace/services/session-manager',
       
       // === Variables de entorno ===
       env: {
         NODE_ENV: 'production',
-        CLIENTE_ID: 51,
         PORT: 3001
+        // NO CLIENTE_ID - se pasa por header en cada request
       },
       
       // === Proceso único (NO cluster) ===
@@ -30,17 +28,17 @@ module.exports = {
       
       // === Auto-reinicio limitado ===
       autorestart: true,
-      max_restarts: 5, // Menos reinicios que central-hub
+      max_restarts: 5,
       min_uptime: '30s', // WhatsApp tarda más en iniciar
-      max_memory_restart: '800M',
+      max_memory_restart: '1024M', // Más memoria para múltiples clientes
       
       // === Backoff para evitar loops ===
       exp_backoff_restart_delay: 500,
       restart_delay: 10000, // 10 segundos entre reinicios
       
-      // === Logs separados ===
-      error_file: '/root/.pm2/logs/session-manager-51-error.log',
-      out_file: '/root/.pm2/logs/session-manager-51-out.log',
+      // === Logs centralizados ===
+      error_file: '/root/.pm2/logs/session-manager-error.log',
+      out_file: '/root/.pm2/logs/session-manager-out.log',
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       merge_logs: true,
       
@@ -48,7 +46,7 @@ module.exports = {
       watch: false,
       
       // === Shutdown extendido (WhatsApp logout) ===
-      kill_timeout: 20000, // 20 segundos para logout de WhatsApp
+      kill_timeout: 30000, // 30 segundos para logout de todos los clientes
       wait_ready: true,
       listen_timeout: 15000,
       
@@ -56,7 +54,7 @@ module.exports = {
       stop_exit_codes: [0],
       
       // === Node.js options ===
-      node_args: '--max-old-space-size=1024 --experimental-modules'
+      node_args: '--max-old-space-size=1536 --experimental-modules'
     }
   ]
 };
