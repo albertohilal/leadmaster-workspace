@@ -26,7 +26,24 @@ const Header = () => {
 
     try {
       const response = await sessionAPI.getSession(clienteId);
-      setConnectionStatus(response.data.session.status);
+      
+      // Backend retorna FLAT response: { state, connected, needs_qr }
+      // NO hay data.session - acceder directamente a data.state
+      const whatsappState = response?.data?.state;
+      
+      // Mapear estados del backend a constantes del frontend
+      let mappedStatus = SessionStatus.ERROR;
+      if (whatsappState === 'CONNECTED') {
+        mappedStatus = SessionStatus.CONNECTED;
+      } else if (whatsappState === 'QR_REQUIRED') {
+        mappedStatus = SessionStatus.QR_REQUIRED;
+      } else if (whatsappState === 'CONNECTING' || whatsappState === 'INITIALIZING' || whatsappState === 'RECONNECTING') {
+        mappedStatus = SessionStatus.CONNECTING;
+      } else if (whatsappState === 'DISCONNECTED') {
+        mappedStatus = SessionStatus.DISCONNECTED;
+      }
+      
+      setConnectionStatus(mappedStatus);
     } catch (error) {
       // Silenciar errores 404 - puede que el servicio de WhatsApp no esté disponible
       if (error.response?.status === 404) {
