@@ -1,39 +1,98 @@
-# Node
+########################################
+# Node / Package managers (global)
+########################################
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
 
-# Env
+########################################
+# Environment variables
+########################################
 .env
 .env.*
 !.env.example
 
-# WhatsApp sessions
+########################################
+# Logs / outputs
+########################################
+logs/
+*.log
+*.out
+
+########################################
+# Build artifacts
+########################################
+dist/
+build/
+
+########################################
+# Test / coverage
+########################################
+coverage/
+test-results/
+playwright-report/
+playwright/.cache/
+
+########################################
+# OS / Editor
+########################################
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+########################################
+# Workspace / tooling
+########################################
+*.code-workspace
+
+########################################
+# WhatsApp / Automation sessions (global)
+########################################
 .wwebjs_auth/
 .wwebjs_cache/
 sessions/
+.session/
+tokens/
+venom-session/
+whatsapp-session/
 
-# Logs
-logs/
-*.log
-
-# OS / Editor
-.DS_Store
-.vscode/
-.idea/
-
-# Backups
+########################################
+# Backups / archives
+########################################
 *.tar.gz
+*.tgz
 *.backup
 
-# SSL Certificates (never commit)
-*.crt
-*.key
-*.pem
+########################################
+# Database dumps
+########################################
+*.sql
+*.sqlite
+*.db
+*.bak
+
+########################################
+# SSL / Secrets (never commit)
+########################################
 ssl/
 infra/nginx/ssl/
+**/secrets/
+**/*.crt
+**/*.key
+**/*.pem
 
+########################################
+# Documentación local / diagnósticos
+########################################
+DIAGNOSTICO_*.md
+INFORME_*.md
+
+########################################
 # Carpetas auxiliares / trabajo local
+########################################
 AUXILIAR/
-
