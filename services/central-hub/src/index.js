@@ -87,6 +87,11 @@ const PORT = process.env.PORT || 3012;
 const server = app.listen(PORT, () => {
   console.log(`🚀 Leadmaster Central Hub corriendo en http://localhost:${PORT}`);
   
+  // Inicializar scheduler de programaciones
+  const programacionScheduler = require('./modules/sender/services/programacionScheduler');
+  programacionScheduler.start();
+  console.log('⏰ Scheduler de programaciones iniciado (cada 60 segundos)');
+  
   // Signal to PM2 that app is ready (wait_ready: true)
   if (process.send) {
     process.send('ready');
