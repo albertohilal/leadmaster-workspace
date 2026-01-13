@@ -7,6 +7,12 @@ const path = require('path');
 const app = express();
 
 /* =========================
+   Configuración Express
+========================= */
+// Desactivar ETag para evitar respuestas 304 en endpoints de estado dinámico
+app.set('etag', false);
+
+/* =========================
    Middleware base
 ========================= */
 app.use(express.json());
@@ -31,14 +37,14 @@ app.get('/health', (req, res) => {
  * Proxy público de WhatsApp (QR + status)
  *
  * RUTAS FINALES EXPUESTAS:
- *   GET /whatsapp/:clienteId/status
- *   GET /whatsapp/:clienteId/qr
+ *   GET /api/whatsapp/:clienteId/status (en el navegador)
+ *   GET /whatsapp/:clienteId/status (en Express, después de NGINX)
  *
  * IMPORTANTE:
- * - NGINX recibe /api/whatsapp/* y elimina /api antes de enviar a Express
- * - Por eso Express debe montar en /whatsapp (sin /api)
+ * - Frontend llama a /api/whatsapp/* 
+ * - NGINX recibe /api/whatsapp/* y elimina /api → envía /whatsapp/* a Express
+ * - Express monta bajo /whatsapp (sin /api) para hacer match
  * - Debe montarse ANTES del static
- * - Es la ÚNICA vía pública hacia WhatsApp
  */
 const whatsappQrProxy = require('./routes/whatsappQrProxy');
 app.use('/whatsapp', whatsappQrProxy);
