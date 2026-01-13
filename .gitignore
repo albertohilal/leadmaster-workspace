@@ -96,3 +96,8 @@ INFORME_*.md
 # Carpetas auxiliares / trabajo local
 ########################################
 AUXILIAR/
+
+# Root accidental node files
+/package.json
+/package-lock.json
+
