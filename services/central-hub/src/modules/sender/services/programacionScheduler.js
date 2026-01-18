@@ -23,9 +23,33 @@ const {
 
 const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const PROCESS_INTERVAL_MS = 60 * 1000; // cada minuto
+
+// Configuración por defecto del delay anti-spam entre mensajes
+// Mantiene compatibilidad hacia atrás: comportamiento idéntico al original (2-6s)
+const DEFAULT_SEND_DELAY_MIN = 2000; // 2 segundos
+const DEFAULT_SEND_DELAY_MAX = 6000; // 6 segundos
+
 let processing = false;
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Calcula un delay aleatorio para envíos de WhatsApp
+ * 
+ * Propósito: Evitar detección de spam por WhatsApp al enviar múltiples mensajes
+ * Comportamiento por defecto: mantiene el rango original (2-6 segundos)
+ * 
+ * @param {Object} config - Configuración opcional del delay
+ * @param {number} config.minDelay - Delay mínimo en ms (default: 2000)
+ * @param {number} config.maxDelay - Delay máximo en ms (default: 6000)
+ * @returns {number} Delay aleatorio en milisegundos
+ */
+function getRandomSendDelay(config = {}) {
+  const minDelay = config.minDelay || DEFAULT_SEND_DELAY_MIN;
+  const maxDelay = config.maxDelay || DEFAULT_SEND_DELAY_MAX;
+  const range = maxDelay - minDelay;
+  return minDelay + Math.floor(Math.random() * range);
+}
 
 function dentroDeVentana(programacion, ahora) {
   const diaActual = DAY_KEYS[ahora.getDay()];
@@ -233,8 +257,9 @@ async function procesarProgramacion(programacion) {
       await marcarEnviado(envio.id);
       enviadosAhora += 1;
       
-      // Delay aleatorio entre mensajes (anti-spam)
-      const randomDelay = 2000 + Math.floor(Math.random() * 4000);
+      // Delay aleatorio anti-spam (parametrizado, compatible hacia atrás)
+      const randomDelay = getRandomSendDelay();
+      console.log(`[Scheduler] Delay aplicado antes del próximo envío: ${randomDelay}ms`);
       await delay(randomDelay);
       
     } catch (err) {
