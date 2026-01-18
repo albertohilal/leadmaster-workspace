@@ -143,44 +143,66 @@ router.post('/disconnect', async (req, res) => {
 router.post('/send', async (req, res) => {
   const { cliente_id, to, message } = req.body;
 
-  if (!cliente_id) {
+  // Validación 1: cliente_id presente y numérico
+  if (!cliente_id || typeof cliente_id !== 'number') {
+    console.log('[API] SEND blocked → INVALID_CLIENTE_ID');
     return res.status(400).json({
       success: false,
-      error: 'cliente_id is required'
+      code: 'INVALID_CLIENTE_ID',
+      message: 'cliente_id must be a number'
     });
   }
 
-  if (!to) {
+  // Validación 2: to presente y string
+  if (!to || typeof to !== 'string') {
+    console.log(`[API] SEND blocked → INVALID_TO (cliente_id=${cliente_id})`);
     return res.status(400).json({
       success: false,
-      error: 'to is required'
+      code: 'INVALID_TO',
+      message: 'to must be a string'
     });
   }
 
-  if (!message) {
+  // Validación 3: message presente y string no vacío
+  if (!message || typeof message !== 'string' || message.trim().length === 0) {
+    console.log(`[API] SEND blocked → INVALID_MESSAGE (cliente_id=${cliente_id})`);
     return res.status(400).json({
       success: false,
-      error: 'message is required'
+      code: 'INVALID_MESSAGE',
+      message: 'message must be a non-empty string'
     });
   }
 
+  // Validación 4: Estado de sesión estrictamente READY
   const state = session.getState();
   if (state.status !== 'READY') {
-    return res.status(409).json({
+    console.log(`[API] SEND blocked → SESSION_NOT_READY (cliente_id=${cliente_id})`);
+    return res.status(503).json({
       success: false,
-      error: 'Session not ready',
+      code: 'SESSION_NOT_READY',
+      message: 'WhatsApp session not ready',
       currentStatus: state.status
     });
   }
 
+  // Normalización: to a formato WhatsApp
+  const chatId = to.endsWith('@c.us') ? to : `${to}@c.us`;
+
+  // Envío
   try {
-    const result = await session.sendMessage(cliente_id, to, message);
-    res.status(200).json(result);
+    await session.sendMessage(cliente_id, chatId, message);
+    console.log(`[API] Message sent → cliente_id=${cliente_id} to=${chatId}`);
+    
+    res.status(200).json({
+      success: true,
+      message: 'Message sent'
+    });
   } catch (error) {
-    console.error('[API]', 'Error sending message:', error);
+    console.error(`[API] SEND failed → cliente_id=${cliente_id}`, error.message);
     res.status(500).json({
       success: false,
-      error: error.message
+      code: 'SEND_FAILED',
+      message: 'Failed to send WhatsApp message'
     });
   }
 });
