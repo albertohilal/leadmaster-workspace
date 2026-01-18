@@ -15,8 +15,6 @@
 const connection = require('../db/connection');
 const { 
   sessionManagerClient, 
-  SessionStatus,
-  SessionNotFoundError,
   SessionManagerTimeoutError,
   SessionManagerUnreachableError
 } = require('../../../integrations/sessionManager');
@@ -29,9 +27,38 @@ const PROCESS_INTERVAL_MS = 60 * 1000; // cada minuto
 const DEFAULT_SEND_DELAY_MIN = 2000; // 2 segundos
 const DEFAULT_SEND_DELAY_MAX = 6000; // 6 segundos
 
+// Identificador único de esta instancia del scheduler (para locking concurrente)
+const INSTANCE_ID = `${require('os').hostname()}_${process.pid}_${Date.now()}`;
+
 let processing = false;
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Adquiere lock atómico sobre una programación
+ * @param {number} programacionId 
+ * @param {string} instanceId
+ * @returns {Promise<boolean>} true si se adquirió el lock
+ */
+async function acquireProgramacionLock(programacionId, instanceId) {
+  const [result] = await connection.query(
+    'UPDATE ll_programaciones SET locked_at = NOW(), locked_by = ? WHERE id = ? AND locked_at IS NULL',
+    [instanceId, programacionId]
+  );
+  return result.affectedRows === 1;
+}
+
+/**
+ * Libera lock de una programación
+ * @param {number} programacionId
+ * @param {string} instanceId
+ */
+async function releaseProgramacionLock(programacionId, instanceId) {
+  await connection.query(
+    'UPDATE ll_programaciones SET locked_at = NULL, locked_by = NULL WHERE id = ? AND locked_by = ?',
+    [programacionId, instanceId]
+  );
+}
 
 /**
  * Calcula un delay aleatorio para envíos de WhatsApp
@@ -125,31 +152,21 @@ async function marcarEnviado(id) {
 }
 
 /**
- * Procesa una programación según el contrato Session Manager
+ * Procesa una programación según el contrato Session Manager single-admin
  * 
- * Flujo obligatorio:
- * 1. Consultar estado de sesión (NO inferir)
- * 2. Verificar status === 'connected'
- * 3. Si NO conectado, abortar con log descriptivo
- * 4. Si conectado, proceder con envíos
+ * Flujo simplificado:
+ * 1. Validar que Session Manager esté READY (estado global único)
+ * 2. Si NO conectado, abortar con log descriptivo
+ * 3. Si conectado, proceder con envíos usando sesión 'admin' implícita
  */
 async function procesarProgramacion(programacion) {
   const clienteId = Number(programacion.cliente_id);
-  const instanceId = `sender_${clienteId}`;
 
-  // PASO 1: Consultar estado de sesión (OBLIGATORIO según contrato)
-  let session;
+  // PASO 1: Consultar estado global de Session Manager (arquitectura single-admin)
+  let status;
   try {
-    session = await sessionManagerClient.getSession(instanceId);
+    status = await sessionManagerClient.getStatus();
   } catch (error) {
-    if (error instanceof SessionNotFoundError) {
-      console.warn(
-        `⏸️  Programación ${programacion.id} ABORTADA: ` +
-        `Sesión no existe para cliente ${clienteId}. Debe inicializarse primero.`
-      );
-      return;
-    }
-    
     if (error instanceof SessionManagerTimeoutError) {
       console.error(
         `⏸️  Programación ${programacion.id} ABORTADA: ` +
@@ -166,37 +183,36 @@ async function procesarProgramacion(programacion) {
       return;
     }
     
-    // Error inesperado
     console.error(
       `⏸️  Programación ${programacion.id} ABORTADA: ` +
-      `Error consultando sesión: ${error.message}`
+      `Error consultando Session Manager: ${error.message}`
     );
     return;
   }
 
-  // PASO 2: Verificar estado según contrato (NO NEGOCIABLE)
-  if (session.status !== SessionStatus.CONNECTED) {
+  // PASO 2: Verificar que la sesión global esté conectada
+  if (status.status !== 'READY' || !status.connected) {
     const statusMessages = {
-      [SessionStatus.INIT]: 'Sesión inicializando. Requiere escaneo de QR.',
-      [SessionStatus.QR_REQUIRED]: 'QR no escaneado. Debe escanearse para conectar.',
-      [SessionStatus.CONNECTING]: 'Sesión conectando. Esperar autenticación.',
-      [SessionStatus.DISCONNECTED]: 'WhatsApp desconectado. Requiere reconexión.',
-      [SessionStatus.ERROR]: `Error en sesión: ${session.last_error_message || 'desconocido'}`
+      'INIT': 'Sesión inicializando. Requiere escaneo de QR.',
+      'QR_REQUIRED': 'QR no escaneado. Debe escanearse para conectar.',
+      'CONNECTING': 'Sesión conectando. Esperar autenticación.',
+      'DISCONNECTED': 'WhatsApp desconectado. Requiere reconexión.',
+      'ERROR': `Error en sesión: ${status.lastError || 'desconocido'}`
     };
     
-    const reason = statusMessages[session.status] || `Estado: ${session.status}`;
+    const reason = statusMessages[status.status] || `Estado: ${status.status}`;
     
     console.warn(
       `⏸️  Programación ${programacion.id} ABORTADA: ` +
-      `Cliente ${clienteId} no conectado. ${reason}`
+      `WhatsApp no conectado (cliente ${clienteId}). ${reason}`
     );
     return;
   }
 
   // PASO 3: Sesión conectada - proceder con envíos
   console.log(
-    `✅ Programación ${programacion.id}: Sesión verificada (cliente ${clienteId}, ` +
-    `teléfono: ${session.phone_number || 'N/A'})`
+    `✅ Programación ${programacion.id}: WhatsApp verificado (cliente ${clienteId}, ` +
+    `teléfono: ${status.account?.number || 'N/A'})`
   );
 
   // PASO 4: Validar estado de la campaña (OBLIGATORIO)
@@ -267,12 +283,13 @@ async function procesarProgramacion(programacion) {
       }
       
       // PASO 2: Enviar mensaje (solo si el UPDATE fue exitoso)
+      // Session Manager single-admin: usa sesión 'admin' implícita
       const destinatario = envio.telefono_wapp.includes('@c.us')
         ? envio.telefono_wapp
         : `${envio.telefono_wapp}@c.us`;
 
       await sessionManagerClient.sendMessage({
-        clienteId,
+        cliente_id: clienteId,
         to: destinatario,
         message: envio.mensaje_final
       });
@@ -317,9 +334,32 @@ async function tick() {
   try {
     const ahora = new Date();
     const programaciones = await obtenerProgramacionesActivas();
+    
     for (const prog of programaciones) {
       if (!dentroDeVentana(prog, ahora)) continue;
-      await procesarProgramacion(prog);
+      
+      // Intentar adquirir lock atómico
+      const lockAdquirido = await acquireProgramacionLock(prog.id, INSTANCE_ID);
+      
+      if (!lockAdquirido) {
+        console.log(
+          `⏭️  [Scheduler] Programación ${prog.id}: Lock ocupado, ` +
+          `omitiendo (procesándose por otra instancia)`
+        );
+        continue;
+      }
+      
+      console.log(
+        `🔒 [Scheduler] Lock adquirido para programación ${prog.id} ` +
+        `por ${INSTANCE_ID.split('_')[0]}`
+      );
+      
+      try {
+        await procesarProgramacion(prog);
+      } finally {
+        await releaseProgramacionLock(prog.id, INSTANCE_ID);
+        console.log(`🔓 [Scheduler] Lock liberado para programación ${prog.id}`);
+      }
     }
   } catch (err) {
     console.error('❌ Error en scheduler de programaciones:', err);
