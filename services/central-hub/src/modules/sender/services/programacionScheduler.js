@@ -104,11 +104,24 @@ async function obtenerPendientes(campaniaId, limite) {
   return rows;
 }
 
+/**
+ * Marca un envío como procesado usando UPDATE optimista
+ * 
+ * UPDATE optimista: Solo actualiza si estado = 'pendiente'
+ * Previene duplicados en casos de:
+ * - Reinicio del scheduler durante envío
+ * - Múltiples procesos scheduler corriendo
+ * - Retry de mensajes fallidos
+ * 
+ * @param {number} id - ID del registro en ll_envios_whatsapp
+ * @returns {Promise<boolean>} true si se marcó exitosamente, false si ya fue procesado
+ */
 async function marcarEnviado(id) {
-  await connection.query(
-    'UPDATE ll_envios_whatsapp SET estado = "enviado", fecha_envio = NOW() WHERE id = ?',
+  const [result] = await connection.query(
+    'UPDATE ll_envios_whatsapp SET estado = "enviado", fecha_envio = NOW() WHERE id = ? AND estado = "pendiente"',
     [id]
   );
+  return result.affectedRows === 1;
 }
 
 /**
@@ -242,22 +255,31 @@ async function procesarProgramacion(programacion) {
     }
     
     try {
-      // Formatear número para WhatsApp
+      // PASO 1: Marcar como procesado ANTES de enviar (UPDATE optimista)
+      // Esto previene envíos duplicados en caso de crash/restart
+      const marcado = await marcarEnviado(envio.id);
+      
+      if (!marcado) {
+        console.log(
+          `⏭️  Envío ${envio.id}: Ya procesado por otro proceso/ciclo. Omitiendo.`
+        );
+        continue;
+      }
+      
+      // PASO 2: Enviar mensaje (solo si el UPDATE fue exitoso)
       const destinatario = envio.telefono_wapp.includes('@c.us')
         ? envio.telefono_wapp
         : `${envio.telefono_wapp}@c.us`;
 
-      // Enviar usando el cliente del contrato
       await sessionManagerClient.sendMessage({
         clienteId,
         to: destinatario,
         message: envio.mensaje_final
       });
       
-      await marcarEnviado(envio.id);
       enviadosAhora += 1;
       
-      // Delay aleatorio anti-spam (parametrizado, compatible hacia atrás)
+      // PASO 3: Delay anti-spam (parametrizado, compatible hacia atrás)
       const randomDelay = getRandomSendDelay();
       console.log(`[Scheduler] Delay aplicado antes del próximo envío: ${randomDelay}ms`);
       await delay(randomDelay);
