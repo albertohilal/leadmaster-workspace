@@ -37,6 +37,15 @@ async function initializeClient() {
 
   client = new Client({
     authStrategy: new LocalAuth({ clientId: 'admin' }),
+    
+    // Disable WhatsApp Web version cache to avoid internal bugs
+    // Related to markedUnread / sendSeen synchronization issues
+    // Using 'none' prevents whatsapp-web.js from caching WhatsApp Web version
+    // which can cause state sync errors when sending messages to new chats
+    webVersionCache: {
+      type: 'none'
+    },
+    
     puppeteer: {
       headless: true,
       args: [
@@ -73,6 +82,34 @@ async function initializeClient() {
 
   client.on('ready', async () => {
     console.log('[SessionManager]', 'Client is ready');
+    
+    // Inject runtime patch to neutralize sendSeen bug
+    try {
+      await client.pupPage.evaluate(() => {
+        try {
+          // Override Store.SendSeen.sendSeen if exists
+          if (window.Store && window.Store.SendSeen && window.Store.SendSeen.sendSeen) {
+            window.Store.SendSeen.sendSeen = async () => {
+              // noop - do nothing
+            };
+            console.log('[Patch] Store.SendSeen.sendSeen neutralized');
+          }
+          
+          // Override WWebJS.sendSeen if exists
+          if (window.WWebJS && window.WWebJS.sendSeen) {
+            window.WWebJS.sendSeen = async () => {
+              // noop - do nothing
+            };
+            console.log('[Patch] WWebJS.sendSeen neutralized');
+          }
+        } catch (err) {
+          console.warn('[Patch] Error applying sendSeen patch:', err.message);
+        }
+      });
+      console.log('[SessionManager] sendSeen patch applied successfully');
+    } catch (patchError) {
+      console.warn('[SessionManager] Could not apply sendSeen patch:', patchError.message);
+    }
     
     try {
       const info = client.info;
