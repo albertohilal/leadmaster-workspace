@@ -112,9 +112,20 @@ export function initialize(id) {
       dataPath: authPath
     }),
     puppeteer: {
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+      executablePath: '/usr/bin/google-chrome',
+      headless: 'old',
+      args: [
+        '--headless=old',
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--single-process',
+        '--no-zygote',
+        '--disable-features=site-per-process'
+      ]
     }
+
   });
   
   clientData.client = clientInstance;

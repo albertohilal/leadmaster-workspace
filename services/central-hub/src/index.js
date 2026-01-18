@@ -34,26 +34,44 @@ app.get('/health', (req, res) => {
 ========================= */
 
 /**
- * Proxy público de WhatsApp (QR + status)
- *
- * RUTAS FINALES EXPUESTAS:
- *   GET /api/whatsapp/:clienteId/status (en el navegador)
- *   GET /whatsapp/:clienteId/status (en Express, después de NGINX)
- *
- * IMPORTANTE:
- * - Frontend llama a /api/whatsapp/* 
- * - NGINX recibe /api/whatsapp/* y elimina /api → envía /whatsapp/* a Express
- * - Express monta bajo /whatsapp (sin /api) para hacer match
- * - Debe montarse ANTES del static
+ * ARQUITECTURA DE RUTAS:
+ * 
+ * Frontend → /api/* → Nginx → Express /api/*
+ * 
+ * Nginx pasa /api/* tal cual a Express (NO elimina el prefijo)
+ * Express monta todas las rutas API bajo /api
  */
+
+// Health check (sin autenticación)
+app.use('/api/health', require('./routes/health.routes'));
+
+// Stats (con autenticación)
+app.use('/api/stats', require('./routes/stats.routes'));
+
+// Autenticación
+app.use('/api/auth', require('./modules/auth/routes/authRoutes'));
+
+// Admin WhatsApp (single-admin)
+app.use('/api/admin/whatsapp', require('./routes/adminWhatsapp.routes'));
+
+// WhatsApp (proxy a session-manager)
 const whatsappQrProxy = require('./routes/whatsappQrProxy');
-app.use('/whatsapp', whatsappQrProxy);
+app.use('/api/whatsapp', whatsappQrProxy);
+
+// Session Manager (uso interno del Hub)
+app.use('/api/session-manager', require('./modules/session-manager/routes'));
+
+// Envíos
+app.use('/api/sender', require('./modules/sender/routes'));
+
+// Listener
+app.use('/api/listener', require('./modules/listener/routes/listenerRoutes'));
+
+// Sync Contacts
+app.use('/api/sync-contacts', require('./modules/sync-contacts/routes'));
 
 /**
- * QR Code Read-Only Proxy
- * 
- * RUTA FINAL EXPUESTA:
- *   GET /qr-code
+ * QR Code Read-Only Proxy (sin /api por compatibilidad)
  * 
  * Header requerido: X-Cliente-Id
  * Solo lectura del QR ya generado por session-manager
@@ -62,23 +80,15 @@ const qrCodeProxy = require('./routes/qrCodeProxy');
 app.use('/qr-code', qrCodeProxy);
 
 /* =========================
-   Rutas de módulos internos
+   404 Handler para API (antes del frontend)
 ========================= */
-
-// Autenticación
-app.use('/auth', require('./modules/auth/routes/authRoutes'));
-
-// Session Manager (uso interno del Hub)
-app.use('/session-manager', require('./modules/session-manager/routes'));
-
-// Envíos
-app.use('/sender', require('./modules/sender/routes'));
-
-// Listener
-app.use('/listener', require('./modules/listener/routes/listenerRoutes'));
-
-// Sync Contacts
-app.use('/sync-contacts', require('./modules/sync-contacts/routes'));
+app.use('/api/*', (req, res) => {
+  res.status(404).json({
+    error: 'Not Found',
+    message: `Endpoint ${req.originalUrl} no existe`,
+    timestamp: new Date().toISOString()
+  });
+});
 
 /* =========================
    Frontend (SIEMPRE AL FINAL)

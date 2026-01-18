@@ -1,0 +1,250 @@
+/* WhatsappSession.css */
+
+.whatsapp-session-container {
+  max-width: 600px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.whatsapp-session-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.whatsapp-session-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #333;
+}
+
+.status-badge {
+  display: flex;
+  align-items: center;
+}
+
+.badge {
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.badge-success {
+  background: #25D366;
+  color: white;
+}
+
+.badge-warning {
+  background: #FFA500;
+  color: white;
+}
+
+.badge-danger {
+  background: #DC3545;
+  color: white;
+}
+
+.badge-secondary {
+  background: #6C757D;
+  color: white;
+}
+
+.whatsapp-session-body {
+  text-align: center;
+}
+
+.status-message {
+  margin-bottom: 2rem;
+}
+
+.status-message p {
+  font-size: 1.125rem;
+  color: #333;
+  margin-bottom: 0.5rem;
+}
+
+.status-message small {
+  font-size: 0.875rem;
+  color: #6c757d;
+}
+
+.loading-spinner {
+  margin: 3rem 0;
+}
+
+.spinner-border {
+  width: 3rem;
+  height: 3rem;
+  border: 0.25rem solid #f3f3f3;
+  border-top: 0.25rem solid #25D366;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.qr-code-container {
+  margin: 2rem 0;
+  padding: 2rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.qr-code-image {
+  max-width: 300px;
+  width: 100%;
+  height: auto;
+  margin-bottom: 1.5rem;
+  border: 4px solid #25D366;
+  border-radius: 8px;
+  background: white;
+  padding: 1rem;
+}
+
+.qr-instructions {
+  color: #666;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  text-align: left;
+  max-width: 300px;
+  margin: 0 auto;
+}
+
+.connected-status {
+  margin: 3rem 0;
+}
+
+.success-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 1rem;
+  background: #25D366;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  color: white;
+}
+
+.connected-status p {
+  color: #333;
+  font-size: 1.125rem;
+}
+
+.alert {
+  padding: 1rem;
+  margin: 1.5rem 0;
+  border-radius: 4px;
+  text-align: left;
+}
+
+.alert-danger {
+  background: #f8d7da;
+  border: 1px solid #f5c6cb;
+  color: #721c24;
+}
+
+.whatsapp-session-actions {
+  margin-top: 2rem;
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.btn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: #25D366;
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #1fb856;
+}
+
+.btn-outline-secondary {
+  background: transparent;
+  border: 2px solid #6C757D;
+  color: #6C757D;
+}
+
+.btn-outline-secondary:hover:not(:disabled) {
+  background: #6C757D;
+  color: white;
+}
+
+.debug-info {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 2px solid #f0f0f0;
+  text-align: left;
+}
+
+.debug-info details {
+  cursor: pointer;
+}
+
+.debug-info summary {
+  font-weight: 600;
+  color: #666;
+  margin-bottom: 1rem;
+}
+
+.debug-info pre {
+  background: #f8f9fa;
+  padding: 1rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  overflow-x: auto;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .whatsapp-session-container {
+    margin: 1rem;
+    padding: 1.5rem;
+  }
+
+  .whatsapp-session-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .qr-code-image {
+    max-width: 250px;
+  }
+
+  .whatsapp-session-actions {
+    flex-direction: column;
+  }
+
+  .btn {
+    width: 100%;
+  }
+}

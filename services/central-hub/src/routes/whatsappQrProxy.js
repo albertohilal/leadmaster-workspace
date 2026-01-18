@@ -1,49 +1,115 @@
 /**
- * WhatsApp QR Proxy Routes
+ * WhatsApp QR Proxy Routes (Single-Admin)
  *
- * Router fino del Central Hub.
- * Delegación pura hacia los controllers del módulo whatsappQrAuthorization.
- *
+ * Proxy simplificado para compatibilidad con frontend legacy.
+ * Todos los clientes comparten la misma sesión WhatsApp global.
+ * 
  * ❗ Regla:
- * - NO lógica de negocio
- * - NO estado local
- * - NO acceso directo a DB
+ * - NO lógica de sesión por cliente
+ * - NO headers X-Cliente-Id
+ * - NO autorizaciones multi-tenant
  */
 
 const express = require('express');
 const router = express.Router();
-
+const sessionManagerClient = require('../integrations/sessionManager/sessionManagerClient');
 const {
-  getWhatsappSessionStatus,
-  getWhatsappQr
-} = require('../modules/whatsappQrAuthorization/controllers/whatsappQrController');
+  SessionManagerSessionNotReadyError,
+  SessionManagerTimeoutError,
+  SessionManagerUnreachableError,
+  SessionManagerValidationError
+} = require('../integrations/sessionManager/errors');
 
 /**
  * GET /:clienteId/status
- * Devuelve el estado actual de la sesión WhatsApp del cliente
- * 
- * Ruta final: /whatsapp/:clienteId/status (montado en index.js con app.use('/whatsapp'))
- * NGINX recibe: /api/whatsapp/51/status
- * NGINX elimina /api → /whatsapp/51/status
- * Express recibe: /whatsapp/51/status y hace match con /whatsapp/:clienteId/status
+ * Devuelve el estado global de WhatsApp (ignora clienteId)
  */
-router.get('/:clienteId/status', getWhatsappSessionStatus);
+router.get('/:clienteId/status', async (req, res) => {
+  try {
+    const status = await sessionManagerClient.getStatus();
+    
+    res.json({
+      ok: true,
+      cliente_id: parseInt(req.params.clienteId, 10),
+      status: status.status,
+      connected: status.connected,
+      needs_qr: status.status === 'QR_REQUIRED',
+      can_send_messages: status.status === 'READY',
+      account: status.account
+    });
+  } catch (error) {
+    console.error('[WhatsAppProxy] Error obteniendo estado:', error);
+
+    if (error instanceof SessionManagerTimeoutError) {
+      return res.status(504).json({
+        ok: false,
+        error: 'SESSION_MANAGER_TIMEOUT',
+        message: 'Timeout al conectar con Session Manager'
+      });
+    }
+
+    if (error instanceof SessionManagerUnreachableError) {
+      return res.status(503).json({
+        ok: false,
+        error: 'WHATSAPP_UNAVAILABLE',
+        message: 'Session Manager no disponible'
+      });
+    }
+
+    res.status(500).json({
+      ok: false,
+      error: 'INTERNAL_ERROR',
+      message: error.message
+    });
+  }
+});
 
 /**
  * GET /:clienteId/qr
- * Solicita / devuelve el QR de WhatsApp para el cliente
- * 
- * @deprecated Este endpoint será eliminado en la próxima versión
- * Use GET /qr-code (con header X-Cliente-Id) en su lugar
- * 
- * Motivo de deprecación:
- * - Valida autorizaciones artificiales que no deberían existir
- * - Frontend no debe "solicitar generación" de QR
- * - QR es generado automáticamente por whatsapp-web.js
- * - Nuevo contrato: GET /qr-code (read-only)
- * 
- * Ruta final: /whatsapp/:clienteId/qr (montado en index.js con app.use('/whatsapp'))
+ * Devuelve el QR global si está disponible (ignora clienteId)
  */
-router.get('/:clienteId/qr', getWhatsappQr);
+router.get('/:clienteId/qr', async (req, res) => {
+  try {
+    const qrData = await sessionManagerClient.getQrCode();
+    
+    res.json({
+      ok: true,
+      qr_code_base64: qrData.qrDataUrl
+    });
+  } catch (error) {
+    console.error('[WhatsAppProxy] Error obteniendo QR:', error);
+
+    if (error instanceof SessionManagerValidationError) {
+      return res.status(404).json({
+        ok: false,
+        error: 'QR_NOT_AVAILABLE',
+        message: error.message
+      });
+    }
+
+    if (error instanceof SessionManagerTimeoutError) {
+      return res.status(504).json({
+        ok: false,
+        error: 'SESSION_MANAGER_TIMEOUT',
+        message: 'Timeout al conectar con Session Manager'
+      });
+    }
+
+    if (error instanceof SessionManagerUnreachableError) {
+      return res.status(503).json({
+        ok: false,
+        error: 'WHATSAPP_UNAVAILABLE',
+        message: 'Session Manager no disponible'
+      });
+    }
+
+    res.status(404).json({
+      ok: false,
+      error: 'QR_NOT_AVAILABLE',
+      message: 'QR no disponible en este momento'
+    });
+  }
+});
 
 module.exports = router;
+

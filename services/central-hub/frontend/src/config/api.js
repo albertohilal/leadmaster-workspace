@@ -1,8 +1,7 @@
 // Configuración centralizada de la URL base de la API
+
 const normalizeProtocol = (url) => {
-  if (typeof window === 'undefined') {
-    return url;
-  }
+  if (typeof window === 'undefined') return url;
 
   // Evita contenido mixto forzando https si la app se sirve en https
   if (window.location.protocol === 'https:' && url.startsWith('http://')) {
@@ -14,6 +13,7 @@ const normalizeProtocol = (url) => {
 
 const getBaseUrl = () => {
   const envUrl = import.meta.env.VITE_API_URL?.trim();
+
   if (envUrl) {
     return normalizeProtocol(envUrl);
   }
@@ -27,7 +27,19 @@ const getBaseUrl = () => {
 
 export const API_BASE_URL = getBaseUrl();
 
+/**
+ * Construye URLs de API evitando duplicar `/api`
+ * Uso esperado:
+ *   buildApiUrl('/auth/login')
+ *   buildApiUrl('/whatsapp/51/status')
+ */
 export const buildApiUrl = (path = '') => {
-  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  let cleanPath = path.startsWith('/') ? path : `/${path}`;
+
+  // 🔒 Blindaje: evita /api/api/*
+  if (cleanPath.startsWith('/api/')) {
+    cleanPath = cleanPath.replace(/^\/api/, '');
+  }
+
   return `${API_BASE_URL}${cleanPath}`;
 };
