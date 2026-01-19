@@ -1,23 +1,24 @@
 /**
- * PM2 Ecosystem Config - LeadMaster Central Hub
+ * PM2 Ecosystem Config - Session Manager
  * 
  * ARQUITECTURA:
- * - Central Hub: Puerto 3012 (1 instancia única)
- * - Session Manager: Proceso independiente (puerto 3001)
+ * - Session Manager: Puerto 3001 (1 instancia única)
+ * - Maneja la sesión WhatsApp single-admin
  * 
- * IMPORTANTE:
- * - NO usar cluster mode (WhatsApp sessions son stateful)
- * - NO usar watch (reinicia sesiones WhatsApp)
- * - Este archivo controla SOLO central-hub
- * - Session Manager tiene su propio ecosystem.config.js
+ * CRÍTICO:
+ * - NO reiniciar este proceso innecesariamente (pérdida de sesión WhatsApp)
+ * - NO usar cluster mode (WhatsApp es stateful)
+ * - NO usar watch
+ * - Este proceso debe permanecer levantado indefinidamente
+ * - Central Hub es independiente y puede reiniciarse sin afectar WhatsApp
  */
 
 module.exports = {
   apps: [
     {
-      name: 'leadmaster-central-hub',
-      script: 'src/index.js',
-      cwd: '/root/leadmaster-workspace/services/central-hub',
+      name: 'session-manager',
+      script: 'index.js',
+      cwd: '/root/leadmaster-workspace/services/session-manager',
       
       // === Proceso único (NO cluster) ===
       instances: 1,
@@ -26,8 +27,7 @@ module.exports = {
       // === Variables de entorno ===
       env: {
         NODE_ENV: 'production',
-        PORT: 3012,
-        AUTO_CAMPAIGNS_ENABLED: 'true'
+        PORT: 3001
       },
       
       // === Auto-reinicio inteligente ===
@@ -38,17 +38,17 @@ module.exports = {
       
       // === Manejo de errores ===
       exp_backoff_restart_delay: 100,
-      restart_delay: 4000,
+      restart_delay: 5000,
       
       // === Logs ===
-      error_file: '/root/.pm2/logs/leadmaster-central-hub-error.log',
-      out_file: '/root/.pm2/logs/leadmaster-central-hub-out.log',
+      error_file: '/root/.pm2/logs/session-manager-error.log',
+      out_file: '/root/.pm2/logs/session-manager-out.log',
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       merge_logs: true,
       
       // === Opciones de monitoreo ===
       watch: false,
-      ignore_watch: ['node_modules', 'tokens', '.git', 'frontend/dist'],
+      ignore_watch: ['node_modules', '.wwebjs_auth', '.git'],
       
       // === Graceful shutdown ===
       kill_timeout: 10000,
