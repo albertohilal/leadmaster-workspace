@@ -27,7 +27,13 @@ module.exports = {
       // === Variables de entorno ===
       env: {
         NODE_ENV: 'production',
-        PORT: 3001
+        PORT: 3001,
+        LOGIN_MODE: 'server' // Modo headless para producción (con tokens existentes)
+      },
+      env_local: {
+        NODE_ENV: 'development',
+        PORT: 3001,
+        LOGIN_MODE: 'local' // Modo con Chrome visible para primera autenticación
       },
       
       // === Auto-reinicio inteligente ===
