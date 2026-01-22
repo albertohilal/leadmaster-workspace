@@ -30,6 +30,17 @@ const INSTANCE_ID = `${require('os').hostname()}_${process.pid}_${Date.now()}`;
 
 let processing = false;
 
+/* =========================
+   DIAGNÓSTICO OPERATIVO
+   ========================= */
+// Activar con: export DIAG_SENDER=1 en entorno PM2
+const DIAG_ENABLED = process.env.DIAG_SENDER === '1';
+
+function diagLog(prefix, data) {
+  if (!DIAG_ENABLED) return;
+  console.log(`[DIAG_SENDER] ${prefix}`, JSON.stringify(data, null, 2));
+}
+
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /* =========================
@@ -136,6 +147,14 @@ async function marcarEnviado(id) {
 async function procesarProgramacion(programacion) {
   const clienteId = Number(programacion.cliente_id);
 
+  console.log(`🚀 PROCESANDO Programación ${programacion.id} - Campaña ${programacion.campania_id} - Cupo diario: ${programacion.cupo_diario}`);
+
+  diagLog('🚀 INICIO', {
+    programacion_id: programacion.id,
+    campania_id: programacion.campania_id,
+    cupo_diario: programacion.cupo_diario
+  });
+
   let status;
   try {
     status = await sessionManagerClient.getStatus();
@@ -152,8 +171,13 @@ async function procesarProgramacion(programacion) {
     return;
   }
 
-  if (status.status !== 'READY' || !status.connected) {
-    console.warn(`⏸️ Programación ${programacion.id}: WhatsApp no READY (${status.status})`);
+  if (status.state !== 'READY' || !status.connected) {
+    console.warn(`⏸️ Programación ${programacion.id}: WhatsApp no READY (${status.state})`);
+    diagLog('⛔ ABORT: WhatsApp no READY', {
+      programacion_id: programacion.id,
+      state: status.state,
+      connected: status.connected
+    });
     return;
   }
 
@@ -164,36 +188,114 @@ async function procesarProgramacion(programacion) {
 
   if (!campaniaRows.length || campaniaRows[0].estado !== 'en_progreso') {
     console.warn(`⛔ Programación ${programacion.id}: Campaña no habilitada`);
+    diagLog('⛔ ABORT: Campaña no habilitada', {
+      programacion_id: programacion.id,
+      campania_id: programacion.campania_id,
+      estado: campaniaRows[0]?.estado || 'NO_EXISTE'
+    });
     return;
   }
 
   const enviados = await enviadosHoy(programacion.id);
   const disponible = programacion.cupo_diario - enviados;
-  if (disponible <= 0) return;
+  
+  diagLog('📊 CUPO DIARIO', {
+    programacion_id: programacion.id,
+    cupo_total: programacion.cupo_diario,
+    enviados_hoy: enviados,
+    disponible: disponible
+  });
+  
+  if (disponible <= 0) {
+    diagLog('⛔ ABORT: Cupo agotado', {
+      programacion_id: programacion.id,
+      cupo_diario: programacion.cupo_diario,
+      enviados_hoy: enviados
+    });
+    return;
+  }
 
   const pendientes = await obtenerPendientes(programacion.campania_id, disponible);
-  if (!pendientes.length) return;
+  
+  diagLog('📥 PENDIENTES OBTENIDOS', {
+    programacion_id: programacion.id,
+    campania_id: programacion.campania_id,
+    limite_solicitado: disponible,
+    pendientes_encontrados: pendientes.length,
+    ids: pendientes.map(p => p.id)
+  });
+  
+  if (!pendientes.length) {
+    diagLog('⛔ ABORT: Sin pendientes', {
+      programacion_id: programacion.id,
+      campania_id: programacion.campania_id
+    });
+    return;
+  }
 
+  let enviadosExitosos = 0;
+  let enviadosFallidos = 0;
+  
   for (const envio of pendientes) {
     const marcado = await marcarEnviado(envio.id);
-    if (!marcado) continue;
+    
+    if (!marcado) {
+      diagLog('⚠️ NO MARCADO', {
+        envio_id: envio.id,
+        razon: 'UPDATE afectó 0 filas (posible race condition)'
+      });
+      continue;
+    }
 
     const destinatario = envio.telefono_wapp.includes('@c.us')
       ? envio.telefono_wapp
       : `${envio.telefono_wapp}@c.us`;
 
     try {
+      diagLog('📤 ENVIANDO', {
+        envio_id: envio.id,
+        telefono: destinatario,
+        cliente_id: clienteId
+      });
+      
       await sessionManagerClient.sendMessage({
         cliente_id: clienteId,
         to: destinatario,
         message: envio.mensaje_final
       });
+      
+      enviadosExitosos++;
+      
+      diagLog('✅ ENVIADO', {
+        envio_id: envio.id,
+        telefono: destinatario
+      });
 
       await delay(getRandomSendDelay());
     } catch (err) {
+      enviadosFallidos++;
       console.error(`❌ Envío ${envio.id} fallido: ${err.message}`);
+      diagLog('❌ ERROR sendMessage', {
+        envio_id: envio.id,
+        error: err.message,
+        telefono: destinatario
+      });
       break;
     }
+  }
+  
+  diagLog('🏁 RESUMEN FINAL', {
+    programacion_id: programacion.id,
+    campania_id: programacion.campania_id,
+    pendientes_procesados: pendientes.length,
+    enviados_exitosos: enviadosExitosos,
+    enviados_fallidos: enviadosFallidos
+  });
+
+  // Incrementar contador diario
+  if (enviadosExitosos > 0) {
+    await incrementarConteo(programacion.id, enviadosExitosos);
+    console.log(`📊 Contador diario actualizado: +${enviadosExitosos} envíos para programación ${programacion.id}`);
   }
 }
 
@@ -213,16 +315,29 @@ async function tick() {
     const ahora = new Date();
     const programaciones = await obtenerProgramacionesActivas();
 
-    for (const prog of programaciones) {
-      if (!dentroDeVentana(prog, ahora)) continue;
+    console.log(`🕒 Scheduler tick: ${ahora.toISOString()} (hora local: ${ahora.toTimeString().slice(0, 8)})`);
+    console.log(`📋 Programaciones encontradas: ${programaciones.map(p => p.id).join(', ')}`);
 
+    for (const prog of programaciones) {
+      const enVentana = dentroDeVentana(prog, ahora);
+      console.log(`🔍 Programación ${prog.id}: dentroDeVentana=${enVentana} (dias_semana: ${prog.dias_semana}, hora_inicio: ${prog.hora_inicio}, hora_fin: ${prog.hora_fin})`);
+      if (!enVentana) continue;
+
+      console.log(`🔒 Intentando adquirir lock para programación ${prog.id}...`);
       const lock = await acquireProgramacionLock(prog.id, INSTANCE_ID);
+      console.log(`🔒 Lock para programación ${prog.id}: ${lock ? 'ADQUIRIDO' : 'FALLÓ'}`);
       if (!lock) continue;
 
       try {
+        console.log(`➡️  Llamando procesarProgramacion(${prog.id})...`);
         await procesarProgramacion(prog);
+        console.log(`✅ procesarProgramacion(${prog.id}) completado`);
+      } catch (error) {
+        console.error(`❌ Error en procesarProgramacion(${prog.id}):`, error);
       } finally {
+        console.log(`🔓 Liberando lock para programación ${prog.id}...`);
         await releaseProgramacionLock(prog.id, INSTANCE_ID);
+        console.log(`🔓 Lock liberado para programación ${prog.id}`);
       }
     }
   } catch (err) {
@@ -240,4 +355,16 @@ function start() {
   tick();
 }
 
-module.exports = { start };
+/* =========================
+   EXPORTS
+   ========================= */
+module.exports = {
+  start,
+  // Funciones internas expuestas SOLO para testing de integración
+  // NO usar en código de producción
+  __test__: {
+    procesarProgramacion,
+    marcarEnviado,
+    obtenerPendientes
+  }
+};
