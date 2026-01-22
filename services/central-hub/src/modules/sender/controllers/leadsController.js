@@ -56,7 +56,7 @@ exports.getFilteredLeads = async (req, res) => {
     if (origen === 'originales') {
       whereConditions.push('llxbx_societe.client = 1');
     } else if (origen === 'scraping') {
-      whereConditions.push('llxbx_societe.client = 0');
+      whereConditions.push('(llxbx_societe.client = 0 AND llxbx_societe.fournisseur = 0)');
     }
     
     // Filtro por búsqueda

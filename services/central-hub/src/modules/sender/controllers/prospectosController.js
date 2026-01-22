@@ -80,7 +80,7 @@ const prospectosController = {
       if (tipoCliente === 'clientes') {
         sql += ` AND s.client = 1`;
       } else if (tipoCliente === 'prospectos') {
-        sql += ` AND (s.client = 0 OR s.client IS NULL)`;
+        sql += ` AND ((s.client = 0 OR s.client IS NULL) AND s.fournisseur = 0)`;
       } else if (tipoCliente === 'ambos') {
         sql += ` AND (s.client = 1 OR s.fournisseur = 1)`;
       }

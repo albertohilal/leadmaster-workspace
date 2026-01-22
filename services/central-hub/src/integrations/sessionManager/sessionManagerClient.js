@@ -29,7 +29,7 @@ class SessionManagerClient {
       'Content-Type': 'application/json'
     };
     this.connectionTimeout = 5000;
-    this.sendTimeout = 30000;
+    this.sendTimeout = 60000; // 60s - Session Manager tarda 20-40s por mensaje
   }
 
   /**
@@ -122,7 +122,7 @@ class SessionManagerClient {
 
       if (response.ok) {
         const status = await response.json();
-        console.log(`[SessionManager] Estado: ${status.status}`);
+        console.log(`[SessionManager] Estado: ${status.state || status.status}`);
         return status;
       }
 
