@@ -21,9 +21,10 @@ const {
 const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const PROCESS_INTERVAL_MS = 60 * 1000; // cada minuto
 
-// Delay anti-spam (compatibilidad hacia atrás)
-const DEFAULT_SEND_DELAY_MIN = 2000;
-const DEFAULT_SEND_DELAY_MAX = 6000;
+// Delay anti-spam entre mensajes (30-90 segundos)
+// Valores conservadores para evitar detección de automatización
+const DEFAULT_SEND_DELAY_MIN = 30000;  // 30 segundos
+const DEFAULT_SEND_DELAY_MAX = 90000;  // 90 segundos (1.5 minutos)
 
 // Identificador único de instancia (locking)
 const INSTANCE_ID = `${require('os').hostname()}_${process.pid}_${Date.now()}`;
@@ -123,7 +124,7 @@ async function incrementarConteo(programacionId, cantidad) {
 
 async function obtenerPendientes(campaniaId, limite) {
   const [rows] = await connection.query(
-    `SELECT id, telefono_wapp, mensaje_final
+    `SELECT id, telefono_wapp, mensaje_final, nombre_destino
      FROM ll_envios_whatsapp
      WHERE campania_id = ? AND estado = 'pendiente'
      ORDER BY id ASC
@@ -251,17 +252,24 @@ async function procesarProgramacion(programacion) {
       ? envio.telefono_wapp
       : `${envio.telefono_wapp}@c.us`;
 
+    // Personalizar mensaje reemplazando placeholders
+    const mensajePersonalizado = envio.mensaje_final
+      .replace(/\{nombre\}/gi, envio.nombre_destino || '')
+      .replace(/\{nombre_destino\}/gi, envio.nombre_destino || '')
+      .trim();
+
     try {
       diagLog('📤 ENVIANDO', {
         envio_id: envio.id,
         telefono: destinatario,
-        cliente_id: clienteId
+        cliente_id: clienteId,
+        nombre: envio.nombre_destino
       });
       
       await sessionManagerClient.sendMessage({
         cliente_id: clienteId,
         to: destinatario,
-        message: envio.mensaje_final
+        message: mensajePersonalizado
       });
       
       enviadosExitosos++;
