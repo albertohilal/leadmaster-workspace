@@ -146,21 +146,23 @@ const GestorDestinatarios = ({ campaniaId, onDestinatariosUpdated }) => {
                   </button>
                   <button
                     onClick={async () => {
-                      if (confirm('¿Marcar como enviado manualmente?')) {
-                        try {
-                          const response = await destinatariosService.marcarEnviadoManual(destinatario.id);
-                          if (response.success) {
-                            alert('Destinatario marcado como enviado');
-                            onDestinatariosUpdated();
-                          }
-                        } catch (error) {
-                          alert('Error al marcar como enviado: ' + (error.response?.data?.message || error.message));
+                      setLoadingButtons((prev) => ({ ...prev, [destinatario.id]: true }));
+                      try {
+                        const response = await destinatariosService.marcarEnviadoManual(destinatario.id);
+                        if (response.success) {
+                          alert('Destinatario marcado como enviado');
+                          onDestinatariosUpdated();
                         }
+                      } catch (error) {
+                        alert('Error al marcar como enviado: ' + (error.response?.data?.message || error.message));
+                      } finally {
+                        setLoadingButtons((prev) => ({ ...prev, [destinatario.id]: false }));
                       }
                     }}
-                    className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                    disabled={loadingButtons[destinatario.id]}
+                    className={`px-3 py-2 rounded-lg text-white ${loadingButtons[destinatario.id] ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'}`}
                   >
-                    Marcar como enviado
+                    {loadingButtons[destinatario.id] ? 'Procesando...' : 'Marcar como enviado'}
                   </button>
                 </div>
               )}
@@ -170,6 +172,8 @@ const GestorDestinatarios = ({ campaniaId, onDestinatariosUpdated }) => {
       </tbody>
     </table>
   );
+
+  const [loadingButtons, setLoadingButtons] = useState({});
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
