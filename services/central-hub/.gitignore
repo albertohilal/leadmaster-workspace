@@ -82,10 +82,10 @@ AUXILIAR/
 *.tgz
 
 ########################################
-# Docs de diagnóstico (locales)
+# Docs de diagnóstico (solo ignorar en raíz)
 ########################################
-DIAGNOSTICO_*.md
-INFORME_*.md
+/DIAGNOSTICO_*.md
+/INFORME_*.md
 
 ########################################
 # Seguridad: nunca versionar secretos
