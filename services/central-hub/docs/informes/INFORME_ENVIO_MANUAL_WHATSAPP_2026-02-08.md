@@ -1,5 +1,6 @@
 # 📋 INFORME - Implementación de Envío Manual vía WhatsApp Web
 **Fecha:** 8 de febrero de 2026  
+**Versión:** 1.1 (Ajustes técnicos)  
 **Sistema:** LeadMaster - Central Hub  
 **Módulo:** Sender - Gestión de Campañas  
 **Tipo:** Funcionalidad de Envío Manual Controlado
@@ -52,7 +53,8 @@ Implementar una acción manual en la vista existente de "Destinatarios de una Ca
 - telefono_wapp (varchar)  ← Teléfono del destinatario
 - nombre_destino (varchar) ← Nombre del destinatario
 - mensaje_final (text)     ← Mensaje personalizado (puede ser NULL)
-- estado (varchar/enum)    ← ACTUAL: 'pendiente', 'enviado', 'fallido'
+- estado (varchar/enum)    ← ESTADOS EN ESTA FASE: 'pendiente', 'sent_manual', 'fallido'
+                           ← ESTADO RESERVADO (fase futura): 'enviado'
 - fecha_envio (datetime)
 - fecha_creacion (timestamp)
 - cliente_id (int)
@@ -84,19 +86,24 @@ Implementar una acción manual en la vista existente de "Destinatarios de una Ca
 
 **Modificación en tabla `ll_envios_whatsapp`:**
 
-**Estados propuestos:**
-- `'pendiente'` → Destinatario agregado, aún no se abrió el enlace
-- `'sent_manual'` → Enviado manualmente por el operador vía WhatsApp Web
-- `'fallido'` → (mantener para casos excepcionales)
+**Estados de esta fase (MANUAL):**
+- `'pendiente'` → Destinatario agregado, aún no procesado manualmente
+- `'sent_manual'` → **Confirmación humana de envío manual** (NO valida entrega/lectura)
+- `'fallido'` → Casos excepcionales (número inválido, error de operador)
+
+**Estado RESERVADO para fase futura:**
+- `'enviado'` → Reservado para envío vía API oficial de WhatsApp (fase futura)
 
 **Script SQL (opcional si usa ENUM):**
 ```sql
+-- El ENUM mantiene 'enviado' para compatibilidad futura,
+-- pero NO se usa en esta fase de envío manual
 ALTER TABLE ll_envios_whatsapp 
-MODIFY estado ENUM('pendiente', 'enviado', 'sent_manual', 'fallido') 
+MODIFY estado ENUM('pendiente', 'sent_manual', 'fallido', 'enviado') 
 DEFAULT 'pendiente';
 ```
 
-Si el campo es `VARCHAR`, no requiere cambios de esquema.
+**Nota importante:** Si el campo es `VARCHAR`, no requiere cambios de esquema. El valor `'enviado'` NO debe utilizarse en esta implementación.
 
 ---
 
@@ -292,7 +299,7 @@ const handleMarcarEnviado = async (destinatarioId) => {
       </td>
       <td className="border border-gray-300 px-4 py-2">
         <span className={`px-2 py-1 rounded-full text-xs ${
-          destinatario.estado === 'enviado' || destinatario.estado === 'sent_manual'
+          destinatario.estado === 'sent_manual'
             ? 'bg-green-100 text-green-800'
             : destinatario.estado === 'pendiente'
             ? 'bg-yellow-100 text-yellow-800'
@@ -370,12 +377,19 @@ const handleMarcarEnviado = async (destinatarioId) => {
 
 ### Estados con Badges
 
-| Estado | Color | Texto |
-|--------|-------|-------|
-| `pendiente` | Amarillo | `⏳ pendiente` |
-| `sent_manual` | Verde | `Enviado Manual` |
-| `enviado` | Verde | `enviado` |
-| `fallido` | Rojo | `fallido` |
+**Estados activos en esta fase:**
+
+| Estado | Color | Texto | Significado |
+|--------|-------|-------|-------------|
+| `pendiente` | Amarillo | `⏳ pendiente` | Aún no procesado manualmente |
+| `sent_manual` | Verde | `Enviado Manual` | **Confirmación humana de envío** (sin validación automática) |
+| `fallido` | Rojo | `fallido` | Error identificado por operador |
+
+**Estado reservado (NO usar en esta fase):**
+
+| Estado | Reserva |
+|--------|--------|
+| `enviado` | Reservado para integración futura con API oficial de WhatsApp |
 
 ### Botones
 
@@ -478,38 +492,56 @@ En la vista de destinatarios, los contadores se actualizan en tiempo real:
 ```javascript
 {
   total: 100,
-  enviados: 45,      // Incluye 'enviado' + 'sent_manual'
+  enviados: 45,      // SOLO 'sent_manual' (confirmaciones humanas)
   pendientes: 50,    // Solo 'pendiente'
   fallidos: 5        // 'fallido'
 }
 ```
 
-**Lógica de conteo:**
+**Lógica de conteo (CRÍTICO - solo envíos manuales):**
 ```javascript
+// En esta fase MANUAL, 'enviados' cuenta SOLO confirmaciones humanas
 enviados: destinatarios.filter(d => 
-  d.estado === 'enviado' || d.estado === 'sent_manual'
+  d.estado === 'sent_manual'
 ).length
 ```
+
+**Importante:** El contador "enviados" representa **confirmaciones del operador**, NO entregas verificadas por WhatsApp.
 
 ---
 
 ## ⚠️ LIMITACIONES CONOCIDAS
 
+### Decisiones Conscientes de Esta Fase
+
 1. **No hay confirmación automática de entrega**
    - El sistema NO verifica si el mensaje llegó realmente
+   - El estado `'sent_manual'` significa "operador confirmó el envío"
    - Depende 100% de la honestidad del operador
 
 2. **No hay integración con WhatsApp**
    - No se reciben webhooks de entrega/lectura
    - No se valida si el número está activo
+   - No hay seguimiento de respuestas
 
-3. **Posible doble envío manual**
-   - Si el operador abre WhatsApp pero no marca como enviado
-   - Otro operador podría abrir el mismo destinatario
+3. **No hay control de concurrencia**
+   - **Decisión consciente:** No se implementan locks, reservas ni bloqueos
+   - Abrir WhatsApp Web NO cambia el estado del destinatario
+   - Solo la acción "Marcar como enviado" persiste cambios
+   - Si dos operadores procesan el mismo destinatario simultáneamente:
+     * Ambos pueden abrir el enlace de WhatsApp Web
+     * Ambos pueden marcar como enviado (el segundo sobrescribe el timestamp)
+     * Se acepta este riesgo por simplicidad de fase manual
+   - **Mitigación sugerida a nivel organizacional:** Asignar campañas o rangos de destinatarios por operador
 
 4. **Dependencia de WhatsApp Web**
    - Si WhatsApp Web tiene problemas, el flujo falla
-   - Requiere sesión activa de WhatsApp en el navegador
+   - Requiere sesión activa de WhatsApp en el navegador del operador
+
+5. **Normalización de teléfonos**
+   - La limpieza de números es básica: solo elimina espacios, guiones y +
+   - La validación completa de formato E.164 ocurre en la carga de prospectos, no aquí
+   - Si un número mal formado pasa, WhatsApp Web mostrará error y el operador NO debe marcarlo como enviado
 
 ---
 
@@ -559,15 +591,25 @@ https://web.whatsapp.com/send?phone={numero}&text={mensaje}
 
 ### Formato de Teléfono Argentina
 
-**Formatos aceptados:**
+**Limpieza básica aplicada en esta funcionalidad:**
+
+```javascript
+// Limpieza simple: eliminar espacios, guiones y signo +
+const telefonoLimpio = destinatario.telefono.replace(/[\s\-\+]/g, '');
+```
+
+**Ejemplos de transformación:**
 - `+54 9 11 6877-4444` → Se limpia a: `5491168774444`
 - `549 11 68774444` → Se limpia a: `5491168774444`
 - `5491168774444` → Ya está limpio
 
-**Regex de limpieza:**
-```javascript
-telefono.replace(/[\s\-\+]/g, '')
-```
+**Importante:** 
+- Esta funcionalidad NO valida formato E.164 completo
+- La normalización y validación exhaustiva de teléfonos ocurre en:
+  * Carga de prospectos desde fuentes externas
+  * Agregado manual de destinatarios a campañas
+- Aquí solo se hace limpieza cosmética para construir la URL de WhatsApp Web
+- Si un número mal formado llega a este punto, WhatsApp Web mostrará error y el operador debe reportarlo
 
 ---
 
@@ -601,8 +643,7 @@ telefono.replace(/[\s\-\+]/g, '')
 
 | Fecha | Versión | Cambios |
 |-------|---------|---------|
-| 2026-02-08 | 1.0 | Documento inicial - Especificación completa |
-
+| 2026-02-08 | 1.0 | Documento inicial - Especificación completa || 2026-02-08 | 1.1 | **Ajustes técnicos críticos:** <br>- Eliminado uso de estado `'enviado'` (reservado para fase futura con API)<br>- Métricas ajustadas: contador "enviados" solo cuenta `'sent_manual'`<br>- Reforzada semántica: `'sent_manual'` = confirmación humana sin validación automática<br>- Documentada decisión sobre concurrencia (no usar locks)<br>- Aclarado alcance de normalización de teléfonos |
 ---
 
 **FIN DEL INFORME**

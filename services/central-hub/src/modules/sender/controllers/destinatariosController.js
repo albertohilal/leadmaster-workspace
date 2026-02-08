@@ -41,7 +41,7 @@ const destinatariosController = {
       // Calcular estadísticas
       const estadisticas = {
         total: destinatarios.length,
-        enviados: destinatarios.filter(d => d.estado === 'enviado').length,
+        enviados: destinatarios.filter(d => d.estado === 'sent_manual').length,
         pendientes: destinatarios.filter(d => d.estado === 'pendiente').length,
         fallidos: destinatarios.filter(d => d.estado === 'fallido').length
       };
@@ -71,7 +71,7 @@ const destinatariosController = {
       const [resumen] = await db.execute(`
         SELECT 
           COUNT(*) as total,
-          SUM(CASE WHEN env.estado = 'enviado' THEN 1 ELSE 0 END) as enviados,
+          SUM(CASE WHEN env.estado = 'sent_manual' THEN 1 ELSE 0 END) as enviados,
           SUM(CASE WHEN env.estado = 'pendiente' THEN 1 ELSE 0 END) as pendientes,
           SUM(CASE WHEN env.estado = 'fallido' THEN 1 ELSE 0 END) as fallidos
         FROM ll_envios_whatsapp env
@@ -222,7 +222,7 @@ const destinatariosController = {
 
         if (existente.length > 0) {
           // Solo permitir eliminar si no fue enviado
-          if (existente[0].estado === 'pendiente' || existente[0].estado === 'error') {
+          if (existente[0].estado === 'pendiente' || existente[0].estado === 'fallido') {
             await db.execute(
               'DELETE FROM ll_envios_whatsapp WHERE campania_id = ? AND telefono_wapp = ?',
               [campaniaId, telefono]
@@ -261,6 +261,56 @@ const destinatariosController = {
 
     } catch (error) {
       console.error('Error al quitar destinatarios:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor'
+      });
+    }
+  },
+
+  // Marcar destinatario como enviado manualmente
+  async marcarEnviadoManual(req, res) {
+    try {
+      const { destinatarioId } = req.params;
+      const clienteId = req.user.cliente_id;
+
+      // Verificar que el destinatario pertenece a una campaña del cliente
+      const [check] = await db.execute(`
+        SELECT env.id, env.estado, camp.cliente_id
+        FROM ll_envios_whatsapp env
+        LEFT JOIN ll_campanias_whatsapp camp ON env.campania_id = camp.id
+        WHERE env.id = ? AND camp.cliente_id = ?
+      `, [destinatarioId, clienteId]);
+
+      if (check.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Destinatario no encontrado o sin permisos'
+        });
+      }
+
+      // Solo permitir si está pendiente
+      if (check[0].estado !== 'pendiente') {
+        return res.status(400).json({
+          success: false,
+          message: `No se puede marcar como enviado. Estado actual: ${check[0].estado}`
+        });
+      }
+
+      // Actualizar estado
+      await db.execute(`
+        UPDATE ll_envios_whatsapp 
+        SET estado = 'sent_manual', fecha_envio = NOW()
+        WHERE id = ?
+      `, [destinatarioId]);
+
+      res.json({
+        success: true,
+        message: 'Destinatario marcado como enviado manualmente'
+      });
+
+    } catch (error) {
+      console.error('Error al marcar como enviado:', error);
       res.status(500).json({
         success: false,
         message: 'Error interno del servidor'
