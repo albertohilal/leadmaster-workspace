@@ -24,6 +24,8 @@ Análisis de problemas encontrados y sus resoluciones.
 
 - [DIAGNOSTICO_ENVIOS_PENDIENTES.md](docs/diagnosticos/DIAGNOSTICO_ENVIOS_PENDIENTES.md) - Análisis de envíos pendientes en el sistema
 - [DIAGNOSTICO_FRONTEND_CACHE_304.md](docs/diagnosticos/DIAGNOSTICO_FRONTEND_CACHE_304.md) - Problema de caché 304 en frontend
+- [DIAGNOSTICO_LOGIN_PRODUCCION.md](docs/diagnosticos/DIAGNOSTICO_LOGIN_PRODUCCION.md) - Diagnóstico de login en producción
+- [DIAGNOSTICO_OPERATIVO_SCHEDULER.md](docs/diagnosticos/DIAGNOSTICO_OPERATIVO_SCHEDULER.md) - Análisis operativo del scheduler
 - [DIAGNOSTICO_PM2_ENV_VARIABLES.md](docs/diagnosticos/DIAGNOSTICO_PM2_ENV_VARIABLES.md) - Variables de entorno en PM2
 - [DIAGNOSTICO_WHATSAPP_CONNECTION_ERROR.md](docs/diagnosticos/DIAGNOSTICO_WHATSAPP_CONNECTION_ERROR.md) - Errores de conexión WhatsApp
 
@@ -169,10 +171,12 @@ Ver carpetas:
 **Fecha:** 8 de febrero de 2026  
 **Cambios:**
 - ✅ Movidos 5 archivos INFORME_*.md a `docs/informes/`
-- ✅ Movidos 4 archivos DIAGNOSTICO_*.md a `docs/diagnosticos/`
+- ✅ Movidos 6 archivos DIAGNOSTICO_*.md a `docs/diagnosticos/`
 - ✅ Movidos 4 archivos de procedimientos a `docs/procedimientos/`
 - ✅ Movidos 2 archivos de planificación a `docs/planificacion/`
 - ✅ Creado este archivo de navegación
+- ✅ Organizado 1 informe en session-manager
+- ✅ Total: 18 archivos organizados y sincronizados con GitHub
 
 ---
 
