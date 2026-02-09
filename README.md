@@ -89,9 +89,15 @@ curl http://localhost:3012/auth/login
 
 ## Documentación
 
+### 🚀 Para Desarrolladores
+- **Metodología VPS-First:** [`DEV_WORKFLOW_VPS.md`](DEV_WORKFLOW_VPS.md) - **⭐ Lectura obligatoria**
+
+### 📊 Estado y Planificación
 - **Estado del proyecto:** [`docs/PROJECT-STATUS.md`](docs/PROJECT-STATUS.md)
 - **Phase 2 completada:** [`docs/PHASE-2-COMPLETED.md`](docs/PHASE-2-COMPLETED.md)
 - **Phase 3 planificada:** [`docs/PHASE-3-PLAN.md`](docs/PHASE-3-PLAN.md)
+
+### 🔒 Infraestructura y Seguridad
 - **Setup SSL:** [`docs/SSL-Cloudflare-Setup.md`](docs/SSL-Cloudflare-Setup.md)
 - **Checklist SSL:** [`docs/Checklist-Post-SSL.md`](docs/Checklist-Post-SSL.md)
 
@@ -126,6 +132,7 @@ curl http://localhost:3012/auth/login
 
 ## Notas de Desarrollo
 
+- **Metodología:** Desarrollo directo en VPS (ver [`DEV_WORKFLOW_VPS.md`](DEV_WORKFLOW_VPS.md))
 - Trabajo remoto vía VS Code + SSH
 - Uso intensivo de GitHub Copilot (Claude Sonnet 4.5)
 - Arquitectura modular para escalabilidad
@@ -136,4 +143,4 @@ curl http://localhost:3012/auth/login
 
 **Lead Developer:** Alberto Hilal  
 **Repository:** albertohilal/leadmaster-workspace  
-**Last Updated:** 2026-01-02
+**Last Updated:** 2026-02-09
