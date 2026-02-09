@@ -38,10 +38,12 @@ const SelectorProspectosPage = () => {
     cargarDatosIniciales();
   }, []);
 
-  // Cargar prospectos cuando cambien los filtros
+  // Cargar prospectos cuando cambien los filtros O la campaña seleccionada
   useEffect(() => {
-    cargarProspectos();
-  }, [filtros, busqueda, paginaActual]);
+    if (campaniaSeleccionada) {
+      cargarProspectos();
+    }
+  }, [campaniaSeleccionada, filtros, busqueda, paginaActual]);
 
   const cargarDatosIniciales = async () => {
     try {
@@ -87,6 +89,7 @@ const SelectorProspectosPage = () => {
       setLoading(true);
       const filtrosConBusqueda = {
         ...filtros,
+        campania_id: campaniaSeleccionada,
         busqueda,
         limite: registrosPorPagina,
         offset: (paginaActual - 1) * registrosPorPagina
@@ -94,11 +97,19 @@ const SelectorProspectosPage = () => {
       
       const response = await prospectosService.filtrarProspectos(filtrosConBusqueda);
       console.log('📊 Prospectos recibidos:', response.prospectos?.length);
-      if (response.prospectos?.length > 0) {
-        console.log('📊 Primer prospecto:', response.prospectos[0]);
-        console.log('📊 area_rubro del primero:', response.prospectos[0].area_rubro);
+      
+      // Normalizar telefono_wapp para todos los prospectos
+      const prospectosNormalizados = (response.prospectos || []).map(p => ({
+        ...p,
+        telefono_wapp: p.telefono_wapp || p.telefono || p.phone || null
+      }));
+      
+      if (prospectosNormalizados.length > 0) {
+        console.log('📊 Primer prospecto normalizado:', prospectosNormalizados[0]);
+        console.log('📊 telefono_wapp:', prospectosNormalizados[0].telefono_wapp);
       }
-      setProspectos(response.prospectos || []);
+      
+      setProspectos(prospectosNormalizados);
     } catch (error) {
       console.error('Error al cargar prospectos:', error);
     } finally {
@@ -142,10 +153,9 @@ const SelectorProspectosPage = () => {
     try {
       setLoading(true);
       const destinatarios = prospectosSeleccionados.map(p => ({
-        nombre: p.nom,
-        telefono: p.whatsapp || p.phone,
-        empresa: p.nom,
-        email: p.email
+        telefono_wapp: p.telefono_wapp,
+        nombre_destino: p.nombre,
+        lugar_id: p.lugar_id || null
       }));
 
       await destinatariosService.agregarDestinatarios(campaniaSeleccionada, destinatarios);
@@ -445,13 +455,13 @@ const SelectorProspectosPage = () => {
                       Empresa
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Estado
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Teléfono/WhatsApp
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Dirección
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Estado
                     </th>
                   </tr>
                 </thead>
@@ -500,6 +510,19 @@ const SelectorProspectosPage = () => {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                              prospecto.estado === 'disponible' 
+                                ? 'bg-green-100 text-green-800'
+                                : prospecto.estado === 'enviado'
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {prospecto.estado === 'disponible' ? 'Disponible' : 
+                               prospecto.estado === 'enviado' ? 'Enviado' : 
+                               prospecto.estado || 'Pendiente'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">
                               {prospecto.telefono_wapp ? (
                                 <div className="flex items-center text-green-600">
@@ -523,19 +546,6 @@ const SelectorProspectosPage = () => {
                                 <span className="text-gray-500">-</span>
                               )}
                             </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                              prospecto.estado === 'disponible' 
-                                ? 'bg-green-100 text-green-800'
-                                : prospecto.estado === 'enviado'
-                                ? 'bg-blue-100 text-blue-800'
-                                : 'bg-yellow-100 text-yellow-800'
-                            }`}>
-                              {prospecto.estado === 'disponible' ? 'Disponible' : 
-                               prospecto.estado === 'enviado' ? 'Enviado' : 
-                               prospecto.estado || 'Pendiente'}
-                            </span>
                           </td>
                         </tr>
                       );
