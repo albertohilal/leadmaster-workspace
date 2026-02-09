@@ -95,89 +95,179 @@ const destinatariosController = {
   // Agregar destinatarios a una campaña
   async agregarDestinatarios(req, res) {
     try {
+      // LOG 1: Request completo
+      console.log('📥 POST /destinatarios/campania/:campaniaId/agregar');
+      console.log('📋 req.params:', JSON.stringify(req.params));
+      console.log('📋 req.body:', JSON.stringify(req.body));
+      console.log('👤 req.user:', req.user ? { cliente_id: req.user.cliente_id, email: req.user.email } : 'NO USER');
+
       const { campaniaId } = req.params;
-      const { destinatarios } = req.body; // Array de objetos {telefono, nombre}
-      const clienteId = req.user.cliente_id;
+      const { destinatarios } = req.body;
+      const clienteId = req.user?.cliente_id;
+
+      // Validación de autenticación
+      if (!clienteId) {
+        console.log('❌ Error: Usuario no autenticado');
+        return res.status(401).json({
+          success: false,
+          message: 'Usuario no autenticado'
+        });
+      }
+
+      // LOG 2: Valores extraídos
+      console.log('🔍 Valores extraídos - campaniaId:', campaniaId, 'clienteId:', clienteId, 'destinatarios count:', destinatarios?.length);
 
       // Verificar que la campaña existe y pertenece al cliente
       const [campaniaCheck] = await db.execute(
-        'SELECT id, nombre FROM ll_campanias_whatsapp WHERE id = ? AND cliente_id = ?',
+        'SELECT id, nombre, mensaje FROM ll_campanias_whatsapp WHERE id = ? AND cliente_id = ?',
         [campaniaId, clienteId]
       );
 
+      console.log('🔍 Campaña encontrada:', campaniaCheck.length > 0 ? campaniaCheck[0].nombre : 'NO ENCONTRADA');
+
       if (campaniaCheck.length === 0) {
+        console.log('❌ Error 404: Campaña no encontrada o sin permisos');
         return res.status(404).json({
           success: false,
           message: 'Campaña no encontrada o no tienes permisos'
         });
       }
 
-      if (!destinatarios || !Array.isArray(destinatarios) || destinatarios.length === 0) {
+      const campania = campaniaCheck[0];
+      const mensajeFinal = campania.mensaje ? campania.mensaje.trim() : null;
+      
+      console.log('📝 Mensaje de campaña:', mensajeFinal ? `"${mensajeFinal.substring(0, 50)}..."` : 'NULL');
+
+      // Validar que el array existe
+      if (!destinatarios || !Array.isArray(destinatarios)) {
+        console.log('❌ Error 400: destinatarios no es un array válido');
         return res.status(400).json({
           success: false,
           message: 'Se requiere un array de destinatarios'
         });
       }
 
-      // Validar formato de destinatarios
-      for (let dest of destinatarios) {
-        if (!dest.telefono || !dest.nombre) {
-          return res.status(400).json({
-            success: false,
-            message: 'Cada destinatario debe tener teléfono y nombre'
-          });
-        }
+      if (destinatarios.length === 0) {
+        console.log('⚠️  Warning: Array de destinatarios vacío');
+        return res.status(400).json({
+          success: false,
+          message: 'El array de destinatarios está vacío'
+        });
       }
+
+      console.log('✅ Array destinatarios válido con', destinatarios.length, 'elementos');
+
+      // Validar cada destinatario y normalizar el campo de teléfono
+      const errores = [];
+      destinatarios.forEach((dest, index) => {
+        // ✅ Tolerante: aceptar telefono_wapp, telefono o phone
+        const telefono = dest.telefono_wapp || dest.telefono || dest.phone;
+        
+        if (!telefono || typeof telefono !== 'string' || telefono.trim() === '') {
+          errores.push(`Destinatario ${index + 1}: no tiene teléfono válido (telefono_wapp, telefono o phone)`);
+        } else {
+          // Normalizar: guardar en telefono_wapp si venía con otro nombre
+          dest.telefono_wapp = telefono.trim();
+        }
+      });
+
+      if (errores.length > 0) {
+        console.log('❌ Error de validación:', errores);
+        return res.status(400).json({
+          success: false,
+          message: 'Errores de validación',
+          errores
+        });
+      }
+
+      console.log('✅ Todos los destinatarios tienen telefono_wapp válido');
 
       const agregados = [];
       const duplicados = [];
+      const erroresInsercion = [];
 
       // Procesar cada destinatario
-      for (let dest of destinatarios) {
-        // Verificar si ya existe
-        const [existente] = await db.execute(
-          'SELECT id FROM ll_envios_whatsapp WHERE campania_id = ? AND telefono_wapp = ?',
-          [campaniaId, dest.telefono]
-        );
+      for (let i = 0; i < destinatarios.length; i++) {
+        const dest = destinatarios[i];
+        const telefonoLimpio = dest.telefono_wapp.trim();
+        
+        try {
+          console.log(`🔄 Procesando ${i + 1}/${destinatarios.length}: ${telefonoLimpio}`);
 
-        if (existente.length > 0) {
-          duplicados.push({
-            telefono: dest.telefono,
-            nombre: dest.nombre
-          });
-        } else {
-          // Agregar nuevo destinatario
-          await db.execute(`
-            INSERT INTO ll_envios_whatsapp 
-            (campania_id, telefono_wapp, nombre_destino, estado, fecha_creacion, cliente_id)
-            VALUES (?, ?, ?, 'pendiente', NOW(), ?)
-          `, [campaniaId, dest.telefono, dest.nombre, clienteId]);
+          // Verificar si ya existe
+          const [existente] = await db.execute(
+            'SELECT id FROM ll_envios_whatsapp WHERE campania_id = ? AND telefono_wapp = ?',
+            [campaniaId, telefonoLimpio]
+          );
 
-          agregados.push({
-            telefono: dest.telefono,
-            nombre: dest.nombre
+          if (existente.length > 0) {
+            console.log(`⚠️  Duplicado: ${telefonoLimpio}`);
+            duplicados.push({
+              telefono: telefonoLimpio,
+              nombre: dest.nombre_destino || null,
+              razon: 'Ya existe en la campaña'
+            });
+          } else {
+            // Agregar nuevo destinatario
+            const [result] = await db.execute(`
+              INSERT INTO ll_envios_whatsapp 
+              (campania_id, telefono_wapp, nombre_destino, mensaje_final, estado, lugar_id)
+              VALUES (?, ?, ?, ?, 'pendiente', ?)
+            `, [
+              campaniaId, 
+              telefonoLimpio, 
+              dest.nombre_destino || null, 
+              mensajeFinal, 
+              dest.lugar_id || null
+            ]);
+
+            console.log(`✅ Insertado ID ${result.insertId}: ${telefonoLimpio}`);
+
+            agregados.push({
+              id: result.insertId,
+              telefono: telefonoLimpio,
+              nombre: dest.nombre_destino || null
+            });
+          }
+        } catch (error) {
+          console.error(`❌ Error al procesar ${telefonoLimpio}:`, error.message);
+          erroresInsercion.push({
+            telefono: telefonoLimpio,
+            error: error.message
           });
         }
       }
 
-      res.json({
+      console.log('✅ Proceso completado - Agregados:', agregados.length, 'Duplicados:', duplicados.length, 'Errores:', erroresInsercion.length);
+
+      // Responder siempre 200 si se procesó el array completo
+      res.status(200).json({
         success: true,
         message: `Se procesaron ${destinatarios.length} destinatarios`,
         data: {
           agregados: agregados.length,
           duplicados: duplicados.length,
+          errores: erroresInsercion.length,
           detalles: {
             agregados,
-            duplicados
+            duplicados,
+            errores: erroresInsercion
           }
         }
       });
 
     } catch (error) {
-      console.error('Error al agregar destinatarios:', error);
+      console.error('❌ ERROR CRÍTICO en agregarDestinatarios:');
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+      console.error('Error completo:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+      
       res.status(500).json({
         success: false,
-        message: 'Error interno del servidor'
+        message: 'Error interno del servidor',
+        error: error.message,
+        tipo: error.name
       });
     }
   },

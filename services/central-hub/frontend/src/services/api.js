@@ -14,9 +14,14 @@ api.interceptors.request.use(
   config => {
     const token = localStorage.getItem('token');
 
-    // ⚠️ NO pisar Authorization si ya fue definido por el request
-    if (token && config.headers.Authorization === undefined) {
-      config.headers.Authorization = `Bearer ${token}`;
+    if (token) {
+      // ✅ Agregar token SOLO si Authorization no fue establecido explícitamente
+      // Usamos 'in' para detectar si la propiedad existe (incluso si es undefined)
+      if (!('Authorization' in config.headers)) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      // Si 'Authorization' ya existe en headers (incluso como undefined), 
+      // significa que fue establecido explícitamente y lo respetamos
     }
 
     return config;
