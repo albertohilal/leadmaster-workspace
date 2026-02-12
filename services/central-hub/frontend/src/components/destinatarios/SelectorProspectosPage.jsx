@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ArrowLeft, Users, Building, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import prospectosService from '../../services/prospectos';
@@ -14,6 +14,7 @@ const SelectorProspectosPage = () => {
   const [seleccionados, setSeleccionados] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [estadoFiltro, setEstadoFiltro] = useState('todos');
 
   useEffect(() => {
     cargarCampanas();
@@ -48,6 +49,7 @@ const SelectorProspectosPage = () => {
       const lista = response?.data || [];
       setProspectos(lista);
       setSeleccionados([]);
+      setEstadoFiltro('todos');
     } catch (err) {
       console.error('Error cargando prospectos:', err);
       setError('Error al cargar prospectos');
@@ -55,6 +57,11 @@ const SelectorProspectosPage = () => {
       setLoading(false);
     }
   };
+
+  const prospectosFiltrados = useMemo(() => {
+    if (estadoFiltro === 'todos') return prospectos;
+    return prospectos.filter(p => p.estado_campania === estadoFiltro);
+  }, [prospectos, estadoFiltro]);
 
   const toggleSeleccion = (prospecto) => {
     setSeleccionados(prev => {
@@ -67,10 +74,21 @@ const SelectorProspectosPage = () => {
   };
 
   const seleccionarTodos = () => {
-    if (seleccionados.length === prospectos.length) {
-      setSeleccionados([]);
+    const todosSeleccionados = prospectosFiltrados.every(p =>
+      seleccionados.find(s => s.prospecto_id === p.prospecto_id)
+    );
+
+    if (todosSeleccionados) {
+      setSeleccionados(prev =>
+        prev.filter(s =>
+          !prospectosFiltrados.find(p => p.prospecto_id === s.prospecto_id)
+        )
+      );
     } else {
-      setSeleccionados([...prospectos]);
+      const nuevos = prospectosFiltrados.filter(p =>
+        !seleccionados.find(s => s.prospecto_id === p.prospecto_id)
+      );
+      setSeleccionados(prev => [...prev, ...nuevos]);
     }
   };
 
@@ -179,19 +197,39 @@ const SelectorProspectosPage = () => {
 
           <div className="bg-white rounded-lg shadow">
 
-            <div className="px-6 py-4 border-b flex justify-between">
-              <h2 className="font-medium">
-                Prospectos ({prospectos.length})
-              </h2>
+            <div className="px-6 py-4 border-b">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="font-medium">
+                  Prospectos ({prospectosFiltrados.length})
+                </h2>
 
-              <button
-                onClick={seleccionarTodos}
-                className="text-sm text-blue-600"
-              >
-                {seleccionados.length === prospectos.length
-                  ? 'Deseleccionar todos'
-                  : 'Seleccionar todos'}
-              </button>
+                <button
+                  onClick={seleccionarTodos}
+                  className="text-sm text-blue-600"
+                >
+                  {prospectosFiltrados.length > 0 && 
+                   prospectosFiltrados.every(p => seleccionados.find(s => s.prospecto_id === p.prospecto_id))
+                    ? 'Deseleccionar todos'
+                    : 'Seleccionar todos'}
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-700">
+                  Estado:
+                </label>
+                <select
+                  value={estadoFiltro}
+                  onChange={(e) => setEstadoFiltro(e.target.value)}
+                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="todos">Todos</option>
+                  <option value="sin_envio">Sin envío</option>
+                  <option value="pendiente">Pendiente</option>
+                  <option value="enviado">Enviado</option>
+                  <option value="error">Error</option>
+                </select>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -213,14 +251,14 @@ const SelectorProspectosPage = () => {
                         Cargando...
                       </td>
                     </tr>
-                  ) : prospectos.length === 0 ? (
+                  ) : prospectosFiltrados.length === 0 ? (
                     <tr>
                       <td colSpan="5" className="p-6 text-center">
-                        No hay prospectos
+                        {prospectos.length === 0 ? 'No hay prospectos' : 'No hay prospectos con este filtro'}
                       </td>
                     </tr>
                   ) : (
-                    prospectos.map(p => {
+                    prospectosFiltrados.map(p => {
                       const seleccionado = seleccionados.find(
                         s => s.prospecto_id === p.prospecto_id
                       );
