@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Users, Phone, Plus } from 'lucide-react';
+import { Users, Phone, Plus } from 'lucide-react';
 import Button from '../common/Button';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { leadsAPI } from '../../services/api';
@@ -9,11 +9,6 @@ const SelectorProspectos = ({ campaniaId, onDestinatariosAgregados }) => {
   const [loading, setLoading] = useState(false);
   const [prospectos, setProspectos] = useState([]);
   const [selectedProspectos, setSelectedProspectos] = useState([]);
-  const [filters, setFilters] = useState({
-    estado: '',
-    q: ''
-  });
-  
   const [agregandoDestinatarios, setAgregandoDestinatarios] = useState(false);
 
   const cargarProspectos = useCallback(async () => {
@@ -26,9 +21,7 @@ const SelectorProspectos = ({ campaniaId, onDestinatariosAgregados }) => {
     setLoading(true);
     try {
       const params = {
-        campania_id: campaniaId,
-        estado: filters.estado,
-        q: filters.q
+        campania_id: campaniaId
       };
       
       const response = await leadsAPI.getProspectos(params);
@@ -39,7 +32,7 @@ const SelectorProspectos = ({ campaniaId, onDestinatariosAgregados }) => {
     } finally {
       setLoading(false);
     }
-  }, [campaniaId, filters.estado, filters.q]);
+  }, [campaniaId]);
 
   useEffect(() => {
     cargarProspectos();
@@ -47,9 +40,9 @@ const SelectorProspectos = ({ campaniaId, onDestinatariosAgregados }) => {
 
   const toggleProspecto = (prospecto) => {
     setSelectedProspectos(prev => {
-      const exists = prev.find(p => p.id === prospecto.id);
+      const exists = prev.find(p => p.prospecto_id === prospecto.prospecto_id);
       if (exists) {
-        return prev.filter(p => p.id !== prospecto.id);
+        return prev.filter(p => p.prospecto_id !== prospecto.prospecto_id);
       } else {
         return [...prev, prospecto];
       }
@@ -58,7 +51,7 @@ const SelectorProspectos = ({ campaniaId, onDestinatariosAgregados }) => {
 
   const toggleSelectAll = () => {
     const todosSeleccionados = prospectos.every(p => 
-      selectedProspectos.find(sp => sp.id === p.id)
+      selectedProspectos.find(sp => sp.prospecto_id === p.prospecto_id)
     );
     
     if (todosSeleccionados) {
@@ -77,9 +70,9 @@ const SelectorProspectos = ({ campaniaId, onDestinatariosAgregados }) => {
     setAgregandoDestinatarios(true);
     try {
       const destinatarios = selectedProspectos.map(prospecto => ({
-        nombre: prospecto.nombre_destino,
+        nombre: prospecto.nombre,
         telefono: prospecto.telefono_wapp,
-        lugar_id: prospecto.id
+        lugar_id: prospecto.prospecto_id
       }));
 
       const response = await destinatariosService.agregarDestinatarios(campaniaId, destinatarios);
@@ -128,58 +121,13 @@ const SelectorProspectos = ({ campaniaId, onDestinatariosAgregados }) => {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border p-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Estado
-            </label>
-            <select
-              value={filters.estado}
-              onChange={(e) => setFilters(prev => ({ ...prev, estado: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Todos los estados</option>
-              <option value="pendiente">Pendiente</option>
-              <option value="enviado">Enviado</option>
-              <option value="error">Error</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Buscar por Nombre
-            </label>
-            <div className="relative">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-              <input
-                type="text"
-                value={filters.q}
-                onChange={(e) => setFilters(prev => ({ ...prev, q: e.target.value }))}
-                placeholder="Buscar destinatario..."
-                className="w-full pl-10 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-end">
-            <Button 
-              onClick={cargarProspectos}
-              className="w-full bg-blue-600 hover:bg-blue-700"
-            >
-              Filtrar
-            </Button>
-          </div>
-        </div>
-      </div>
-
       <div className="bg-white rounded-lg shadow-sm border">
         <div className="p-4 border-b bg-gray-50 flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <input
               type="checkbox"
               checked={prospectos.length > 0 && prospectos.every(p => 
-                selectedProspectos.find(sp => sp.id === p.id)
+                selectedProspectos.find(sp => sp.prospecto_id === p.prospecto_id)
               )}
               onChange={toggleSelectAll}
               className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
@@ -205,7 +153,7 @@ const SelectorProspectos = ({ campaniaId, onDestinatariosAgregados }) => {
                 No se encontraron prospectos
               </h3>
               <p className="text-gray-500">
-                Ajusta los filtros para encontrar prospectos
+                No hay prospectos asociados a esta campaña
               </p>
             </div>
           ) : (
@@ -228,10 +176,10 @@ const SelectorProspectos = ({ campaniaId, onDestinatariosAgregados }) => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {prospectos.map((prospecto) => {
-                  const isSelected = selectedProspectos.find(p => p.id === prospecto.id);
+                  const isSelected = selectedProspectos.find(p => p.prospecto_id === prospecto.prospecto_id);
                   return (
                     <tr 
-                      key={prospecto.id} 
+                      key={prospecto.prospecto_id} 
                       className={`hover:bg-gray-50 cursor-pointer ${
                         isSelected ? 'bg-blue-50 border-blue-200' : ''
                       }`}
@@ -247,7 +195,7 @@ const SelectorProspectos = ({ campaniaId, onDestinatariosAgregados }) => {
                       </td>
                       <td className="px-4 py-3">
                         <span className="text-sm font-medium text-gray-900">
-                          {prospecto.nombre_destino}
+                          {prospecto.nombre}
                         </span>
                       </td>
                       <td className="px-4 py-3">
@@ -260,12 +208,12 @@ const SelectorProspectos = ({ campaniaId, onDestinatariosAgregados }) => {
                       </td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex px-2 py-1 text-xs rounded-full ${
-                          prospecto.estado === 'enviado' ? 'bg-green-100 text-green-800' :
-                          prospecto.estado === 'pendiente' ? 'bg-yellow-100 text-yellow-800' :
-                          prospecto.estado === 'error' ? 'bg-red-100 text-red-800' :
+                          prospecto.estado_campania === 'enviado' ? 'bg-green-100 text-green-800' :
+                          prospecto.estado_campania === 'pendiente' ? 'bg-yellow-100 text-yellow-800' :
+                          prospecto.estado_campania === 'error' ? 'bg-red-100 text-red-800' :
                           'bg-gray-100 text-gray-800'
                         }`}>
-                          {prospecto.estado}
+                          {prospecto.estado_campania || 'sin_envio'}
                         </span>
                       </td>
                     </tr>

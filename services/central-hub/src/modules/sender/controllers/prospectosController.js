@@ -4,90 +4,60 @@ const prospectosController = {
   /**
    * Filtrar prospectos de una campaña
    * 
+   * MODELO DE NEGOCIO:
+   * - Los prospectos base pertenecen al cliente (ll_lugares_clientes -> llxbx_societe)
+   * - El estado por campaña se obtiene desde ll_envios_whatsapp (LEFT JOIN)
+   * - Una campaña define el cliente_id
+   * - Devuelve TODOS los prospectos del cliente aunque no tengan envío
+   * 
    * Query params:
    * - campania_id (obligatorio): ID de la campaña
-   * - estado (opcional): pendiente | enviado | error
-   * - q (opcional): búsqueda en nombre_destino (LIKE)
-   * - limit (opcional): límite de resultados (default: 50)
    * 
    * Endpoint: GET /api/sender/prospectos/filtrar
    */
   async filtrarProspectos(req, res) {
     try {
-      const { 
-        campania_id,
-        estado,
-        q,
-        limit = 50
-      } = req.query;
+      const { campania_id } = req.query;
       
-      // ✅ Validación: campania_id es obligatorio
       if (!campania_id) {
         return res.status(400).json({
           success: false,
           error: 'campania_id es obligatorio'
         });
       }
-      
-      // ✅ Obtener cliente_id del usuario autenticado
-      const clienteId = req.user.cliente_id;
-
-      // ✅ Construir query dinámico con parámetros seguros
-      const conditions = [];
-      const params = [campania_id, clienteId];
-
-      // Filtro opcional por estado
-      if (estado) {
-        conditions.push('estado = ?');
-        params.push(estado);
-      }
-
-      // Filtro opcional por nombre (búsqueda LIKE)
-      if (q) {
-        conditions.push('nombre_destino LIKE ?');
-        params.push(`%${q}%`);
-      }
-
-      // Validar y sanitizar limit
-      const limitValue = Math.min(parseInt(limit) || 50, 200);
-
-      // ✅ Query SQL simplificado (solo ll_envios_whatsapp)
-      const whereClause = conditions.length > 0 
-        ? `AND ${conditions.join(' AND ')}`
-        : '';
 
       const sql = `
-        SELECT 
-          id,
-          campania_id,
-          telefono_wapp,
-          nombre_destino,
-          estado,
-          mensaje,
-          fecha_envio,
-          fecha_creacion
-        FROM ll_envios_whatsapp
-        WHERE campania_id = ?
-          AND cliente_id = ?
-          ${whereClause}
-        ORDER BY id DESC
-        LIMIT ?
+        SELECT
+          s.rowid AS prospecto_id,
+          s.nom AS nombre,
+          COALESCE(env.estado, 'sin_envio') AS estado_campania,
+          s.phone_mobile AS telefono_wapp,
+          s.address AS direccion,
+          env.id AS envio_id,
+          env.fecha_envio
+        FROM ll_campanias_whatsapp c
+        JOIN ll_lugares_clientes lc
+          ON lc.cliente_id = c.cliente_id
+        JOIN llxbx_societe s
+          ON s.rowid = lc.societe_id
+        LEFT JOIN ll_envios_whatsapp env
+          ON env.campania_id = c.id
+         AND env.lugar_id = s.rowid
+        WHERE c.id = ?
+          AND s.entity = 1
+        ORDER BY s.nom ASC
       `;
 
-      params.push(limitValue);
-
-      console.log('🔍 [prospectos] Query:', { campania_id, clienteId, estado, q, limit: limitValue });
+      console.log('🔍 [prospectos] Query con campania_id:', campania_id);
       
-      const [rows] = await db.execute(sql, params);
+      const [rows] = await db.execute(sql, [campania_id]);
 
-      console.log(`✅ [prospectos] Encontrados ${rows.length} registros`);
+      console.log(`✅ [prospectos] Encontrados ${rows.length} prospectos`);
 
-      // ✅ Respuesta consistente
       res.json({
         success: true,
         data: rows,
-        total: rows.length,
-        limit: limitValue
+        total: rows.length
       });
 
     } catch (error) {
