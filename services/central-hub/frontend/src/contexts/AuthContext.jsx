@@ -1,7 +1,6 @@
 // contexts/AuthContext.jsx - Context para autenticación global
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
-import { buildApiUrl } from '../config/api';
+import api from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -18,14 +17,8 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(localStorage.getItem('token'));
 
-  // Configurar axios con el token
-  useEffect(() => {
-    if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    } else {
-      delete axios.defaults.headers.common['Authorization'];
-    }
-  }, [token]);
+  // El token se maneja automáticamente por el interceptor de api.js
+  // No necesitamos configurar headers manualmente aquí
 
   // Verificar token al cargar
   useEffect(() => {
@@ -36,13 +29,7 @@ export const AuthProvider = ({ children }) => {
       }
 
       try {
-        const response = await axios.post(
-          buildApiUrl('/auth/verify'),
-          {},
-          {
-            headers: { Authorization: `Bearer ${token}` }
-          }
-        );
+        const response = await api.post('/auth/verify', {});
 
         if (response.data.success) {
           setUser(response.data.user);
@@ -72,10 +59,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (usuario, password) => {
     try {
-      const response = await axios.post(
-        buildApiUrl('/auth/login'),
-        { usuario, password }
-      );
+      const response = await api.post('/auth/login', { usuario, password });
 
       if (response.data.success) {
         const { token: newToken, user: userData } = response.data;
@@ -103,7 +87,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      await axios.post(buildApiUrl('/auth/logout'));
+      await api.post('/auth/logout');
     } catch (error) {
       console.error('Error en logout:', error);
     } finally {
@@ -116,10 +100,10 @@ export const AuthProvider = ({ children }) => {
 
   const changePassword = async (oldPassword, newPassword) => {
     try {
-      const response = await axios.post(
-        buildApiUrl('/auth/change-password'),
-        { oldPassword, newPassword }
-      );
+      const response = await api.post('/auth/change-password', {
+        oldPassword,
+        newPassword
+      });
 
       return response.data;
     } catch (error) {

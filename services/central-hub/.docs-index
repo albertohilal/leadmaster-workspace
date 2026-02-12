@@ -1,0 +1,27 @@
+# Quick Documentation Index - Central Hub
+
+## Recent Issues & Fixes
+
+### Bug: Selector de Prospectos retorna 0 registros (Feb 2026)
+📍 **Main Index**: docs/BUG_0_REGISTROS_PROSPECTOS_INDICE.md
+
+**Quick Fix**: Change INNER JOIN to LEFT JOIN in line 107-108 of:
+src/modules/sender/controllers/prospectosController.js
+
+**Files**:
+- docs/DIAGNOSTICO_BUG_INNER_JOIN_LUGARES_CLIENTES.md (technical diagnosis)
+- docs/ANALISIS_DIFF_BUG_0_REGISTROS.md (diff analysis vs 7f61633)
+- docs/TABLAS_SELECTOR_PROSPECTOS.md (DB architecture + 5 diagrams)
+- docs/CORRECCION_NOMBRES_TABLAS.md (table name corrections)
+- docs/OPTIMIZACION_PERFORMANCE_SELECTOR_PROSPECTOS.md (5 covering indexes, 90% faster)
+
+**Root Cause**: INNER JOIN with empty ll_lugares_clientes table
+**Solution**: LEFT JOIN preserves all prospectos (~8,000+ records)
+**Performance**: 5 composite indexes reduce query time 800ms → 150ms
+**Status**: Documented, pending implementation
+
+---
+
+## Full Documentation
+See: NAVEGACION_DOCS.md (main documentation index)
+See: docs/README.md (docs folder index)

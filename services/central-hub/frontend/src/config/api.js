@@ -1,45 +1,10 @@
-// Configuración centralizada de la URL base de la API
+// =======================================================
+// Central Hub – API CONFIG (PRODUCTION SAFE)
+// =======================================================
 
-const normalizeProtocol = (url) => {
-  if (typeof window === 'undefined') return url;
+// Base URL viene desde Vite env
+// En producción: VITE_API_URL=/api
+// En local: http://localhost:3012
 
-  // Evita contenido mixto forzando https si la app se sirve en https
-  if (window.location.protocol === 'https:' && url.startsWith('http://')) {
-    return url.replace(/^http:\/\//i, 'https://');
-  }
-
-  return url;
-};
-
-const getBaseUrl = () => {
-  const envUrl = import.meta.env.VITE_API_URL?.trim();
-
-  if (envUrl) {
-    return normalizeProtocol(envUrl);
-  }
-
-  if (typeof window !== 'undefined') {
-    return normalizeProtocol(window.location.origin);
-  }
-
-  return 'http://localhost:3012';
-};
-
-export const API_BASE_URL = getBaseUrl();
-
-/**
- * Construye URLs de API evitando duplicar `/api`
- * Uso esperado:
- *   buildApiUrl('/auth/login')
- *   buildApiUrl('/whatsapp/51/status')
- */
-export const buildApiUrl = (path = '') => {
-  let cleanPath = path.startsWith('/') ? path : `/${path}`;
-
-  // 🔒 Blindaje: evita /api/api/*
-  if (cleanPath.startsWith('/api/')) {
-    cleanPath = cleanPath.replace(/^\/api/, '');
-  }
-
-  return `${API_BASE_URL}${cleanPath}`;
-};
+export const API_BASE_URL =
+  import.meta.env.VITE_API_URL || 'http://localhost:3012';

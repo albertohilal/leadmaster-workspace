@@ -16,22 +16,22 @@ const SelectorProspectosPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   
-  // Estados para filtros
-  const [areas, setAreas] = useState([]);
-  const [rubros, setRubros] = useState([]);
-  const [estados, setEstados] = useState([]);
-  const [filtros, setFiltros] = useState({
-    area: '',
-    rubro: '',
-    direccion: '',
+  // Estados para filtros simplificados
+  const [filters, setFilters] = useState({
     estado: '',
-    tipo_cliente: ''
+    q: ''
   });
   
-  // Estados para búsqueda y paginación
-  const [busqueda, setBusqueda] = useState('');
+  // Estados estáticos (sin llamadas API)
+  const estados = [
+    { value: '', label: 'Todos los estados' },
+    { value: 'pendiente', label: 'Pendiente' },
+    { value: 'enviado', label: 'Enviado' },
+    { value: 'error', label: 'Error' }
+  ];
+  
+  // Estados para paginación
   const [paginaActual, setPaginaActual] = useState(1);
-  const [registrosPorPagina] = useState(50);
 
   // Cargar datos iniciales
   useEffect(() => {
@@ -43,33 +43,21 @@ const SelectorProspectosPage = () => {
     if (campaniaSeleccionada) {
       cargarProspectos();
     }
-  }, [campaniaSeleccionada, filtros, busqueda, paginaActual]);
+  }, [campaniaSeleccionada, filters, paginaActual]);
 
   const cargarDatosIniciales = async () => {
     try {
       setLoading(true);
       setError(null);
-      const [campanasData, areasData, rubrosData, estadosData] = await Promise.all([
-        campanasService.obtenerCampanas(),
-        prospectosService.obtenerAreas(),
-        prospectosService.obtenerRubros(),
-        prospectosService.obtenerEstados()
-      ]);
+      // Solo cargar campañas (sin áreas, rubros, etc.)
+      const campanasData = await campanasService.obtenerCampanas();
       
-      console.log('📊 Datos cargados:', { campanasData, areasData, rubrosData, estadosData });
+      console.log('📊 Campañas cargadas:', campanasData);
       
-      // Asegurar que sean arrays
+      // Asegurar que sea array
       const campanasArray = Array.isArray(campanasData) ? campanasData : [];
-      const areasArray = Array.isArray(areasData?.areas) ? areasData.areas : [];
-      const rubrosArray = Array.isArray(rubrosData?.rubros) ? rubrosData.rubros : [];
-      const estadosArray = Array.isArray(estadosData?.estados) ? estadosData.estados : [];
-      
-      console.log('📊 Arrays procesados:', { campanasArray, areasArray, rubrosArray, estadosArray });
       
       setCampanas(campanasArray);
-      setAreas(areasArray);
-      setRubros(rubrosArray);
-      setEstados(estadosArray);
     } catch (error) {
       console.error('❌ Error al cargar datos iniciales:', error);
       const errorMsg = error.response?.data?.message || error.message || 'Error al cargar datos';
@@ -88,11 +76,9 @@ const SelectorProspectosPage = () => {
     try {
       setLoading(true);
       const filtrosConBusqueda = {
-        ...filtros,
         campania_id: campaniaSeleccionada,
-        busqueda,
-        limite: registrosPorPagina,
-        offset: (paginaActual - 1) * registrosPorPagina
+        estado: filters.estado,
+        q: filters.q
       };
       
       const response = await prospectosService.filtrarProspectos(filtrosConBusqueda);
@@ -118,7 +104,7 @@ const SelectorProspectosPage = () => {
   };
 
   const handleFiltroChange = (campo, valor) => {
-    setFiltros(prev => ({
+    setFilters(prev => ({
       ...prev,
       [campo]: valor
     }));
@@ -170,14 +156,10 @@ const SelectorProspectosPage = () => {
   };
 
   const limpiarFiltros = () => {
-    setFiltros({
-      area: '',
-      rubro: '',
-      direccion: '',
+    setFilters({
       estado: '',
-      tipo_cliente: ''
+      q: ''
     });
-    setBusqueda('');
     setPaginaActual(1);
   };
 
@@ -289,8 +271,8 @@ const SelectorProspectosPage = () => {
                 <input
                   type="text"
                   placeholder="Buscar por nombre o empresa..."
-                  value={busqueda}
-                  onChange={(e) => setBusqueda(e.target.value)}
+                  value={filters.q}
+                  onChange={(e) => handleFiltroChange('q', e.target.value)}
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
@@ -308,92 +290,22 @@ const SelectorProspectosPage = () => {
                 </button>
               </div>
 
-              {/* Área */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Área
-                </label>
-                <select
-                  value={filtros.area}
-                  onChange={(e) => handleFiltroChange('area', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Todas las áreas</option>
-                  {areas.map((area, index) => (
-                    <option key={area?.id || area?.nombre || index} value={area?.nombre || area}>
-                      {area?.nombre || area}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Rubro */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Rubro
-                </label>
-                <select
-                  value={filtros.rubro}
-                  onChange={(e) => handleFiltroChange('rubro', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Todos los rubros</option>
-                  {rubros.map((rubro, index) => (
-                    <option key={rubro?.id || index} value={rubro?.nombre || rubro}>
-                      {rubro?.nombre || rubro}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
               {/* Estado */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Estado
                 </label>
                 <select
-                  value={filtros.estado}
+                  value={filters.estado}
                   onChange={(e) => handleFiltroChange('estado', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="">Todos los estados</option>
-                  {estados.map((estado, index) => (
-                    <option key={estado?.id || estado?.nombre || index} value={estado?.nombre || estado}>
-                      {estado?.nombre || estado}
+                  {estados.map((estado) => (
+                    <option key={estado.value} value={estado.value}>
+                      {estado.label}
                     </option>
                   ))}
                 </select>
-              </div>
-
-              {/* Tipo de cliente */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tipo de cliente
-                </label>
-                <select
-                  value={filtros.tipo_cliente}
-                  onChange={(e) => handleFiltroChange('tipo_cliente', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Todos los tipos</option>
-                  <option value="prospectos">Solo Prospectos</option>
-                  <option value="clientes">Clientes Originales</option>
-                  <option value="ambos">Clientes y Proveedores</option>
-                </select>
-              </div>
-
-              {/* Dirección */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Dirección contiene
-                </label>
-                <input
-                  type="text"
-                  placeholder="Filtrar por dirección..."
-                  value={filtros.direccion}
-                  onChange={(e) => handleFiltroChange('direccion', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
               </div>
             </div>
 

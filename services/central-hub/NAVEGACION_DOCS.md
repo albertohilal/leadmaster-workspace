@@ -1,6 +1,6 @@
 # 📚 Navegación de Documentación - Central Hub
 
-**Última actualización:** 8 de febrero de 2026
+**Última actualización:** 11 de febrero de 2026
 
 Este archivo sirve como índice para navegar toda la documentación del proyecto LeadMaster Central Hub.
 
@@ -28,6 +28,18 @@ Análisis de problemas encontrados y sus resoluciones.
 - [DIAGNOSTICO_OPERATIVO_SCHEDULER.md](docs/diagnosticos/DIAGNOSTICO_OPERATIVO_SCHEDULER.md) - Análisis operativo del scheduler
 - [DIAGNOSTICO_PM2_ENV_VARIABLES.md](docs/diagnosticos/DIAGNOSTICO_PM2_ENV_VARIABLES.md) - Variables de entorno en PM2
 - [DIAGNOSTICO_WHATSAPP_CONNECTION_ERROR.md](docs/diagnosticos/DIAGNOSTICO_WHATSAPP_CONNECTION_ERROR.md) - Errores de conexión WhatsApp
+
+---
+
+### 🐛 /docs/ - Bug 0 Registros Prospectos (Febrero 2026)
+Documentación completa del bug INNER JOIN que retornaba 0 registros en selector.
+
+- **[📑 BUG_0_REGISTROS_PROSPECTOS_INDICE.md](docs/BUG_0_REGISTROS_PROSPECTOS_INDICE.md)** - **⭐ ÍNDICE PRINCIPAL** - Punto de entrada a toda la documentación
+- [DIAGNOSTICO_BUG_INNER_JOIN_LUGARES_CLIENTES.md](docs/DIAGNOSTICO_BUG_INNER_JOIN_LUGARES_CLIENTES.md) - Diagnóstico técnico y root cause
+- [ANALISIS_DIFF_BUG_0_REGISTROS.md](docs/ANALISIS_DIFF_BUG_0_REGISTROS.md) - Análisis de cambios vs commit estable
+- [TABLAS_SELECTOR_PROSPECTOS.md](docs/TABLAS_SELECTOR_PROSPECTOS.md) - Arquitectura de BD con 5 diagramas Mermaid
+- [CORRECCION_NOMBRES_TABLAS.md](docs/CORRECCION_NOMBRES_TABLAS.md) - Correcciones de nomenclatura verificadas
+- **[🚀 OPTIMIZACION_PERFORMANCE_SELECTOR_PROSPECTOS.md](docs/OPTIMIZACION_PERFORMANCE_SELECTOR_PROSPECTOS.md)** - **Performance SaaS** - 5 índices covering, mejora 90%
 
 ---
 
