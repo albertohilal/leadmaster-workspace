@@ -1,20 +1,27 @@
 const db = require('../../../config/db');
 
 const prospectosController = {
-  // Obtener prospectos con filtros (replicando funcionalidad de whatsapp-massive-sender-V2)
+  /**
+   * Filtrar prospectos de una campaña
+   * 
+   * Query params:
+   * - campania_id (obligatorio): ID de la campaña
+   * - estado (opcional): pendiente | enviado | error
+   * - q (opcional): búsqueda en nombre_destino (LIKE)
+   * - limit (opcional): límite de resultados (default: 50)
+   * 
+   * Endpoint: GET /api/sender/prospectos/filtrar
+   */
   async filtrarProspectos(req, res) {
     try {
       const { 
         campania_id,
-        area = '',
-        rubro = '',
-        direccion = '',
-        estado = '',
-        tipoCliente = '',
-        soloWappValido = 'true'
+        estado,
+        q,
+        limit = 50
       } = req.query;
       
-      // ✅ VALIDACIÓN: campania_id es obligatorio
+      // ✅ Validación: campania_id es obligatorio
       if (!campania_id) {
         return res.status(400).json({
           success: false,
@@ -22,253 +29,190 @@ const prospectosController = {
         });
       }
       
-      const userId = req.user.id;  // ID del usuario en ll_usuarios
-      const clienteId = req.user.cliente_id;  // ID del cliente
+      // ✅ Obtener cliente_id del usuario autenticado
+      const clienteId = req.user.cliente_id;
 
-      console.log("==================================================");
-      console.log("DIAGNOSTICO PROSPECTOS");
-      console.log("userId:", userId);
-      console.log("clienteId:", clienteId);
-      console.log("campania_id:", campania_id);
-      console.log("req.user completo:", JSON.stringify(req.user, null, 2));
-      console.log("==================================================");
+      // ✅ Construir query dinámico con parámetros seguros
+      const conditions = [];
+      const params = [campania_id, clienteId];
 
-      // ✅ Separar condiciones WHERE y HAVING correctamente
-      const whereConditions = ['s.entity = 1'];
-      const havingConditions = [];
-      
-      // Parámetros en orden: clienteId (INNER JOIN), campania_id (LEFT JOIN)
-      const params = [clienteId, campania_id];
-
-      // Filtro de WhatsApp válido (WHERE)
-      if (soloWappValido === 'true') {
-        whereConditions.push("s.phone_mobile IS NOT NULL AND s.phone_mobile != ''");
+      // Filtro opcional por estado
+      if (estado) {
+        conditions.push('estado = ?');
+        params.push(estado);
       }
 
-      // Filtro por rubro (WHERE)
-      if (rubro) {
-        whereConditions.push("COALESCE(r.nombre, 'Sin rubro') LIKE ?");
-        params.push(`%${rubro}%`);
+      // Filtro opcional por nombre (búsqueda LIKE)
+      if (q) {
+        conditions.push('nombre_destino LIKE ?');
+        params.push(`%${q}%`);
       }
 
-      // Filtro por dirección (WHERE)
-      if (direccion) {
-        whereConditions.push("s.address LIKE ?");
-        params.push(`%${direccion}%`);
-      }
+      // Validar y sanitizar limit
+      const limitValue = Math.min(parseInt(limit) || 50, 200);
 
-      // Filtro por área (WHERE)
-      if (area) {
-        whereConditions.push("r.area LIKE ?");
-        params.push(`%${area}%`);
-      }
+      // ✅ Query SQL simplificado (solo ll_envios_whatsapp)
+      const whereClause = conditions.length > 0 
+        ? `AND ${conditions.join(' AND ')}`
+        : '';
 
-      // Filtro por tipo de cliente (WHERE)
-      if (tipoCliente === 'clientes') {
-        whereConditions.push("s.client = 1");
-      } else if (tipoCliente === 'prospectos') {
-        whereConditions.push("((s.client = 0 OR s.client IS NULL) AND s.fournisseur = 0)");
-      } else if (tipoCliente === 'ambos') {
-        whereConditions.push("(s.client = 1 OR s.fournisseur = 1)");
-      }
-
-      // Filtro por estado (HAVING - usa funciones agregadas)
-      if (estado === 'sin_envio') {
-        havingConditions.push("MAX(env.id) IS NULL");
-      } else if (estado === 'enviado') {
-        havingConditions.push("MAX(env.estado) = 'enviado'");
-      } else if (estado === 'pendiente') {
-        havingConditions.push("MAX(env.estado) = 'pendiente'");
-      }
-
-      // Construir query final con estructura limpia
       const sql = `
         SELECT 
-          s.rowid as id,
-          s.nom as nombre,
-          s.phone_mobile as telefono_wapp,
-          s.email as email,
-          s.address as direccion,
-          s.town as ciudad,
-          COALESCE(r.nombre, 'Sin rubro') as rubro,
-          r.area as area_rubro,
-          MIN(lc.cliente_id) as cliente_id,
-          CASE 
-            WHEN MAX(env.id) IS NOT NULL THEN MAX(env.estado)
-            ELSE 'disponible'
-          END as estado,
-          MAX(env.fecha_envio) as fecha_envio,
-          CASE 
-            WHEN s.phone_mobile IS NOT NULL AND s.phone_mobile != '' THEN 1 
-            ELSE 0 
-          END as wapp_valido,
-          s.client as es_cliente,
-          s.fournisseur as es_proveedor
-        FROM llxbx_societe s
-        INNER JOIN ll_lugares_clientes lc ON lc.societe_id = s.rowid AND lc.cliente_id = ?
-        LEFT JOIN ll_societe_extended se ON se.societe_id = s.rowid
-        LEFT JOIN ll_rubros r ON se.rubro_id = r.id
-        LEFT JOIN ll_envios_whatsapp env ON env.lugar_id = s.rowid AND env.campania_id = ?
-        WHERE ${whereConditions.join(' AND ')}
-        GROUP BY s.rowid, s.nom, s.phone_mobile, s.email, s.address, s.town, r.nombre, r.area, s.client, s.fournisseur
-        HAVING ${havingConditions.length > 0 ? havingConditions.join(' AND ') : '1=1'}
-        ORDER BY s.nom ASC
-        LIMIT 1000
+          id,
+          campania_id,
+          telefono_wapp,
+          nombre_destino,
+          estado,
+          mensaje,
+          fecha_envio,
+          fecha_creacion
+        FROM ll_envios_whatsapp
+        WHERE campania_id = ?
+          AND cliente_id = ?
+          ${whereClause}
+        ORDER BY id DESC
+        LIMIT ?
       `;
 
-      console.log('🔍 [prospectos] Ejecutando query con filtros:', { 
-        clienteId, campania_id, area, rubro, direccion, estado, tipoCliente, soloWappValido 
-      });
-      console.log('🔍 [prospectos] SQL:', sql);
-      console.log('🔍 [prospectos] Params:', params);
+      params.push(limitValue);
 
+      console.log('🔍 [prospectos] Query:', { campania_id, clienteId, estado, q, limit: limitValue });
+      
       const [rows] = await db.execute(sql, params);
 
-      console.log(`✅ [prospectos] Encontrados ${rows.length} prospectos`);
-      if (rows.length > 0) {
-        console.log('🔍 [prospectos] Primer registro completo:', JSON.stringify(rows[0], null, 2));
-        console.log('🔍 [prospectos] area_rubro del primer registro:', rows[0].area_rubro);
-        console.log('🔍 [prospectos] Rubros únicos:', [...new Set(rows.map(r => r.rubro))]);
-        console.log('🔍 [prospectos] Áreas únicas:', [...new Set(rows.map(r => r.area_rubro))].filter(Boolean));
-      }
+      console.log(`✅ [prospectos] Encontrados ${rows.length} registros`);
 
+      // ✅ Respuesta consistente
       res.json({
         success: true,
-        prospectos: rows,
-        total: rows.length
+        data: rows,
+        total: rows.length,
+        limit: limitValue
       });
 
     } catch (error) {
-      console.error('❌ [prospectos] Error al filtrar prospectos:', error);
+      console.error('❌ [prospectos] Error al filtrar:', error);
       res.status(500).json({
         success: false,
-        message: 'Error interno del servidor',
-        error: error.message
+        error: 'Error interno del servidor',
+        message: error.message
       });
     }
   },
 
-  // Obtener áreas/ciudades disponibles
+  /**
+   * Obtener áreas disponibles
+   * DEPRECATED: Mantenido por compatibilidad, pero no usado en modelo simplificado
+   */
   async obtenerAreas(req, res) {
     try {
-      const clienteId = req.user.cliente_id;
-
-      const [rows] = await db.execute(`
-        SELECT DISTINCT ll_rubros.area as nombre
-        FROM ll_rubros
-        WHERE ll_rubros.area IS NOT NULL 
-          AND ll_rubros.area != ''
-        ORDER BY ll_rubros.area ASC
-      `);
-
-      const areas = rows.map(row => ({ 
-        id: row.nombre, 
-        nombre: row.nombre 
-      }));
-
       res.json({
         success: true,
-        areas: areas
+        areas: []
       });
-
     } catch (error) {
       console.error('❌ [prospectos] Error al obtener áreas:', error);
       res.status(500).json({
         success: false,
-        message: 'Error interno del servidor'
+        error: 'Error interno del servidor'
       });
     }
   },
 
-  // Obtener rubros disponibles
+  /**
+   * Obtener rubros disponibles
+   * DEPRECATED: Mantenido por compatibilidad, pero no usado en modelo simplificado
+   */
   async obtenerRubros(req, res) {
     try {
-      const [rows] = await db.execute(`
-        SELECT ll_rubros.id, ll_rubros.nombre, ll_rubros.area, ll_rubros.keyword_google
-        FROM ll_rubros
-        ORDER BY ll_rubros.nombre ASC
-      `);
-
       res.json({
         success: true,
-        rubros: rows
+        rubros: []
       });
-
     } catch (error) {
       console.error('❌ [prospectos] Error al obtener rubros:', error);
       res.status(500).json({
         success: false,
-        message: 'Error interno del servidor',
-        error: error.message
+        error: 'Error interno del servidor'
       });
     }
   },
 
-  // Obtener estados disponibles de envíos
+  /**
+   * Obtener estados disponibles
+   * 
+   * Query params:
+   * - campania_id (opcional): filtrar estados de una campaña específica
+   * 
+   * Endpoint: GET /api/sender/prospectos/estados
+   */
   async obtenerEstados(req, res) {
     try {
       const { campania_id } = req.query;
+      const clienteId = req.user.cliente_id;
       
       let sql = `
-        SELECT DISTINCT ll_envios_whatsapp.estado as nombre
+        SELECT DISTINCT estado as id, estado as nombre
         FROM ll_envios_whatsapp
-        WHERE ll_envios_whatsapp.estado IS NOT NULL 
-          AND ll_envios_whatsapp.estado != ''
+        WHERE cliente_id = ?
       `;
       
-      const params = [];
+      const params = [clienteId];
       
-      // ✅ Filtrar por campaña específica si se proporciona
       if (campania_id) {
-        sql += ` AND ll_envios_whatsapp.campania_id = ?`;
+        sql += ` AND campania_id = ?`;
         params.push(campania_id);
       }
       
-      sql += ` ORDER BY ll_envios_whatsapp.estado ASC`;
+      sql += ` ORDER BY estado ASC`;
       
       const [rows] = await db.execute(sql, params);
 
-      const estados = rows.map(row => ({ 
-        id: row.nombre, 
-        nombre: row.nombre 
-      }));
-
-      // Agregar estado "sin_envio" para prospectos que no han sido enviados
-      estados.unshift({ id: 'sin_envio', nombre: 'sin_envio' });
-
       res.json({
         success: true,
-        estados: estados
+        estados: rows
       });
 
     } catch (error) {
       console.error('❌ [prospectos] Error al obtener estados:', error);
       res.status(500).json({
         success: false,
-        message: 'Error interno del servidor',
-        error: error.message
+        error: 'Error interno del servidor',
+        message: error.message
       });
     }
   },
 
-  // Obtener estadísticas de prospectos
+  /**
+   * Obtener estadísticas de prospectos por campaña
+   * 
+   * Query params:
+   * - campania_id (obligatorio): ID de la campaña
+   * 
+   * Endpoint: GET /api/sender/prospectos/estadisticas
+   */
   async obtenerEstadisticas(req, res) {
     try {
       const { campania_id } = req.query;
       const clienteId = req.user.cliente_id;
 
+      if (!campania_id) {
+        return res.status(400).json({
+          success: false,
+          error: 'campania_id es obligatorio'
+        });
+      }
+
       const [stats] = await db.execute(`
         SELECT 
-          COUNT(DISTINCT s.rowid) as total_prospectos,
-          COUNT(DISTINCT CASE WHEN s.phone_mobile IS NOT NULL AND s.phone_mobile != '' THEN s.rowid END) as con_whatsapp,
-          COUNT(DISTINCT CASE WHEN env.estado = 'enviado' THEN s.rowid END) as ya_enviados,
-          COUNT(DISTINCT CASE WHEN env.estado = 'pendiente' THEN s.rowid END) as pendientes,
-          COUNT(DISTINCT CASE WHEN env.id IS NULL THEN s.rowid END) as disponibles
-        FROM llxbx_societe s
-        LEFT JOIN ll_lugares_clientes lc ON lc.societe_id = s.rowid AND lc.cliente_id = ?
-        LEFT JOIN ll_envios_whatsapp env ON env.lugar_id = s.rowid AND env.campania_id = ?
-        WHERE s.entity = 1
-      `, [clienteId, campania_id]);
+          COUNT(*) as total_prospectos,
+          SUM(CASE WHEN estado = 'pendiente' THEN 1 ELSE 0 END) as pendientes,
+          SUM(CASE WHEN estado = 'enviado' THEN 1 ELSE 0 END) as enviados,
+          SUM(CASE WHEN estado = 'error' THEN 1 ELSE 0 END) as errores
+        FROM ll_envios_whatsapp
+        WHERE campania_id = ?
+          AND cliente_id = ?
+      `, [campania_id, clienteId]);
 
       res.json({
         success: true,
@@ -276,10 +220,11 @@ const prospectosController = {
       });
 
     } catch (error) {
-      console.error('Error al obtener estadísticas:', error);
+      console.error('❌ [prospectos] Error al obtener estadísticas:', error);
       res.status(500).json({
         success: false,
-        message: 'Error interno del servidor'
+        error: 'Error interno del servidor',
+        message: error.message
       });
     }
   }
