@@ -122,19 +122,20 @@ const prospectosController = {
       const clienteId = req.user.cliente_id;
       
       let sql = `
-        SELECT DISTINCT estado as id, estado as nombre
-        FROM ll_envios_whatsapp
-        WHERE cliente_id = ?
+        SELECT DISTINCT env.estado as id, env.estado as nombre
+        FROM ll_envios_whatsapp env
+        JOIN ll_campanias_whatsapp c ON env.campania_id = c.id
+        WHERE c.cliente_id = ?
       `;
       
       const params = [clienteId];
       
       if (campania_id) {
-        sql += ` AND campania_id = ?`;
+        sql += ` AND env.campania_id = ?`;
         params.push(campania_id);
       }
       
-      sql += ` ORDER BY estado ASC`;
+      sql += ` ORDER BY env.estado ASC`;
       
       const [rows] = await db.execute(sql, params);
 
@@ -181,8 +182,7 @@ const prospectosController = {
           SUM(CASE WHEN estado = 'error' THEN 1 ELSE 0 END) as errores
         FROM ll_envios_whatsapp
         WHERE campania_id = ?
-          AND cliente_id = ?
-      `, [campania_id, clienteId]);
+      `, [campania_id]);
 
       res.json({
         success: true,
