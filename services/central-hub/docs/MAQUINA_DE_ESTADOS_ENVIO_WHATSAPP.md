@@ -423,33 +423,36 @@ GROUP BY origen, estado_nuevo;
 | Tabla `ll_envios_whatsapp` | ✅ Existe | ENUM correcto (`pendiente`, `enviado`, `error`) |
 | Columna `message_id` | ❌ No existe | Pendiente: ALTER TABLE |
 | Tabla `ll_envios_whatsapp_historial` | ❌ No existe | Pendiente: CREATE TABLE |
-| Función `cambiarEstado()` | ❌ No existe | Pendiente: Implementar en `estadoService.js` |
-| Función `marcarEnviado()` | ⚠️ Buggy | **BUG CRÍTICO:** Marca antes de enviar |
-| Función `marcarError()` | ❌ No existe | Pendiente: Implementar |
-| Validación de transiciones | ❌ No existe | Pendiente: Implementar en `cambiarEstado()` |
+| Función `cambiarEstado()` | ✅ Implementada | Con transacciones ACID, validación de transiciones y auditoría |
+| Función `marcarEnviado()` | ❌ Eliminada | Reemplazada por `cambiarEstado()` en v1.0.0 |
+| Manejo de errores clasificados | ✅ Implementado | 8 códigos de error estructurados |
+| Validación de transiciones | ✅ Implementada | En `estadoService.validarTransicion()` |
 
-### 8.2 Bugs Identificados
+### 8.2 Bugs Identificados (Histórico)
 
-1. **[CRÍTICO] Marcado prematuro como 'enviado'**
+1. **[CRÍTICO] Marcado prematuro como 'enviado'** → ✅ **RESUELTO v1.0.0**
+   - **Estado:** RESUELTO (2026-02-13)
+   - **Commit:** feature/whatsapp-state-machine-refactor
    - Archivo: `programacionScheduler.js` líneas 241-250
-   - Problema: `marcarEnviado()` se ejecuta ANTES de `sendMessage()`
+   - Problema: `marcarEnviado()` se ejecutaba ANTES de `sendMessage()`
    - Impacto: 250 registros marcados como enviados sin confirmar (incidente 2026-02-07)
-   - Fix: Refactorizar para marcar DESPUÉS de confirmación
+   - **Solución:** Función `marcarEnviado()` eliminada, reemplazada por `cambiarEstado()` que solo marca después de confirmación
 
-2. **[ALTO] Sin rollback en catch**
+2. **[ALTO] Sin rollback en catch** → ✅ **RESUELTO v1.0.0**
+   - **Estado:** RESUELTO (2026-02-13)
    - Archivo: `programacionScheduler.js` líneas 283-291
-   - Problema: Si `sendMessage()` falla, estado queda en 'enviado'
-   - Fix: Implementar `cambiarEstado()` a 'error' en el catch
+   - Problema: Si `sendMessage()` fallaba, estado quedaba en 'enviado'
+   - **Solución:** Implementado cambio automático a 'error' con clasificación en catch, scheduler continúa procesando
 
-3. **[MEDIO] Estados legacy inconsistentes**
+3. **[MEDIO] Estados legacy inconsistentes** → ⚠️ **PENDIENTE**
    - Archivo: `destinatariosController.js` línea 393
    - Problema: Usa `'sent_manual'` que no está en ENUM
-   - Fix: Migrar a `'enviado'` + auditoría de origen='manual'
+   - Fix pendiente: Migrar a `'enviado'` + auditoría de origen='manual'
 
-4. **[BAJO] Sin `message_id` en BD**
-   - Archivo: Session Manager retorna `message_id` pero no se guarda
-   - Problema: No hay forma de verificar envío real post-facto
-   - Fix: Agregar columna y guardar en `cambiarEstado()`
+4. **[BAJO] Sin `message_id` en BD** → ⏳ **IMPLEMENTADO EN CÓDIGO**
+   - **Estado:** Código listo, pendiente migración de BD
+   - Session Manager retorna `message_id` y se guarda en `cambiarEstado()`
+   - Pendiente: Ejecutar `ALTER TABLE` para agregar columna
 
 ### 8.3 Datos Actuales
 
@@ -471,13 +474,13 @@ error      | 89    (¿marcados manualmente?)
 ### 8.4 Próximos Pasos
 
 **Prioridad CRÍTICA:**
-1. Implementar `cambiarEstado()` con transacciones
-2. Crear `ll_envios_whatsapp_historial`
-3. Refactorizar loop en `programacionScheduler.js`
-4. Agregar columna `message_id`
+1. ~~Implementar `cambiarEstado()` con transacciones~~ ✅ COMPLETADO
+2. Crear `ll_envios_whatsapp_historial` ⚠️ **BLOQUEANTE**
+3. ~~Refactorizar loop en `programacionScheduler.js`~~ ✅ COMPLETADO
+4. Agregar columna `message_id` ⚠️ **BLOQUEANTE**
 
 **Prioridad ALTA:**
-5. Implementar rollback en catch
+5. ~~Implementar rollback en catch~~ ✅ COMPLETADO
 6. Migrar estados legacy
 7. Testing de transiciones prohibidas
 
@@ -485,6 +488,61 @@ error      | 89    (¿marcados manualmente?)
 8. Frontend: Botón envío manual
 9. Endpoint envío manual
 10. Vista de historial
+
+### 8.5 Cambios Implementados en v1.0.0
+
+**Fecha:** 2026-02-13  
+**Commit:** feature/whatsapp-state-machine-refactor
+
+#### Backend Core
+
+✅ **Servicio `estadoService.js` creado**
+- Función `cambiarEstado()` con transacciones ACID
+- Validación estricta de transiciones permitidas
+- Auditoría automática en `ll_envios_whatsapp_historial`
+- Rollback automático en caso de error
+- Registro de `message_id` y timestamps
+
+✅ **Refactorización de `programacionScheduler.js`**
+- **Eliminación completa** de función `marcarEnviado()`
+- Flujo corregido: **envío primero, estado después**
+- Validación triple de respuesta (`null`, `ok`, `message_id`)
+- Clasificación estructurada de errores (8 códigos)
+- Eliminación de `break` en catch: scheduler continúa procesando
+- Normalización protocol-agnostic: solo dígitos, sin `@c.us`
+
+✅ **Cliente Session Manager actualizado**
+- Validación estricta de respuesta de `sendMessage()`
+- `cliente_id` en body + header `X-Cliente-Id`
+- Clasificación de HTTP 503 con `code: SESSION_NOT_READY`
+- Manejo de errores 400, 409, 500, 503
+
+#### Garantías de Integridad
+
+✅ **IMPOSIBLE** marcar "enviado" sin confirmación real  
+✅ **IMPOSIBLE** respuesta malformada pase silenciosamente  
+✅ **IMPOSIBLE** UPDATE directo sobre `estado` (solo vía `cambiarEstado()`)  
+✅ **IMPOSIBLE** transición inválida (validación automática)  
+✅ Scheduler resiliente: continúa ante fallos individuales
+
+#### Códigos de Error Implementados
+
+- `SESSION_MANAGER_TIMEOUT` - Timeout de red
+- `SESSION_MANAGER_UNREACHABLE` - Service down
+- `SESSION_NOT_READY` - Sesión WhatsApp no lista
+- `WHATSAPP_ERROR` - Error interno WhatsApp
+- `VALIDATION_ERROR` - Request inválido
+- `INVALID_SEND_RESPONSE` - Respuesta malformada
+- `TELEFONO_INVALIDO` - Número vacío/inválido
+- `UNKNOWN_ERROR` - Error sin clasificar
+
+#### Pendientes Bloqueantes
+
+⚠️ **Migraciones de Base de Datos (Crítico)**
+- Crear tabla `ll_envios_whatsapp_historial`
+- Agregar columna `message_id` a `ll_envios_whatsapp`
+
+**Sin estas migraciones, el sistema no puede operar en producción.**
 
 ---
 
@@ -602,3 +660,15 @@ Cualquier modificación debe reflejarse aquí.
 
 **Mantenedor:** Equipo de desarrollo LeadMaster  
 **Última revisión:** 2026-02-13
+
+---
+
+**📋 Documento actualizado tras refactorización v1.0.0 – 2026-02-13**
+
+**Cambios principales en esta versión:**
+- ✅ Bug crítico de marcado prematuro resuelto
+- ✅ Máquina de estados implementada con auditoría
+- ✅ Validaciones estrictas de integridad
+- ⚠️ Pendiente: Migraciones de BD (bloqueante para producción)
+
+**Véase también:** [INFORME_REFACTORIZACION_SCHEDULER_2026-02-13.md](../../INFORME_REFACTORIZACION_SCHEDULER_2026-02-13.md)
