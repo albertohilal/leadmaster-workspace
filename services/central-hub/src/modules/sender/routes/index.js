@@ -41,6 +41,11 @@ router.use('/', require('./sender.routes'));
 // POST /api/sender/test-send
 router.use('/', require('./testSend.route'));
 
+// Envío manual por Web WhatsApp (FASE 1 – Modo Manual Controlado)
+// Endpoint final:
+// POST /api/sender/registro-manual
+router.use('/', require('./manual'));
+
 // ==================================================
 // RUTAS LEGACY (en migración)
 // ==================================================

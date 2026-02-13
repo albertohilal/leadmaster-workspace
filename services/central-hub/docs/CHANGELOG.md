@@ -6,7 +6,8 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ---
 
-## [1.0.0] - 2026-02-13
+## [1.1.0] - 2026-02-13
+
 
 ### Added
 

@@ -1,11 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ArrowLeft, Users, Building, MapPin } from 'lucide-react';
+import { ArrowLeft, Users, Building, MapPin, MessageCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import prospectosService from '../../services/prospectos';
 import campanasService from '../../services/campanas';
 import destinatariosService from '../../services/destinatarios';
+import api from '../../services/api';
 
 const SelectorProspectosPage = () => {
+  // 🚨 VERIFICACIÓN DE CARGA DEL COMPONENTE
+  console.log('🚀 SelectorProspectosPage CARGADO - VERSIÓN CON DIAGNÓSTICO');
+  
   const navigate = useNavigate();
 
   const [campanas, setCampanas] = useState([]);
@@ -15,6 +19,10 @@ const SelectorProspectosPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [estadoFiltro, setEstadoFiltro] = useState('todos');
+  
+  // FASE 1 – Modo Manual Controlado
+  const [prospectoSeleccionado, setProspectoSeleccionado] = useState(null);
+  const [mostrarModalWhatsApp, setMostrarModalWhatsApp] = useState(false);
 
   useEffect(() => {
     cargarCampanas();
@@ -137,6 +145,56 @@ const SelectorProspectosPage = () => {
     }
   };
 
+  // FASE 1 – Modo Manual Controlado
+  const handleAbrirModalWhatsApp = (prospecto) => {
+    // Validar que tenga teléfono
+    if (!prospecto.telefono_wapp || prospecto.telefono_wapp.trim() === '') {
+      alert('Este prospecto no tiene teléfono de WhatsApp');
+      return;
+    }
+
+    setProspectoSeleccionado(prospecto);
+    setMostrarModalWhatsApp(true);
+  };
+
+  const handleConfirmarWhatsApp = async () => {
+    if (!prospectoSeleccionado) return;
+
+    try {
+      // Normalizar teléfono (solo números)
+      const telefonoNormalizado = prospectoSeleccionado.telefono_wapp.replace(/\D/g, '');
+
+      // Crear mensaje base
+      const mensaje = `Hola ${prospectoSeleccionado.nombre}, te contacto desde Desarrollo y Diseño.`;
+
+      // Encode mensaje
+      const mensajeCodificado = encodeURIComponent(mensaje);
+
+      // Construir URL de WhatsApp
+      const urlWhatsApp = `https://wa.me/${telefonoNormalizado}?text=${mensajeCodificado}`;
+
+      // Registrar en base de datos
+      await api.post('/sender/registro-manual', {
+        prospecto_id: prospectoSeleccionado.prospecto_id,
+        telefono: telefonoNormalizado,
+        mensaje: mensaje
+      });
+
+      // Abrir WhatsApp Web
+      window.open(urlWhatsApp, '_blank');
+
+      // Cerrar modal
+      setMostrarModalWhatsApp(false);
+      setProspectoSeleccionado(null);
+
+      console.log('[MANUAL] Envío registrado y WhatsApp abierto');
+
+    } catch (error) {
+      console.error('[MANUAL] Error al procesar envío:', error);
+      alert('Error al registrar el envío');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
 
@@ -241,6 +299,7 @@ const SelectorProspectosPage = () => {
                     <th className="px-6 py-3 text-left">Estado</th>
                     <th className="px-6 py-3 text-left">Teléfono</th>
                     <th className="px-6 py-3 text-left">Dirección</th>
+                    <th className="px-6 py-3 text-left">Acciones</th>
                   </tr>
                 </thead>
 
@@ -253,7 +312,7 @@ const SelectorProspectosPage = () => {
                     </tr>
                   ) : prospectosFiltrados.length === 0 ? (
                     <tr>
-                      <td colSpan="5" className="p-6 text-center">
+                      <td colSpan="6" className="p-6 text-center">
                         {prospectos.length === 0 ? 'No hay prospectos' : 'No hay prospectos con este filtro'}
                       </td>
                     </tr>
@@ -262,6 +321,21 @@ const SelectorProspectosPage = () => {
                       const seleccionado = seleccionados.find(
                         s => s.prospecto_id === p.prospecto_id
                       );
+
+                      // 🔍 DIAGNÓSTICO TÉCNICO - FASE 1 WHATSAPP
+                      console.group(`🔍 Prospecto ID: ${p.prospecto_id}`);
+                      console.log('📋 Nombre:', p.nombre);
+                      console.log('📊 estado_campania:', p.estado_campania);
+                      console.log('🔤 typeof estado_campania:', typeof p.estado_campania);
+                      console.log('📞 telefono_wapp:', p.telefono_wapp);
+                      console.log('🔤 typeof telefono_wapp:', typeof p.telefono_wapp);
+                      console.log('✅ Condición pendiente:', p.estado_campania === 'pendiente');
+                      console.log('✅ Condición sin_envio:', p.estado_campania === 'sin_envio');
+                      console.log('✅ Tiene teléfono:', !!p.telefono_wapp);
+                      console.log('🎯 Mostrar botón:', (p.estado_campania === 'pendiente' || p.estado_campania === 'sin_envio') && p.telefono_wapp);
+                      console.log('📦 Objeto completo:', p);
+                      console.log('🔑 Propiedades disponibles:', Object.keys(p));
+                      console.groupEnd();
 
                       return (
                         <tr
@@ -304,6 +378,21 @@ const SelectorProspectosPage = () => {
                               {p.direccion || '-'}
                             </div>
                           </td>
+
+                          <td className="px-6 py-4">
+                            {(p.estado_campania === 'pendiente' || p.estado_campania === 'sin_envio') && p.telefono_wapp && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAbrirModalWhatsApp(p);
+                                }}
+                                className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors"
+                              >
+                                <MessageCircle className="h-4 w-4" />
+                                Web WhatsApp
+                              </button>
+                            )}
+                          </td>
                         </tr>
                       );
                     })
@@ -315,6 +404,67 @@ const SelectorProspectosPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Modal de WhatsApp */}
+      {mostrarModalWhatsApp && prospectoSeleccionado && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="px-6 py-4 border-b">
+              <h3 className="text-lg font-semibold">Enviar por Web WhatsApp</h3>
+            </div>
+
+            <div className="px-6 py-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Empresa
+                </label>
+                <p className="text-gray-900">{prospectoSeleccionado.nombre}</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Teléfono
+                </label>
+                <p className="text-gray-900">{prospectoSeleccionado.telefono_wapp}</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Mensaje
+                </label>
+                <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+                  Hola {prospectoSeleccionado.nombre}, te contacto desde Desarrollo y Diseño.
+                </p>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-xs text-blue-800">
+                  ℹ️ Se abrirá WhatsApp Web en una nueva pestaña. El envío se registrará pero NO cambiará el estado automáticamente.
+                </p>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setMostrarModalWhatsApp(false);
+                  setProspectoSeleccionado(null);
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmarWhatsApp}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+              >
+                <MessageCircle className="h-4 w-4" />
+                Abrir WhatsApp
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
