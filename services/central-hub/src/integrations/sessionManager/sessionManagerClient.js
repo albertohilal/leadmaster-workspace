@@ -112,12 +112,17 @@ class SessionManagerClient {
 
   /**
    * Obtiene el estado global de WhatsApp
+   * @param {Object} params - Parámetros opcionales
+   * @param {number} params.cliente_id - ID del cliente (opcional, para multi-client)
    * @returns {Promise<Object>} Estado con status, connected, qrDataUrl, account, etc
    */
-  async getStatus() {
+  async getStatus({ cliente_id } = {}) {
     try {
+      const headers = cliente_id ? { 'X-Cliente-Id': String(cliente_id) } : {};
+      
       const response = await this._fetchWithTimeout('/status', {
-        method: 'GET'
+        method: 'GET',
+        headers
       }, this.connectionTimeout);
 
       if (response.ok) {
@@ -236,17 +241,26 @@ class SessionManagerClient {
    * Envía un mensaje de WhatsApp
    * @param {Object} params
    * @param {number} params.cliente_id - ID del cliente (tracking lógico)
-   * @param {string} params.to - Número de teléfono destino
+   * @param {string} params.to - Número de teléfono destino (solo dígitos)
    * @param {string} params.message - Contenido del mensaje
-   * @returns {Promise<Object>} { success, message_id, cliente_id, timestamp }
+   * @returns {Promise<Object>} { ok: true, message_id: "wamid..." }
    * @throws {SessionManagerValidationError} Error de validación (400)
    * @throws {SessionManagerSessionNotReadyError} Sesión no lista (409)
    * @throws {SessionManagerWhatsAppError} Error interno de WhatsApp (500)
    */
   async sendMessage({ cliente_id, to, message }) {
+    if (!cliente_id || !to || !message) {
+      throw new SessionManagerValidationError(
+        'Parámetros requeridos: cliente_id, to, message'
+      );
+    }
+
     try {
       const response = await this._fetchWithTimeout('/send', {
         method: 'POST',
+        headers: {
+          'X-Cliente-Id': String(cliente_id)
+        },
         body: JSON.stringify({
           cliente_id,
           to,
@@ -256,7 +270,20 @@ class SessionManagerClient {
 
       if (response.ok) {
         const result = await response.json();
-        console.log(`[SessionManager] ✅ Mensaje enviado a ${to} (cliente: ${cliente_id})`);
+
+        if (!result.ok) {
+          throw new SessionManagerValidationError(
+            'Respuesta inválida: campo "ok" no es true'
+          );
+        }
+
+        if (!result.message_id) {
+          throw new SessionManagerValidationError(
+            'Respuesta inválida: falta campo "message_id"'
+          );
+        }
+
+        console.log(`[SessionManager] ✅ Mensaje enviado a ${to} (cliente: ${cliente_id}, message_id: ${result.message_id})`);
         return result;
       }
 
@@ -277,6 +304,23 @@ class SessionManagerClient {
       if (response.status === 500) {
         throw new SessionManagerWhatsAppError(
           `Error interno de WhatsApp: ${errorText}`
+        );
+      }
+
+      if (response.status === 503) {
+        let errorData = {};
+        try {
+          errorData = JSON.parse(errorText);
+        } catch (_) {}
+
+        if (errorData.code === 'SESSION_NOT_READY') {
+          throw new SessionManagerSessionNotReadyError(
+            errorData.message || 'Sesión no lista'
+          );
+        }
+
+        throw new SessionManagerUnreachableError(
+          `Session Manager 503: ${errorText}`
         );
       }
 

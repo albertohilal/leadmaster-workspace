@@ -15,8 +15,12 @@ const connection = require('../db/connection');
 const {
   sessionManagerClient,
   SessionManagerTimeoutError,
-  SessionManagerUnreachableError
+  SessionManagerUnreachableError,
+  SessionManagerSessionNotReadyError,
+  SessionManagerWhatsAppError,
+  SessionManagerValidationError
 } = require('../../../integrations/sessionManager');
+const { cambiarEstado } = require('./estadoService');
 
 const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const PROCESS_INTERVAL_MS = 60 * 1000; // cada minuto
@@ -134,14 +138,6 @@ async function obtenerPendientes(campaniaId, limite) {
   return rows;
 }
 
-async function marcarEnviado(id) {
-  const [result] = await connection.query(
-    'UPDATE ll_envios_whatsapp SET estado = "enviado", fecha_envio = NOW() WHERE id = ? AND estado = "pendiente"',
-    [id]
-  );
-  return result.affectedRows === 1;
-}
-
 /* =========================
    PROCESAMIENTO
    ========================= */
@@ -158,7 +154,7 @@ async function procesarProgramacion(programacion) {
 
   let status;
   try {
-    status = await sessionManagerClient.getStatus();
+    status = await sessionManagerClient.getStatus({ cliente_id: clienteId });
   } catch (error) {
     if (error instanceof SessionManagerTimeoutError) {
       console.error(`⏸️ Programación ${programacion.id}: Session Manager timeout`);
@@ -238,21 +234,27 @@ async function procesarProgramacion(programacion) {
   let enviadosFallidos = 0;
   
   for (const envio of pendientes) {
-    const marcado = await marcarEnviado(envio.id);
-    
-    if (!marcado) {
-      diagLog('⚠️ NO MARCADO', {
-        envio_id: envio.id,
-        razon: 'UPDATE afectó 0 filas (posible race condition)'
-      });
+    const destinatario = String(envio.telefono_wapp || '').replace(/\D/g, '');
+
+    if (!destinatario) {
+      console.error(`❌ Envío ${envio.id}: Teléfono inválido o vacío`);
+      enviadosFallidos++;
+      
+      try {
+        await cambiarEstado(
+          { connection },
+          envio.id,
+          'error',
+          'scheduler',
+          '(TELEFONO_INVALIDO) Número de teléfono vacío o inválido'
+        );
+      } catch (estadoErr) {
+        console.error(`❌ Error marcando estado de envío ${envio.id}:`, estadoErr.message);
+      }
+      
       continue;
     }
 
-    const destinatario = envio.telefono_wapp.includes('@c.us')
-      ? envio.telefono_wapp
-      : `${envio.telefono_wapp}@c.us`;
-
-    // Personalizar mensaje reemplazando placeholders
     const mensajePersonalizado = envio.mensaje_final
       .replace(/\{nombre\}/gi, envio.nombre_destino || '')
       .replace(/\{nombre_destino\}/gi, envio.nombre_destino || '')
@@ -266,29 +268,85 @@ async function procesarProgramacion(programacion) {
         nombre: envio.nombre_destino
       });
       
-      await sessionManagerClient.sendMessage({
+      const result = await sessionManagerClient.sendMessage({
         cliente_id: clienteId,
         to: destinatario,
         message: mensajePersonalizado
       });
       
+      if (!result) {
+        throw new Error('(INVALID_SEND_RESPONSE) sendMessage retornó null o undefined');
+      }
+      
+      if (result.ok !== true) {
+        throw new Error(`(INVALID_SEND_RESPONSE) sendMessage retornó ok=${result.ok}`);
+      }
+      
+      if (!result.message_id) {
+        throw new Error('(INVALID_SEND_RESPONSE) Falta message_id en respuesta');
+      }
+      
+      await cambiarEstado(
+        { connection },
+        envio.id,
+        'enviado',
+        'scheduler',
+        'Envío automático exitoso',
+        { messageId: result.message_id }
+      );
+      
       enviadosExitosos++;
       
       diagLog('✅ ENVIADO', {
         envio_id: envio.id,
-        telefono: destinatario
+        telefono: destinatario,
+        message_id: result.message_id
       });
 
       await delay(getRandomSendDelay());
+      
     } catch (err) {
       enviadosFallidos++;
-      console.error(`❌ Envío ${envio.id} fallido: ${err.message}`);
+      
+      let errorCode = 'UNKNOWN_ERROR';
+      let errorMessage = err.message;
+      
+      if (err instanceof SessionManagerTimeoutError) {
+        errorCode = 'SESSION_MANAGER_TIMEOUT';
+      } else if (err instanceof SessionManagerUnreachableError) {
+        errorCode = 'SESSION_MANAGER_UNREACHABLE';
+      } else if (err instanceof SessionManagerSessionNotReadyError) {
+        errorCode = 'SESSION_NOT_READY';
+      } else if (err instanceof SessionManagerWhatsAppError) {
+        errorCode = 'WHATSAPP_ERROR';
+      } else if (err instanceof SessionManagerValidationError) {
+        errorCode = 'VALIDATION_ERROR';
+      } else if (err.message.includes('INVALID_SEND_RESPONSE')) {
+        errorCode = 'INVALID_SEND_RESPONSE';
+      } else if (err.message.includes('TELEFONO_INVALIDO')) {
+        errorCode = 'TELEFONO_INVALIDO';
+      }
+      
+      console.error(`❌ Envío ${envio.id} fallido (${errorCode}): ${errorMessage}`);
+      
+      try {
+        await cambiarEstado(
+          { connection },
+          envio.id,
+          'error',
+          'scheduler',
+          `(${errorCode}) ${errorMessage}`
+        );
+      } catch (estadoErr) {
+        console.error(`❌ Error marcando estado de envío ${envio.id}:`, estadoErr.message);
+      }
+      
       diagLog('❌ ERROR sendMessage', {
         envio_id: envio.id,
-        error: err.message,
+        error_code: errorCode,
+        error: errorMessage,
         telefono: destinatario
       });
-      break;
     }
   }
   
@@ -368,11 +426,8 @@ function start() {
    ========================= */
 module.exports = {
   start,
-  // Funciones internas expuestas SOLO para testing de integración
-  // NO usar en código de producción
   __test__: {
     procesarProgramacion,
-    marcarEnviado,
     obtenerPendientes
   }
 };
