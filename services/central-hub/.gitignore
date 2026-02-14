@@ -49,6 +49,7 @@ Thumbs.db
 # Database dumps & backups
 ########################################
 *.sql
+!schema.sql
 *.sqlite
 *.db
 *.bak
