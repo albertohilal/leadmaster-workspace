@@ -118,6 +118,63 @@ const GestorDestinatarios = ({ campaniaId, onDestinatariosUpdated }) => {
     reader.readAsText(file);
   };
 
+  // Renderizar destinatarios con acciones
+  const renderizarDestinatarios = (destinatarios) => (
+    <table className="w-full text-left border-collapse">
+      <thead>
+        <tr>
+          <th className="border-b py-2">Nombre</th>
+          <th className="border-b py-2">Teléfono</th>
+          <th className="border-b py-2">Estado</th>
+          <th className="border-b py-2">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {destinatarios.map((destinatario) => (
+          <tr key={destinatario.id}>
+            <td className="border-b py-2">{destinatario.nombre}</td>
+            <td className="border-b py-2">{destinatario.telefono}</td>
+            <td className="border-b py-2">{destinatario.estado}</td>
+            <td className="border-b py-2">
+              {destinatario.estado === 'pendiente' && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => window.open(`https://wa.me/${destinatario.telefono}`, '_blank')}
+                    className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    Abrir WhatsApp
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setLoadingButtons((prev) => ({ ...prev, [destinatario.id]: true }));
+                      try {
+                        const response = await destinatariosService.marcarEnviadoManual(destinatario.id);
+                        if (response.success) {
+                          alert('Destinatario marcado como enviado');
+                          onDestinatariosUpdated();
+                        }
+                      } catch (error) {
+                        alert('Error al marcar como enviado: ' + (error.response?.data?.message || error.message));
+                      } finally {
+                        setLoadingButtons((prev) => ({ ...prev, [destinatario.id]: false }));
+                      }
+                    }}
+                    disabled={loadingButtons[destinatario.id]}
+                    className={`px-3 py-2 rounded-lg text-white ${loadingButtons[destinatario.id] ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'}`}
+                  >
+                    {loadingButtons[destinatario.id] ? 'Procesando...' : 'Marcar como enviado'}
+                  </button>
+                </div>
+              )}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+
+  const [loadingButtons, setLoadingButtons] = useState({});
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
       <div className="flex justify-between items-center mb-6">

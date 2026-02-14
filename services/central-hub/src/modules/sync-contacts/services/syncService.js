@@ -204,7 +204,7 @@ class SyncService {
       conditions.push('s.client = 1');
     }
     if (config.incluir_prospectos) {
-      conditions.push('(s.client = 0 OR s.client IS NULL)');
+      conditions.push('((s.client = 0 OR s.client IS NULL) AND s.fournisseur = 0)');
     }
     if (conditions.length > 0) {
       sql += ` AND (${conditions.join(' OR ')})`;
@@ -260,7 +260,7 @@ class SyncService {
       conditions.push('s.client = 1');
     }
     if (config.incluir_prospectos) {
-      conditions.push('(s.client = 0 OR s.client IS NULL)');
+      conditions.push('((s.client = 0 OR s.client IS NULL) AND s.fournisseur = 0)');
     }
     if (conditions.length > 0) {
       sql += ` AND (${conditions.join(' OR ')})`;

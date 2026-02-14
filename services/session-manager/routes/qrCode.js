@@ -9,6 +9,7 @@
 import express from 'express';
 import QRCode from 'qrcode';
 import { getStatus, getLastQR } from '../whatsapp/client.js';
+import { ensureClientInitialized } from '../whatsapp/manager.js';
 
 const router = express.Router();
 
@@ -42,9 +43,12 @@ router.get('/', async (req, res) => {
     });
   }
   
+  // Asegurar que el cliente esté inicializado
+  ensureClientInitialized(clienteId);
+  
   try {
     // Obtener estado actual de la sesión
-    const status = getStatus();
+    const status = getStatus(clienteId);
     
     // Validar que el estado requiere QR
     if (status.state !== 'QR_REQUIRED') {
@@ -56,7 +60,7 @@ router.get('/', async (req, res) => {
     }
     
     // Obtener el QR ya generado
-    const qrString = getLastQR();
+    const qrString = getLastQR(clienteId);
     
     if (!qrString) {
       return res.status(404).json({

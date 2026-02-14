@@ -1,59 +1,95 @@
-# Node
+########################################
+# Node / Package managers
+########################################
 node_modules/
-npm-debug.log
-yarn-debug.log
-yarn-error.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
+########################################
 # Logs
+########################################
 logs/
 *.log
+*.out
 
-# Test results
+########################################
+# Build outputs
+########################################
+dist/
+build/
+
+########################################
+# Test & coverage
+########################################
+coverage/
 test-results/
 playwright-report/
 playwright/.cache/
 
-# dotenv
+########################################
+# Environment variables
+########################################
 .env
 .env.*
+!.env.example
 
-# OS
+########################################
+# OS / Editor
+########################################
 .DS_Store
 Thumbs.db
-
-# VSCode
-.vscode/
-
-# Build
-/dist
-/build
-
-# WhatsApp session data
-.session/
-.wwebjs_auth/
-
-# Venom-bot tokens (session data)
-tokens/
-
-# Test
-coverage/
-
-# Misc
-*.tgz
-*.swp
 .idea/
+.vscode/
+*.swp
+*.swo
 
-# Ignore database dumps and sensitive data
+########################################
+# Database dumps & backups
+########################################
 *.sql
 *.sqlite
 *.db
 *.bak
 
-# Carpeta auxiliar con archivos de trabajo
+########################################
+# WhatsApp / Automation session data
+########################################
+.session/
+.wwebjs_auth/
+tokens/
+
+########################################
+# Venom / WhatsApp auth artifacts
+########################################
+venom-session/
+whatsapp-session/
+
+########################################
+# Workspace / tooling artifacts
+########################################
+*.code-workspace
+
+########################################
+# Auxiliary / working folders
+########################################
 AUXILIAR/
 
-# Ignore output
-*.out
+########################################
+# Archives
+########################################
+*.tgz
 
-# Ignore tokens and secrets
-tokens/
+########################################
+# Docs de diagnóstico (solo ignorar en raíz)
+########################################
+/DIAGNOSTICO_*.md
+/INFORME_*.md
+
+########################################
+# Seguridad: nunca versionar secretos
+########################################
+**/secrets/
+**/*.key
+**/*.pem

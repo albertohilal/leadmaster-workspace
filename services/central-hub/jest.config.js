@@ -5,10 +5,11 @@ module.exports = {
   // Entorno de Node.js para tests de backend
   testEnvironment: "node",
 
-  // Ejecutar solo tests unitarios Jest
+  // Ejecutar tests unitarios y de integración Jest
   testMatch: [
     "**/src/**/?(*.)+(test).js",
-    "**/?(*.)+(test).js"
+    "**/?(*.)+(test).js",
+    "**/tests/**/?(*.)+(integration.test).js"
   ],
 
   // Ignorar Playwright / E2E y frontend

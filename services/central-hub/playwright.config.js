@@ -1,7 +1,8 @@
 // @ts-check
 /** @type {import('@playwright/test').PlaywrightTestConfig} */
 const config = {
-  testDir: './tests',
+  testDir: './', // Buscar tests en todo el proyecto
+  testMatch: ['**/tests/**/*.spec.ts', '**/e2e/**/*.spec.js'], // Incluir tests/ y e2e/
   timeout: 60000, // Aumentado para pruebas E2E
   retries: 1,
   use: {
@@ -30,6 +31,27 @@ const config = {
       use: {
         baseURL: 'http://localhost:5174', // Frontend para E2E
         viewport: { width: 1280, height: 720 },
+      },
+    },
+    {
+      name: 'E2E Tests - WhatsApp',
+      testMatch: '**/e2e/**/*.spec.js',
+      use: {
+        baseURL: process.env.E2E_BASE_URL || 'https://desarrolloydisenioweb.com.ar',
+        viewport: { width: 1280, height: 720 },
+        screenshot: 'on', // Siempre capturar screenshots para evidencia
+        video: 'retain-on-failure',
+        trace: 'retain-on-failure',
+        
+        // Configuración para producción en VPS (headless)
+        headless: true,
+        
+        // Ignorar errores HTTPS en desarrollo (remover en producción si hay SSL válido)
+        ignoreHTTPSErrors: false,
+        
+        // Timeouts para entorno productivo (red puede ser más lenta)
+        navigationTimeout: 30000,
+        actionTimeout: 15000,
       },
     },
     {

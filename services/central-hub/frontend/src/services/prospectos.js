@@ -6,12 +6,12 @@ export const prospectosService = {
     try {
       const queryParams = new URLSearchParams();
       
-      if (filtros.area) queryParams.append('area', filtros.area);
-      if (filtros.rubro) queryParams.append('rubro', filtros.rubro);
-      if (filtros.direccion) queryParams.append('direccion', filtros.direccion);
+      // ✅ CRÍTICO: Incluir campania_id (obligatorio)
+      if (filtros.campania_id) queryParams.append('campania_id', filtros.campania_id);
+      
+      // Filtros simplificados
       if (filtros.estado) queryParams.append('estado', filtros.estado);
-      if (filtros.tipo_cliente) queryParams.append('tipoCliente', filtros.tipo_cliente);
-      if (filtros.limite) queryParams.append('limite', filtros.limite);
+      if (filtros.q) queryParams.append('q', filtros.q);
       
       const url = `/sender/prospectos/filtrar${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
       const response = await apiService.get(url);
@@ -45,9 +45,10 @@ export const prospectosService = {
   },
 
   // Obtener estados disponibles
-  async obtenerEstados() {
+  async obtenerEstados(campaniaId = null) {
     try {
-      const response = await apiService.get('/sender/prospectos/estados');
+      const params = campaniaId ? { campania_id: campaniaId } : {};
+      const response = await apiService.get('/sender/prospectos/estados', { params });
       return response.data;
     } catch (error) {
       console.error('Error al obtener estados:', error);

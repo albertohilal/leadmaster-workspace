@@ -1,16 +1,40 @@
 import express from 'express';
 import { sendMessage, getStatus } from '../whatsapp/client.js';
+import { ensureClientInitialized } from '../whatsapp/manager.js';
 
 const router = express.Router();
 
 /**
  * POST /send
+ * Header requerido: X-Cliente-Id
  * Send a WhatsApp message
  */
 router.post('/', async (req, res) => {
+  const clienteIdHeader = req.headers['x-cliente-id'];
+  const { to, message } = req.body;
+  
+  // Validación de header
+  if (!clienteIdHeader) {
+    return res.status(400).json({
+      error: true,
+      code: 'MISSING_HEADER',
+      message: 'Header X-Cliente-Id es requerido'
+    });
+  }
+  
+  const clienteId = parseInt(clienteIdHeader, 10);
+  if (isNaN(clienteId) || clienteId <= 0) {
+    return res.status(400).json({
+      error: true,
+      code: 'INVALID_HEADER',
+      message: 'X-Cliente-Id debe ser un número positivo'
+    });
+  }
+  
+  // Asegurar que el cliente esté inicializado
+  ensureClientInitialized(clienteId);
+  
   try {
-    const { to, message } = req.body;
-
     // Validate required fields
     if (!to || !message) {
       return res.status(400).json({
@@ -21,7 +45,7 @@ router.post('/', async (req, res) => {
     }
 
     // Check session status
-    const status = getStatus();
+    const status = getStatus(clienteId);
     if (status.state !== 'READY') {
       return res.status(409).json({
         error: true,
@@ -31,7 +55,7 @@ router.post('/', async (req, res) => {
     }
 
     // Send message
-    const result = await sendMessage(to, message);
+    const result = await sendMessage(clienteId, to, message);
     res.status(200).json(result);
 
   } catch (error) {

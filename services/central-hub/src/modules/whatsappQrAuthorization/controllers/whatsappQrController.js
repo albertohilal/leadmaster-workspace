@@ -60,10 +60,17 @@ async function getWhatsappSessionStatus(req, res) {
 
   try {
     // Consultar endpoint GET /status del session-manager
-    const sessionManagerUrl = process.env.SESSION_MANAGER_BASE_URL || 'http://localhost:3001';
+    const sessionManagerUrl = process.env.SESSION_MANAGER_BASE_URL;
+    if (!sessionManagerUrl) {
+      throw new Error('SESSION_MANAGER_BASE_URL no está definido');
+    }
     const statusUrl = `${sessionManagerUrl}/status`;
     
-    const response = await fetch(statusUrl);
+    const response = await fetch(statusUrl, {
+      headers: {
+        'X-Cliente-Id': String(clienteIdNum)
+      }
+    });
     
     if (!response.ok) {
       throw new Error(`Session Manager returned status ${response.status}`);

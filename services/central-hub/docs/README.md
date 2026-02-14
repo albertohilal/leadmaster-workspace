@@ -2,6 +2,24 @@
 
 Documentación completa del sistema LeadMaster Central Hub.
 
+---
+
+## 🚨 Documentación Reciente
+
+### 🐛 Bug 0 Registros en Selector de Prospectos (Feb 2026)
+**[📑 ÍNDICE COMPLETO: BUG_0_REGISTROS_PROSPECTOS_INDICE.md](BUG_0_REGISTROS_PROSPECTOS_INDICE.md)**
+
+Documentación exhaustiva del bug INNER JOIN en el selector de prospectos, que retornaba 0 registros. Incluye:
+- ✅ Diagnóstico técnico completo
+- ✅ Análisis de cambios (diff vs commit estable 7f61633)
+- ✅ Arquitectura de base de datos (7 tablas, 5 diagramas Mermaid)
+- ✅ Solución: Cambiar INNER JOIN → LEFT JOIN
+- ✅ **Optimización de performance: 5 índices covering, mejora 90% query time**
+
+**Archivos relacionados**: 5 documentos + 5 diagramas visuales + script SQL optimización
+
+---
+
 ## 📚 Índice de documentación
 
 ### 📋 Planificación y prioridades

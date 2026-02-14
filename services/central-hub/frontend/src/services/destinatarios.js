@@ -47,6 +47,21 @@ export const destinatariosService = {
       console.error('Error al quitar destinatarios:', error);
       throw error;
     }
+  },
+
+  // Marcar destinatario como enviado manualmente
+  async marcarEnviadoManual(destinatarioId) {
+    try {
+      const response = await apiService.patch(`/sender/destinatarios/${destinatarioId}/marcar-enviado`, null, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error al marcar destinatario como enviado manual:', error);
+      throw error;
+    }
   }
 };
 

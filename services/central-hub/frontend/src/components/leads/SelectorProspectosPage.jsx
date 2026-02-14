@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Filter, Users, MapPin, Phone, Building2, Plus, Check, X, ChevronLeft } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Users, Phone, ChevronLeft } from 'lucide-react';
 import Button from '../common/Button';
 import LoadingSpinner from '../common/LoadingSpinner';
-import { leadsAPI } from '../../services/api';
+import { leadsAPI, campaignsAPI } from '../../services/api';
 import { destinatariosService } from '../../services/destinatarios';
 import { useNavigate } from 'react-router-dom';
 
@@ -13,27 +13,14 @@ const SelectorProspectosPage = () => {
   const [selectedProspectos, setSelectedProspectos] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
   const [selectedCampaign, setSelectedCampaign] = useState('');
-  
-  const [filters, setFilters] = useState({
-    area: '',
-    rubro: '',
-    direccion: '',
-    estado: 'sin_envio',
-    tipoCliente: '',
-    soloWappValido: true
-  });
-  
-  const [areas, setAreas] = useState([]);
   const [agregandoDestinatarios, setAgregandoDestinatarios] = useState(false);
 
-  // Cargar campañas disponibles
   useEffect(() => {
     const cargarCampaigns = async () => {
       try {
-        const response = await leadsAPI.get('/sender/campaigns');
+        const response = await campaignsAPI.getAll();
         setCampaigns(response.data || []);
         
-        // Seleccionar la primera campaña por defecto
         if (response.data && response.data.length > 0) {
           setSelectedCampaign(response.data[0].id.toString());
         }
@@ -44,61 +31,47 @@ const SelectorProspectosPage = () => {
     cargarCampaigns();
   }, []);
 
-  // Cargar áreas disponibles
-  useEffect(() => {
-    const cargarAreas = async () => {
-      try {
-        const response = await leadsAPI.getAreas();
-        setAreas(response.data || []);
-      } catch (error) {
-        console.error('Error cargando áreas:', error);
-      }
-    };
-    cargarAreas();
-  }, []);
-
-  // Cargar prospectos cuando cambien filtros o campaña seleccionada
-  const cargarProspectos = async () => {
-    if (!selectedCampaign) return;
+  const cargarProspectos = useCallback(async () => {
+    if (!selectedCampaign) {
+      console.warn('No hay campaña seleccionada');
+      setProspectos([]);
+      return;
+    }
     
     setLoading(true);
     try {
       const params = {
-        campania_id: selectedCampaign,
-        ...filters
+        campania_id: selectedCampaign
       };
       
       const response = await leadsAPI.getProspectos(params);
-      setProspectos(response.data || []);
+      setProspectos(response.data?.data || []);
     } catch (error) {
       console.error('Error cargando prospectos:', error);
       setProspectos([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedCampaign]);
 
-  // Cargar prospectos al cambiar campaña o filtros
   useEffect(() => {
     cargarProspectos();
-  }, [selectedCampaign, filters]);
+  }, [cargarProspectos]);
 
-  // Manejar selección de prospectos
   const toggleProspecto = (prospecto) => {
     setSelectedProspectos(prev => {
-      const exists = prev.find(p => p.id === prospecto.id);
+      const exists = prev.find(p => p.prospecto_id === prospecto.prospecto_id);
       if (exists) {
-        return prev.filter(p => p.id !== prospecto.id);
+        return prev.filter(p => p.prospecto_id !== prospecto.prospecto_id);
       } else {
         return [...prev, prospecto];
       }
     });
   };
 
-  // Seleccionar todos los prospectos visibles
   const toggleSelectAll = () => {
     const todosSeleccionados = prospectos.every(p => 
-      selectedProspectos.find(sp => sp.id === p.id)
+      selectedProspectos.find(sp => sp.prospecto_id === p.prospecto_id)
     );
     
     if (todosSeleccionados) {
@@ -108,16 +81,6 @@ const SelectorProspectosPage = () => {
     }
   };
 
-  // Manejar filtro solo seleccionados
-  const handleSoloSeleccionados = (checked) => {
-    if (checked && selectedProspectos.length > 0) {
-      setProspectos(selectedProspectos);
-    } else {
-      cargarProspectos();
-    }
-  };
-
-  // Agregar prospectos seleccionados como destinatarios
   const agregarSeleccionadosACampania = async () => {
     if (selectedProspectos.length === 0) {
       alert('Selecciona al menos un prospecto');
@@ -131,14 +94,10 @@ const SelectorProspectosPage = () => {
 
     setAgregandoDestinatarios(true);
     try {
-      // Convertir prospectos a formato de destinatarios
       const destinatarios = selectedProspectos.map(prospecto => ({
         nombre: prospecto.nombre,
         telefono: prospecto.telefono_wapp,
-        lugar_id: prospecto.id,
-        empresa: prospecto.nombre,
-        rubro: prospecto.rubro,
-        direccion: prospecto.direccion
+        lugar_id: prospecto.prospecto_id
       }));
 
       const response = await destinatariosService.agregarDestinatarios(selectedCampaign, destinatarios);
@@ -146,8 +105,6 @@ const SelectorProspectosPage = () => {
       if (response.success) {
         alert(`✅ ${response.data.agregados} destinatarios agregados exitosamente a la campaña`);
         setSelectedProspectos([]);
-        
-        // Opcional: redirigir al dashboard o mostrar mensaje de éxito
         navigate('/dashboard');
       } else {
         alert('Error al agregar destinatarios: ' + response.message);
@@ -162,7 +119,6 @@ const SelectorProspectosPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
@@ -203,12 +159,9 @@ const SelectorProspectosPage = () => {
         </div>
       </div>
 
-      {/* Filtros */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            
-            {/* Selección de Campaña */}
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Campaña
@@ -226,109 +179,9 @@ const SelectorProspectosPage = () => {
                 ))}
               </select>
             </div>
-
-            {/* Filtro por Área */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Filtrar por Área
-              </label>
-              <select
-                value={filters.area}
-                onChange={(e) => setFilters(prev => ({ ...prev, area: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Todas las áreas</option>
-                {areas.map(area => (
-                  <option key={area.id} value={area.nombre}>{area.nombre}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Filtro por Rubro */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Buscar Rubro (LIKE)
-              </label>
-              <input
-                type="text"
-                value={filters.rubro}
-                onChange={(e) => setFilters(prev => ({ ...prev, rubro: e.target.value }))}
-                placeholder="Ej: tattoo, restaurant, etc."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            {/* Filtro por Dirección */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Filtrar por Dirección
-              </label>
-              <input
-                type="text"
-                value={filters.direccion}
-                onChange={(e) => setFilters(prev => ({ ...prev, direccion: e.target.value }))}
-                placeholder="Ej: Av. San Martín"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            {/* Estado */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Estado
-              </label>
-              <select
-                value={filters.estado}
-                onChange={(e) => setFilters(prev => ({ ...prev, estado: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="sin_envio">Sin envío registrado</option>
-                <option value="">Todos los estados</option>
-                <option value="pendiente">Pendiente</option>
-                <option value="enviado">Enviado</option>
-              </select>
-            </div>
-
-            {/* Solo números válidos de WhatsApp */}
-            <div className="flex items-center space-x-2 pt-6">
-              <input
-                type="checkbox"
-                id="soloWappValido"
-                checked={filters.soloWappValido}
-                onChange={(e) => setFilters(prev => ({ ...prev, soloWappValido: e.target.checked }))}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <label htmlFor="soloWappValido" className="text-sm text-gray-700">
-                Solo mostrar números válidos de WhatsApp
-              </label>
-            </div>
-
-            {/* Solo mostrar seleccionados */}
-            <div className="flex items-center space-x-2 pt-6">
-              <input
-                type="checkbox"
-                id="soloSeleccionados"
-                onChange={(e) => handleSoloSeleccionados(e.target.checked)}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <label htmlFor="soloSeleccionados" className="text-sm text-gray-700">
-                Solo mostrar seleccionados en la campaña
-              </label>
-            </div>
-
-            {/* Botón Filtrar */}
-            <div className="flex items-end">
-              <Button 
-                onClick={cargarProspectos}
-                className="w-full bg-blue-600 hover:bg-blue-700"
-              >
-                Filtrar
-              </Button>
-            </div>
           </div>
         </div>
 
-        {/* Lista de Prospectos */}
         <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
           <div className="p-4 border-b bg-gray-50">
             <div className="flex items-center justify-between">
@@ -336,7 +189,7 @@ const SelectorProspectosPage = () => {
                 <input
                   type="checkbox"
                   checked={prospectos.length > 0 && prospectos.every(p => 
-                    selectedProspectos.find(sp => sp.id === p.id)
+                    selectedProspectos.find(sp => sp.prospecto_id === p.prospecto_id)
                   )}
                   onChange={toggleSelectAll}
                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
@@ -365,7 +218,7 @@ const SelectorProspectosPage = () => {
                   No se encontraron prospectos
                 </h3>
                 <p className="text-gray-500">
-                  Ajusta los filtros para encontrar prospectos
+                  No hay prospectos asociados a esta campaña
                 </p>
               </div>
             ) : (
@@ -382,22 +235,16 @@ const SelectorProspectosPage = () => {
                       Teléfono
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Rubro
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Dirección
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Estado
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {prospectos.map((prospecto) => {
-                    const isSelected = selectedProspectos.find(p => p.id === prospecto.id);
+                    const isSelected = selectedProspectos.find(p => p.prospecto_id === prospecto.prospecto_id);
                     return (
                       <tr 
-                        key={prospecto.id} 
+                        key={prospecto.prospecto_id} 
                         className={`hover:bg-gray-50 cursor-pointer ${
                           isSelected ? 'bg-blue-50 border-blue-200' : ''
                         }`}
@@ -417,29 +264,21 @@ const SelectorProspectosPage = () => {
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="text-sm text-gray-900">
-                            {prospecto.telefono_wapp || 'Sin teléfono'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-sm text-gray-900">
-                            {prospecto.rubro || 'Sin rubro'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-sm text-gray-600">
-                            {prospecto.direccion || 'Sin dirección'}
-                          </span>
+                          <div className="flex items-center">
+                            <Phone className="h-4 w-4 text-gray-400 mr-2" />
+                            <span className="text-sm text-gray-900">
+                              {prospecto.telefono_wapp}
+                            </span>
+                          </div>
                         </td>
                         <td className="px-4 py-3">
                           <span className={`inline-flex px-2 py-1 text-xs rounded-full ${
-                            prospecto.estado === 'enviado' ? 'bg-green-100 text-green-800' :
-                            prospecto.estado === 'pendiente' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-blue-100 text-blue-800'
+                            prospecto.estado_campania === 'enviado' ? 'bg-green-100 text-green-800' :
+                            prospecto.estado_campania === 'pendiente' ? 'bg-yellow-100 text-yellow-800' :
+                            prospecto.estado_campania === 'error' ? 'bg-red-100 text-red-800' :
+                            'bg-gray-100 text-gray-800'
                           }`}>
-                            {prospecto.estado === 'enviado' ? 'Enviado' :
-                             prospecto.estado === 'pendiente' ? 'Pendiente' :
-                             'Disponible'}
+                            {prospecto.estado_campania || 'sin_envio'}
                           </span>
                         </td>
                       </tr>

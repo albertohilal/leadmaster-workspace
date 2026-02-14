@@ -61,20 +61,26 @@ router.get('/', async (req, res) => {
       error.message
     );
     
-    // Mapeo de errores del session-manager
+    // Mapeo de errores del session-manager usando instanceof
+    const {
+      SessionManagerValidationError,
+      SessionNotFoundError,
+      SessionAlreadyConnectedError,
+      SessionManagerUnreachableError,
+      SessionManagerTimeoutError
+    } = require('../integrations/sessionManager');
     
     // Error 409: Sesión no requiere QR
-    if (error.statusCode === 409) {
+    if (error instanceof SessionAlreadyConnectedError) {
       return res.status(409).json({
         ok: false,
         error: 'QR_NOT_REQUIRED',
-        message: 'La sesión no requiere QR en este momento',
-        current_state: error.response?.current_state
+        message: 'La sesión no requiere QR en este momento'
       });
     }
     
     // Error 404: QR no generado todavía
-    if (error.statusCode === 404) {
+    if (error instanceof SessionNotFoundError) {
       return res.status(404).json({
         ok: false,
         error: 'QR_NOT_AVAILABLE',
@@ -82,8 +88,8 @@ router.get('/', async (req, res) => {
       });
     }
     
-    // Error 400: Header inválido (ya validado aquí, pero por si acaso)
-    if (error.statusCode === 400) {
+    // Error 400: Validación
+    if (error instanceof SessionManagerValidationError) {
       return res.status(400).json({
         ok: false,
         error: 'INVALID_REQUEST',
@@ -93,9 +99,8 @@ router.get('/', async (req, res) => {
     
     // Errores de conexión con session-manager
     if (
-      error.message?.includes('UNREACHABLE') ||
-      error.message?.includes('ECONNREFUSED') ||
-      error.message?.includes('TIMEOUT')
+      error instanceof SessionManagerUnreachableError ||
+      error instanceof SessionManagerTimeoutError
     ) {
       return res.status(502).json({
         ok: false,
