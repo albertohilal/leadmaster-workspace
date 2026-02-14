@@ -263,8 +263,8 @@ describe('Campaign Send Integration Tests', () => {
 
     await dbHelpers.createTestCampaign({
       id: campaniaId,
-      nombre: 'Campaña Test Estado Pausada',
-      estado: 'pausada' // NO en_progreso
+      nombre: 'Campaña Test Estado Pendiente',
+      estado: 'pendiente' // NO en_progreso (campaña no iniciada)
     });
 
     await dbHelpers.createTestProgramacion({
