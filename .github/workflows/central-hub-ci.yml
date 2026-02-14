@@ -12,6 +12,18 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    env:
+      NODE_ENV: test
+      DB_HOST: sv46.byethost46.org
+      DB_NAME: iunaorg_dyd_test
+      DB_USER: iunaorg_b3toh
+      DB_PASSWORD: ${{ secrets.TEST_DB_PASSWORD }}
+      DB_PORT: 3306
+      AUTO_CAMPAIGNS_ENABLED: false
+      DRY_RUN: true
+      SESSION_MANAGER_BASE_URL: http://localhost:3001
+      PORT: 3012
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -22,8 +34,7 @@ jobs:
           node-version: lts/*
 
       - name: Install dependencies
-        run: |
-          npm ci || npm install
+        run: npm ci || npm install
         working-directory: services/central-hub
 
       - name: Run tests
