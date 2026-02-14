@@ -6,9 +6,9 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "test": "node scripts/check-test-env.js && npx jest --config jest.config.js",
+    "test": "node scripts/check-test-env.js && npx jest --runInBand --detectOpenHandles --config jest.config.js",
     "test:unit": "npx jest src/modules/whatsappQrAuthorization/tests",
-    "test:coverage": "npx jest --config jest.config.js --coverage",
+    "test:coverage": "npx jest --runInBand --config jest.config.js --coverage",
     "test:pw": "npx playwright test",
     "test:api": "npx playwright test --project=\"API Tests\"",
     "test:e2e": "npx playwright test --project=\"E2E Tests - Campaigns\"",
