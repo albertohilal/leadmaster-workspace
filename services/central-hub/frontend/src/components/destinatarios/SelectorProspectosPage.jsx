@@ -7,9 +7,6 @@ import destinatariosService from '../../services/destinatarios';
 import api from '../../services/api';
 
 const SelectorProspectosPage = () => {
-  // 🚨 VERIFICACIÓN DE CARGA DEL COMPONENTE
-  console.log('🚀 SelectorProspectosPage CARGADO - VERSIÓN CON DIAGNÓSTICO');
-  
   const navigate = useNavigate();
 
   const [campanas, setCampanas] = useState([]);
@@ -187,10 +184,8 @@ const SelectorProspectosPage = () => {
       setMostrarModalWhatsApp(false);
       setProspectoSeleccionado(null);
 
-      console.log('[MANUAL] Envío registrado y WhatsApp abierto');
-
     } catch (error) {
-      console.error('[MANUAL] Error al procesar envío:', error);
+      console.error('Error al procesar envío:', error);
       alert('Error al registrar el envío');
     }
   };
@@ -321,21 +316,6 @@ const SelectorProspectosPage = () => {
                       const seleccionado = seleccionados.find(
                         s => s.prospecto_id === p.prospecto_id
                       );
-
-                      // 🔍 DIAGNÓSTICO TÉCNICO - FASE 1 WHATSAPP
-                      console.group(`🔍 Prospecto ID: ${p.prospecto_id}`);
-                      console.log('📋 Nombre:', p.nombre);
-                      console.log('📊 estado_campania:', p.estado_campania);
-                      console.log('🔤 typeof estado_campania:', typeof p.estado_campania);
-                      console.log('📞 telefono_wapp:', p.telefono_wapp);
-                      console.log('🔤 typeof telefono_wapp:', typeof p.telefono_wapp);
-                      console.log('✅ Condición pendiente:', p.estado_campania === 'pendiente');
-                      console.log('✅ Condición sin_envio:', p.estado_campania === 'sin_envio');
-                      console.log('✅ Tiene teléfono:', !!p.telefono_wapp);
-                      console.log('🎯 Mostrar botón:', (p.estado_campania === 'pendiente' || p.estado_campania === 'sin_envio') && p.telefono_wapp);
-                      console.log('📦 Objeto completo:', p);
-                      console.log('🔑 Propiedades disponibles:', Object.keys(p));
-                      console.groupEnd();
 
                       return (
                         <tr
