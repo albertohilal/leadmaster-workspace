@@ -6,19 +6,19 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-
     "test": "npx jest --config jest.config.js",
     "test:unit": "npx jest src/modules/whatsappQrAuthorization/tests",
     "test:coverage": "npx jest --config jest.config.js --coverage",
-
     "test:pw": "npx playwright test",
     "test:api": "npx playwright test --project=\"API Tests\"",
     "test:e2e": "npx playwright test --project=\"E2E Tests - Campaigns\"",
     "test:campaigns": "npx playwright test campaigns.e2e.spec.ts",
-
     "test:setup": "./scripts/setup_e2e.sh",
     "test:cleanup": "./scripts/cleanup_e2e.sh",
     "test:report": "npx playwright show-report",
     "test:debug": "npx playwright test --debug"
+  },
+  "dependencies": {
+    "mysql2": "^3.17.1"
   }
 }
