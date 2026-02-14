@@ -12,12 +12,28 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: leadmaster_test
+          MYSQL_USER: test_user
+          MYSQL_PASSWORD: test_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
     env:
       NODE_ENV: test
-      DB_HOST: sv46.byethost46.org
-      DB_NAME: iunaorg_dyd_test
-      DB_USER: iunaorg_b3toh
-      DB_PASSWORD: ${{ secrets.TEST_DB_PASSWORD }}
+      DB_HOST: 127.0.0.1
+      DB_NAME: leadmaster_test
+      DB_USER: test_user
+      DB_PASSWORD: test_password
       DB_PORT: 3306
       AUTO_CAMPAIGNS_ENABLED: false
       DRY_RUN: true
@@ -31,12 +47,26 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: lts/*
+          node-version: 20
 
       - name: Install dependencies
-        run: npm ci || npm install
         working-directory: services/central-hub
+        run: npm ci
+
+      - name: Wait for MySQL to be ready
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mysql-client
+          until mysql -h 127.0.0.1 -u test_user -ptest_password -e "SHOW DATABASES;"; do
+            echo "Waiting for MySQL..."
+            sleep 5
+          done
+
+      - name: Run schema
+        working-directory: services/central-hub
+        run: |
+          mysql -h 127.0.0.1 -u test_user -ptest_password leadmaster_test < schema.sql
 
       - name: Run tests
-        run: npm test
         working-directory: services/central-hub
+        run: npm test
