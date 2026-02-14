@@ -35,13 +35,14 @@ async function cleanupTestData() {
 async function createTestCampaign({
   id = 9001,
   nombre = 'Campaña Test',
-  estado = 'en_progreso',
+  mensaje = 'Mensaje de prueba para testing',
+  estado = 'pendiente',
   cliente_id = 1
 } = {}) {
   const [result] = await connection.query(
-    `INSERT INTO ll_campanias_whatsapp (id, nombre, estado, cliente_id, fecha_creacion)
-     VALUES (?, ?, ?, ?, NOW())`,
-    [id, nombre, estado, cliente_id]
+    `INSERT INTO ll_campanias_whatsapp (id, nombre, mensaje, estado, cliente_id, fecha_creacion)
+     VALUES (?, ?, ?, ?, ?, NOW())`,
+    [id, nombre, mensaje, estado, cliente_id]
   );
   return id;
 }
