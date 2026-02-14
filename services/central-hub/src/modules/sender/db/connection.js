@@ -1,6 +1,6 @@
 // Conexión a la base de datos para el módulo sender
 const mysql = require('mysql2/promise');
-require('dotenv').config();
+const env = require('../../../config/environment');
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST,

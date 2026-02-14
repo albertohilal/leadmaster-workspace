@@ -1,6 +1,6 @@
 // db.js - Conexión MySQL para control de IA por lead
 const mysql = require('mysql2/promise');
-require('dotenv').config();
+const env = require('../../../config/environment');
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST,

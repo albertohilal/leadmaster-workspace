@@ -9,8 +9,10 @@
  *
  * Control de gobierno:
  * - Envíos automáticos BLOQUEADOS por flag AUTO_CAMPAIGNS_ENABLED
+ * - NO ejecuta en entornos test/development
  */
 
+const env = require('../../../config/environment');
 const connection = require('../db/connection');
 const {
   sessionManagerClient,
@@ -47,13 +49,6 @@ function diagLog(prefix, data) {
 }
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-/* =========================
-   CONTROL MAESTRO (CRÍTICO)
-   ========================= */
-function automaticCampaignsEnabled() {
-  return process.env.AUTO_CAMPAIGNS_ENABLED === 'true';
-}
 
 /* =========================
    LOCKING
@@ -369,7 +364,7 @@ async function procesarProgramacion(programacion) {
    TICK (CON CORTE MAESTRO)
    ========================= */
 async function tick() {
-  if (!automaticCampaignsEnabled()) {
+  if (!env.autoCampaignsEnabled) {
     console.warn('⛔ Scheduler activo pero envíos automáticos DESHABILITADOS (AUTO_CAMPAIGNS_ENABLED=false)');
     return;
   }
@@ -417,6 +412,16 @@ async function tick() {
    START
    ========================= */
 function start() {
+  // Guard: NO ejecutar scheduler en test
+  if (env.isTest) {
+    return;
+  }
+
+  // Guard: NO ejecutar si campañas automáticas deshabilitadas
+  if (!env.autoCampaignsEnabled) {
+    console.warn('⚠️  Scheduler iniciado pero AUTO_CAMPAIGNS_ENABLED=false');
+  }
+
   setInterval(tick, PROCESS_INTERVAL_MS);
   tick();
 }

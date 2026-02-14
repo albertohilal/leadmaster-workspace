@@ -1,6 +1,6 @@
 // config/db.js - Conexión MySQL centralizada
 const mysql = require('mysql2/promise');
-require('dotenv').config();
+const env = require('./environment');
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST,

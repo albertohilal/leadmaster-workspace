@@ -128,6 +128,146 @@ Scripts de testing disponibles en `scripts/`:
 - `verify-services.js` - Verificación de servicios
 - `debug-campaigns.js` - Debug de campañas
 
+---
+
+## 🛡️ Environment Safety Model
+
+El sistema implementa un **modelo de seguridad de entorno** que previene ejecuciones peligrosas:
+
+### Protecciones Implementadas
+
+#### 1️⃣ **Validación Automática de Entorno**
+
+El módulo `src/config/environment.js` centraliza la carga de variables y valida:
+
+- ✅ **Test + DB productiva** → ABORTA (previene tests contra producción)
+- ✅ **Producción + DB de test** → ABORTA (previene usar DB incorrecta en prod)
+- ✅ **DB_NAME requerida** → ABORTA si no está definida
+
+```javascript
+// Ejemplo: Toda la aplicación usa environment.js
+const env = require('./config/environment');
+
+if (env.isTest) {
+  // Lógica específica de test
+}
+```
+
+#### 2️⃣ **Guard en npm test**
+
+El script `npm test` ejecuta validaciones **antes** de Jest:
+
+```bash
+npm test  # Ejecuta: check-test-env.js → valida → jest
+```
+
+Requisitos obligatorios:
+- `NODE_ENV=test`
+- `DB_NAME` debe incluir `_test`
+
+Si falla → aborta con mensaje de error descriptivo.
+
+#### 3️⃣ **Scheduler Protegido**
+
+El programador automático de envíos (`programacionScheduler.js`) **NO ejecuta** si:
+- `NODE_ENV=test` (entorno de testing)
+- `AUTO_CAMPAIGNS_ENABLED=false`
+
+Esto previene:
+- Envíos automáticos durante tests
+- Activación accidental en desarrollo
+
+#### 4️⃣ **Base de Datos de Testing**
+
+Para ejecutar tests correctamente:
+
+**Paso 1: Crear base de datos de test**
+```sql
+CREATE DATABASE iunaorg_dyd_test;
+USE iunaorg_dyd_test;
+SOURCE migrations/schema.sql;
+```
+
+**Paso 2: Crear `.env.test`**
+```bash
+# .env.test
+NODE_ENV=test
+DB_NAME=iunaorg_dyd_test  # DEBE incluir _test
+DB_HOST=sv46.byethost46.org
+DB_USER=iunaorg_b3toh
+DB_PASSWORD=tu_password
+DB_PORT=3306
+AUTO_CAMPAIGNS_ENABLED=false
+```
+
+**Paso 3: Ejecutar tests**
+```bash
+npm test  # ✅ Validado automáticamente
+```
+
+### ⚠️ Errores Comunes
+
+**Error: "Tests requieren base de datos con sufijo _test"**
+```
+❌ Actual: DB_NAME=iunaorg_dyd
+
+Solución:
+1. Verifica que .env.test tenga DB_NAME=iunaorg_dyd_test
+2. Crea la base de datos si no existe
+```
+
+**Error: "Entorno de test con base de datos productiva"**
+```
+❌ NODE_ENV=test pero DB_NAME=iunaorg_dyd
+
+PELIGRO: No se pueden ejecutar tests contra producción
+
+Solución:
+1. Actualizar .env.test con DB_NAME que incluya "_test"
+```
+
+### 📋 Validación Manual
+
+Para verificar la configuración del entorno:
+
+```bash
+# Verificar variables cargadas
+node -e "const env = require('./src/config/environment'); console.log(env)"
+
+# Resultado esperado en test:
+# { nodeEnv: 'test', isTest: true, dbName: 'iunaorg_dyd_test', ... }
+```
+
+### 🔒 Arquitectura de Seguridad
+
+```
+┌─────────────────────────────────────────────────┐
+│  npm test                                       │
+│  ↓                                              │
+│  scripts/check-test-env.js                      │
+│  ├── Valida NODE_ENV=test                       │
+│  ├── Valida DB_NAME incluye "_test"             │
+│  └── ABORTA si invalido                         │
+│  ↓                                              │
+│  jest.env.js                                    │
+│  ├── Carga .env.test                            │
+│  ├── Valida base productiva en blacklist        │
+│  └── Establece NODE_ENV=test                    │
+│  ↓                                              │
+│  src/config/environment.js (en cada módulo)     │
+│  ├── Detecta entorno                            │
+│  ├── Valida combinación entorno + DB            │
+│  └── Exporta API normalizada                    │
+│  ↓                                              │
+│  Tests ejecutan con validaciones OK ✅          │
+└─────────────────────────────────────────────────┘
+```
+
+**Ver también:**
+- [INFORME_RIESGO_INTEGRATION_TESTS.md](INFORME_RIESGO_INTEGRATION_TESTS.md) - Análisis técnico completo
+
+---
+
 ## 🛠️ Características
 
 - ✅ Arquitectura modular con separación de responsabilidades
