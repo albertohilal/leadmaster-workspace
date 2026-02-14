@@ -10,8 +10,18 @@
  * - Modificación de datos productivos por integration tests
  */
 
-// Cargar variables de entorno
-require('dotenv').config({ path: '.env.test' });
+const fs = require('fs');
+const path = require('path');
+
+// Cargar .env.test SOLO si existe (desarrollo local)
+// En CI, las variables vienen del workflow env: block
+const envTestPath = path.join(__dirname, '..', '.env.test');
+if (fs.existsSync(envTestPath)) {
+  require('dotenv').config({ path: envTestPath });
+  console.log('📄 .env.test cargado correctamente');
+} else {
+  console.log('⚙️ .env.test no encontrado, usando variables del entorno (CI)');
+}
 
 const NODE_ENV = process.env.NODE_ENV;
 const DB_NAME = process.env.DB_NAME || '';
