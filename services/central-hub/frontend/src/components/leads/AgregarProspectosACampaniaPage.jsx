@@ -2,11 +2,18 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Users, Phone, ChevronLeft } from 'lucide-react';
 import Button from '../common/Button';
 import LoadingSpinner from '../common/LoadingSpinner';
-import { leadsAPI, campaignsAPI } from '../../services/api';
+import { leadsAPI, senderAPI } from '../../services/api';
 import { destinatariosService } from '../../services/destinatarios';
 import { useNavigate } from 'react-router-dom';
 
-const SelectorProspectosPage = () => {
+const AgregarProspectosACampaniaPage = () => {
+  console.log('🔍 [DIAGNOSTIC 1] ====== COMPONENTE MONTADO ======');
+  console.log('🔍 [DIAGNOSTIC 1] Timestamp:', new Date().toISOString());
+  console.log('🔍 [DIAGNOSTIC 1] leadsAPI disponible:', !!leadsAPI);
+  console.log('🔍 [DIAGNOSTIC 1] senderAPI disponible:', !!senderAPI);
+  console.log('🔍 [DIAGNOSTIC 1] leadsAPI.getProspectos:', typeof leadsAPI?.getProspectos);
+  console.log('🔍 [DIAGNOSTIC 1] senderAPI.getCampaigns:', typeof senderAPI?.getCampaigns);
+  
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [prospectos, setProspectos] = useState([]);
@@ -15,46 +22,115 @@ const SelectorProspectosPage = () => {
   const [selectedCampaign, setSelectedCampaign] = useState('');
   const [agregandoDestinatarios, setAgregandoDestinatarios] = useState(false);
 
+  const traducirEstado = (estado) => {
+    switch (estado) {
+      case 'sin_envio':
+        return 'No incluido';
+      case 'pendiente':
+        return 'Pendiente';
+      case 'enviado':
+        return 'Enviado';
+      case 'error':
+        return 'Error';
+      default:
+        return 'No incluido';
+    }
+  };
+
   useEffect(() => {
+    console.log('🔍 [DIAGNOSTIC 2] ====== useEffect CAMPAIGNS EJECUTADO ======');
+    
     const cargarCampaigns = async () => {
       try {
-        const response = await campaignsAPI.getAll();
+        console.log('🔍 [DIAGNOSTIC 3] Llamando senderAPI.getCampaigns()...');
+        const response = await senderAPI.getCampaigns();
+        
+        console.log('🔍 [DIAGNOSTIC 4] Response completa:', response);
+        console.log('🔍 [DIAGNOSTIC 4] response.data:', response.data);
+        console.log('🔍 [DIAGNOSTIC 4] Tipo de response.data:', typeof response.data);
+        console.log('🔍 [DIAGNOSTIC 4] Es Array?', Array.isArray(response.data));
+        console.log('🔍 [DIAGNOSTIC 4] response.data.data existe?', response.data?.data);
+        console.log('🔍 [DIAGNOSTIC 4] Estructura completa:', JSON.stringify(response.data, null, 2));
+        
         setCampaigns(response.data || []);
+        console.log('🔍 [DIAGNOSTIC 5] setCampaigns ejecutado con:', response.data?.length || 0, 'campañas');
         
         if (response.data && response.data.length > 0) {
-          setSelectedCampaign(response.data[0].id.toString());
+          console.log('🔍 [DIAGNOSTIC 6] Primera campaña:', response.data[0]);
+          console.log('🔍 [DIAGNOSTIC 6] ID de primera campaña:', response.data[0].id);
+          const idString = response.data[0].id.toString();
+          console.log('🔍 [DIAGNOSTIC 6] ID como string:', idString);
+          setSelectedCampaign(idString);
+          console.log('🔍 [DIAGNOSTIC 7] ✅ setSelectedCampaign ejecutado con valor:', idString);
+        } else {
+          console.warn('⚠️ [DIAGNOSTIC 6] NO hay campañas en response.data');
+          console.warn('⚠️ [DIAGNOSTIC 6] response.data:', response.data);
         }
       } catch (error) {
-        console.error('Error cargando campañas:', error);
+        console.error('❌ [DIAGNOSTIC 8] ERROR cargando campañas:', error);
+        console.error('❌ [DIAGNOSTIC 8] Error.message:', error.message);
+        console.error('❌ [DIAGNOSTIC 8] Error.response:', error.response);
+        console.error('❌ [DIAGNOSTIC 8] Error.response.data:', error.response?.data);
       }
     };
     cargarCampaigns();
   }, []);
 
   const cargarProspectos = useCallback(async () => {
+    console.log('🔍 [DIAGNOSTIC 9] ====== cargarProspectos() LLAMADO ======');
+    console.log('🔍 [DIAGNOSTIC 9] selectedCampaign actual:', selectedCampaign);
+    console.log('🔍 [DIAGNOSTIC 9] Tipo:', typeof selectedCampaign);
+    console.log('🔍 [DIAGNOSTIC 9] Es falsy?', !selectedCampaign);
+    console.log('🔍 [DIAGNOSTIC 9] Longitud:', selectedCampaign?.length);
+    
     if (!selectedCampaign) {
-      console.warn('No hay campaña seleccionada');
+      console.warn('⚠️ [DIAGNOSTIC 10] RETURN EARLY: selectedCampaign está vacío');
       setProspectos([]);
       return;
     }
     
+    console.log('✅ [DIAGNOSTIC 10] selectedCampaign válido, continuando...');
+    
+    console.log('🔍 [DIAGNOSTIC 11] Iniciando carga de prospectos...');
     setLoading(true);
+    
     try {
       const params = {
         campania_id: selectedCampaign
       };
       
+      console.log('🔍 [DIAGNOSTIC 12] Params para API:', params);
+      console.log('🔍 [DIAGNOSTIC 12] leadsAPI existe?', !!leadsAPI);
+      console.log('🔍 [DIAGNOSTIC 12] leadsAPI.getProspectos existe?', typeof leadsAPI.getProspectos);
+      console.log('🔍 [DIAGNOSTIC 13] Ejecutando leadsAPI.getProspectos()...');
+      
       const response = await leadsAPI.getProspectos(params);
-      setProspectos(response.data?.data || []);
+      
+      console.log('🔍 [DIAGNOSTIC 14] Response de prospectos recibida');
+      console.log('🔍 [DIAGNOSTIC 14] response:', response);
+      console.log('🔍 [DIAGNOSTIC 14] response.data:', response.data);
+      console.log('🔍 [DIAGNOSTIC 14] response.data.data:', response.data?.data);
+      console.log('🔍 [DIAGNOSTIC 14] Cantidad:', response.data?.data?.length || 0);
+      console.log('🔍 [DIAGNOSTIC 14] Estructura:', JSON.stringify(response.data, null, 2));
+      const prospectosData = response.data?.data || [];
+      console.log('🔍 [DIAGNOSTIC 15] Seteando prospectos:', prospectosData.length, 'items');
+      setProspectos(prospectosData);
+      console.log('✅ [DIAGNOSTIC 15] setProspectos ejecutado');
     } catch (error) {
-      console.error('Error cargando prospectos:', error);
+      console.error('❌ [DIAGNOSTIC 16] ERROR cargando prospectos:', error);
+      console.error('❌ [DIAGNOSTIC 16] Error.message:', error.message);
+      console.error('❌ [DIAGNOSTIC 16] Error.response:', error.response);
+      console.error('❌ [DIAGNOSTIC 16] Error.response.data:', error.response?.data);
       setProspectos([]);
     } finally {
       setLoading(false);
+      console.log('🔍 [DIAGNOSTIC 17] cargarProspectos() FINALIZADO');
     }
   }, [selectedCampaign]);
 
   useEffect(() => {
+    console.log('🔍 [DIAGNOSTIC 18] ====== useEffect PROSPECTOS EJECUTADO ======');
+    console.log('🔍 [DIAGNOSTIC 18] selectedCampaign cambió a:', selectedCampaign);
     cargarProspectos();
   }, [cargarProspectos]);
 
@@ -278,7 +354,7 @@ const SelectorProspectosPage = () => {
                             prospecto.estado_campania === 'error' ? 'bg-red-100 text-red-800' :
                             'bg-gray-100 text-gray-800'
                           }`}>
-                          {prospecto.estado_campania || 'no_incluido'}
+                          {traducirEstado(prospecto.estado_campania)}
                           </span>
                         </td>
                       </tr>
@@ -294,4 +370,4 @@ const SelectorProspectosPage = () => {
   );
 };
 
-export default SelectorProspectosPage;
+export default AgregarProspectosACampaniaPage;

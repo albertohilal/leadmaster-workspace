@@ -12,7 +12,7 @@ import ListenerControl from './components/listener/ListenerControl';
 import AdminSessions from './components/admin/AdminSessions';
 import CampaignsManager from './components/campaigns/CampaignsManager';
 import ConfigPanel from './components/config/ConfigPanel';
-import SelectorProspectosPage from './components/destinatarios/SelectorProspectosPage';
+import GestionDestinatariosPage from './components/destinatarios/GestionDestinatariosPage';
 
 // Componente para manejar redirección si ya está autenticado
 const PublicRoute = ({ children }) => {
@@ -126,7 +126,7 @@ function App() {
             element={
               <ProtectedRoute>
                 <Layout>
-                  <SelectorProspectosPage />
+                  <GestionDestinatariosPage />
                 </Layout>
               </ProtectedRoute>
             }

@@ -6,7 +6,7 @@ import campanasService from '../../services/campanas';
 import destinatariosService from '../../services/destinatarios';
 import api from '../../services/api';
 
-const SelectorProspectosPage = () => {
+const GestionDestinatariosPage = () => {
   const navigate = useNavigate();
 
   const [campanas, setCampanas] = useState([]);
@@ -142,6 +142,21 @@ const SelectorProspectosPage = () => {
     }
   };
 
+  const traducirEstado = (estado) => {
+    switch (estado) {
+      case 'sin_envio':
+        return 'No incluido';
+      case 'pendiente':
+        return 'Pendiente';
+      case 'enviado':
+        return 'Enviado';
+      case 'error':
+        return 'Error';
+      default:
+        return estado;
+    }
+  };
+
   // FASE 1 – Modo Manual Controlado
   const handleAbrirModalWhatsApp = (prospecto) => {
     // Validar que tenga teléfono
@@ -273,7 +288,7 @@ const SelectorProspectosPage = () => {
                   className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="todos">Todos</option>
-                  <option value="sin_envio">Sin envío</option>
+                  <option value="sin_envio">No incluido</option>
                   <option value="pendiente">Pendiente</option>
                   <option value="enviado">Enviado</option>
                   <option value="error">Error</option>
@@ -340,7 +355,7 @@ const SelectorProspectosPage = () => {
                             <span
                               className={`px-2 py-1 text-xs rounded-full ${badgeEstado(p.estado_campania)}`}
                             >
-                              {p.estado_campania}
+                              {traducirEstado(p.estado_campania)}
                             </span>
                           </td>
 
@@ -356,7 +371,7 @@ const SelectorProspectosPage = () => {
                           </td>
 
                           <td className="px-6 py-4">
-                            {(p.estado_campania === 'pendiente' || p.estado_campania === 'sin_envio') && p.telefono_wapp && (
+                            {p.estado_campania === 'pendiente' && p.telefono_wapp && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -445,4 +460,4 @@ const SelectorProspectosPage = () => {
   );
 };
 
-export default SelectorProspectosPage;
+export default GestionDestinatariosPage;
