@@ -158,7 +158,7 @@ const SelectorProspectosPage = () => {
     if (!prospectoSeleccionado) return;
 
     try {
-      // Normalizar teléfono (solo números)
+      // Normalizar teléfono a formato E.164 sin '+' (solo números)
       const telefonoNormalizado = prospectoSeleccionado.telefono_wapp.replace(/\D/g, '');
 
       // Crear mensaje base
@@ -167,15 +167,11 @@ const SelectorProspectosPage = () => {
       // Encode mensaje
       const mensajeCodificado = encodeURIComponent(mensaje);
 
-      // Construir URL de WhatsApp
-      const urlWhatsApp = `https://wa.me/${telefonoNormalizado}?text=${mensajeCodificado}`;
+      // ✅ CORRECTO: Usar web.whatsapp.com/send
+      const urlWhatsApp = `https://web.whatsapp.com/send?phone=${telefonoNormalizado}&text=${mensajeCodificado}`;
 
-      // Registrar en base de datos
-      await api.post('/sender/registro-manual', {
-        prospecto_id: prospectoSeleccionado.prospecto_id,
-        telefono: telefonoNormalizado,
-        mensaje: mensaje
-      });
+      // TODO: Registrar en ll_envios_whatsapp (pendiente TAREA 2 y 3)
+      // await api.post('/sender/envios/:id/manual/confirm', ...);
 
       // Abrir WhatsApp Web
       window.open(urlWhatsApp, '_blank');

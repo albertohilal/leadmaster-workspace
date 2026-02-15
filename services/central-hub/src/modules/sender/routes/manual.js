@@ -1,20 +1,23 @@
 /**
- * Rutas para envío manual
- * Central Hub – LeadMaster
+ * ❌ ARCHIVO DEPRECADO - ELIMINADO EN TAREA 1
  * 
- * FASE 1 – Modo Manual Controlado
+ * Este archivo violaba la política de estados y auditoría:
+ * - Usaba tabla separada ll_envios_manual
+ * - No pasaba por cambiarEstado()
+ * - No generaba auditoría en ll_envios_whatsapp_historial
  * 
- * Endpoint: POST /api/sender/registro-manual
+ * REEMPLAZADO POR:
+ * - src/modules/sender/routes/envios.js
+ *   GET /api/envios/:id/manual/prepare (TAREA 2)
+ *   POST /api/envios/:id/manual/confirm (TAREA 3)
+ * 
+ * Este archivo se mantendrá temporalmente para documentación.
  */
 
-const express = require('express');
-const router = express.Router();
-const manualController = require('../controllers/manualController');
+// const express = require('express');
+// const router = express.Router();
+// const manualController = require('../controllers/manualController');
 
-/**
- * POST /registro-manual
- * Registra un intento de envío manual por Web WhatsApp
- */
-router.post('/registro-manual', manualController.registrarEnvioManual);
+// router.post('/registro-manual', manualController.registrarEnvioManual);
 
-module.exports = router;
+// module.exports = router;

@@ -23,6 +23,7 @@ const {
   SessionManagerValidationError
 } = require('../../../integrations/sessionManager');
 const { cambiarEstado } = require('./estadoService');
+const { renderizarMensaje, normalizarTelefono } = require('./mensajeService');
 
 const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const PROCESS_INTERVAL_MS = 60 * 1000; // cada minuto
@@ -229,7 +230,7 @@ async function procesarProgramacion(programacion) {
   let enviadosFallidos = 0;
   
   for (const envio of pendientes) {
-    const destinatario = String(envio.telefono_wapp || '').replace(/\D/g, '');
+    const destinatario = normalizarTelefono(envio.telefono_wapp);
 
     if (!destinatario) {
       console.error(`❌ Envío ${envio.id}: Teléfono inválido o vacío`);
@@ -250,10 +251,9 @@ async function procesarProgramacion(programacion) {
       continue;
     }
 
-    const mensajePersonalizado = envio.mensaje_final
-      .replace(/\{nombre\}/gi, envio.nombre_destino || '')
-      .replace(/\{nombre_destino\}/gi, envio.nombre_destino || '')
-      .trim();
+    const mensajePersonalizado = renderizarMensaje(envio.mensaje_final, {
+      nombre_destino: envio.nombre_destino
+    });
 
     try {
       diagLog('📤 ENVIANDO', {

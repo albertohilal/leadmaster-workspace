@@ -358,55 +358,11 @@ const destinatariosController = {
     }
   },
 
-  // Marcar destinatario como enviado manualmente
-  async marcarEnviadoManual(req, res) {
-    try {
-      const { destinatarioId } = req.params;
-      const clienteId = req.user.cliente_id;
-
-      // Verificar que el destinatario pertenece a una campaña del cliente
-      const [check] = await db.execute(`
-        SELECT env.id, env.estado, camp.cliente_id
-        FROM ll_envios_whatsapp env
-        LEFT JOIN ll_campanias_whatsapp camp ON env.campania_id = camp.id
-        WHERE env.id = ? AND camp.cliente_id = ?
-      `, [destinatarioId, clienteId]);
-
-      if (check.length === 0) {
-        return res.status(404).json({
-          success: false,
-          message: 'Destinatario no encontrado o sin permisos'
-        });
-      }
-
-      // Solo permitir si está pendiente
-      if (check[0].estado !== 'pendiente') {
-        return res.status(400).json({
-          success: false,
-          message: `No se puede marcar como enviado. Estado actual: ${check[0].estado}`
-        });
-      }
-
-      // Actualizar estado
-      await db.execute(`
-        UPDATE ll_envios_whatsapp 
-        SET estado = 'sent_manual', fecha_envio = NOW()
-        WHERE id = ?
-      `, [destinatarioId]);
-
-      res.json({
-        success: true,
-        message: 'Destinatario marcado como enviado manualmente'
-      });
-
-    } catch (error) {
-      console.error('Error al marcar como enviado:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error interno del servidor'
-      });
-    }
-  }
+  // ❌ FUNCIÓN ELIMINADA - Violaba política de estados
+  // - Usaba estado 'sent_manual' no válido
+  // - Hacía UPDATE directo sin pasar por cambiarEstado()
+  // - No generaba auditoría
+  // Reemplazado por endpoints /manual/prepare y /manual/confirm (TAREA 2 y 3)
 };
 
 module.exports = destinatariosController;

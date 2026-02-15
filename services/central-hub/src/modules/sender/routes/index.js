@@ -41,10 +41,11 @@ router.use('/', require('./sender.routes'));
 // POST /api/sender/test-send
 router.use('/', require('./testSend.route'));
 
-// Envío manual por Web WhatsApp (FASE 1 – Modo Manual Controlado)
-// Endpoint final:
-// POST /api/sender/registro-manual
-router.use('/', require('./manual'));
+// ❌ RUTA LEGACY ELIMINADA - Violaba política de estados
+// router.use('/', require('./manual'));
+// Reemplazada por:
+// - GET /api/envios/:id/manual/prepare (TAREA 2)
+// - POST /api/envios/:id/manual/confirm (TAREA 3)
 
 // ==================================================
 // RUTAS LEGACY (en migración)

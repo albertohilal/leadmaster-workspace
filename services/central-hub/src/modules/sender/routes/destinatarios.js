@@ -18,7 +18,8 @@ router.post('/campania/:campaniaId/agregar', destinatariosController.agregarDest
 // Quitar destinatarios de una campaña
 router.delete('/campania/:campaniaId/quitar', destinatariosController.quitarDestinatarios);
 
-// Marcar destinatario como enviado manualmente
-router.patch('/:destinatarioId/marcar-enviado', destinatariosController.marcarEnviadoManual);
+// ❌ RUTA ELIMINADA - Violaba política de estados
+// router.patch('/:destinatarioId/marcar-enviado', destinatariosController.marcarEnviadoManual);
+// Reemplazada por: POST /envios/:id/manual/confirm (TAREA 3)
 
 module.exports = router;

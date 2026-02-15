@@ -49,20 +49,8 @@ export const destinatariosService = {
     }
   },
 
-  // Marcar destinatario como enviado manualmente
-  async marcarEnviadoManual(destinatarioId) {
-    try {
-      const response = await apiService.patch(`/sender/destinatarios/${destinatarioId}/marcar-enviado`, null, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error al marcar destinatario como enviado manual:', error);
-      throw error;
-    }
-  }
+  // ❌ FUNCIÓN ELIMINADA - Endpoint deprecado
+  // Reemplazado por /manual/prepare y /manual/confirm
 };
 
 export default destinatariosService;
