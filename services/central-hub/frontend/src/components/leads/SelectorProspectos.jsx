@@ -11,6 +11,21 @@ const SelectorProspectos = ({ campaniaId, onDestinatariosAgregados }) => {
   const [selectedProspectos, setSelectedProspectos] = useState([]);
   const [agregandoDestinatarios, setAgregandoDestinatarios] = useState(false);
 
+  const traducirEstado = (estado) => {
+    switch (estado) {
+      case 'sin_envio':
+        return 'No incluido';
+      case 'pendiente':
+        return 'Pendiente';
+      case 'enviado':
+        return 'Enviado';
+      case 'error':
+        return 'Error';
+      default:
+        return 'No incluido';
+    }
+  };
+
   const cargarProspectos = useCallback(async () => {
     if (!campaniaId) {
       console.warn('No hay campaniaId seleccionada');
@@ -213,7 +228,7 @@ const SelectorProspectos = ({ campaniaId, onDestinatariosAgregados }) => {
                           prospecto.estado_campania === 'error' ? 'bg-red-100 text-red-800' :
                           'bg-gray-100 text-gray-800'
                         }`}>
-                          {prospecto.estado_campania || 'no_incluido'}
+                          {traducirEstado(prospecto.estado_campania)}
                         </span>
                       </td>
                     </tr>
