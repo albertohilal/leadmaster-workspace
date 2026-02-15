@@ -213,7 +213,7 @@ const SelectorProspectos = ({ campaniaId, onDestinatariosAgregados }) => {
                           prospecto.estado_campania === 'error' ? 'bg-red-100 text-red-800' :
                           'bg-gray-100 text-gray-800'
                         }`}>
-                          {prospecto.estado_campania || 'sin_envio'}
+                          {prospecto.estado_campania || 'no_incluido'}
                         </span>
                       </td>
                     </tr>
