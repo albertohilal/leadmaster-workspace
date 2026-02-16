@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import prospectosService from '../../services/prospectos';
 import campanasService from '../../services/campanas';
 import destinatariosService from '../../services/destinatarios';
+import enviosService from '../../services/envios';
 import api from '../../services/api';
 
 const GestionDestinatariosPage = () => {
@@ -17,9 +18,11 @@ const GestionDestinatariosPage = () => {
   const [error, setError] = useState(null);
   const [estadoFiltro, setEstadoFiltro] = useState('todos');
   
-  // FASE 1 – Modo Manual Controlado
+  // Estados para envío manual (flujo 2 fases)
   const [prospectoSeleccionado, setProspectoSeleccionado] = useState(null);
   const [mostrarModalWhatsApp, setMostrarModalWhatsApp] = useState(false);
+  const [datosEnvioPreparado, setDatosEnvioPreparado] = useState(null);
+  const [loadingEnvio, setLoadingEnvio] = useState(false);
 
   useEffect(() => {
     cargarCampanas();
@@ -157,47 +160,103 @@ const GestionDestinatariosPage = () => {
     }
   };
 
-  // FASE 1 – Modo Manual Controlado
-  const handleAbrirModalWhatsApp = (prospecto) => {
+  /**
+   * FASE 1: Preparar envío manual
+   * Obtiene el mensaje personalizado de la campaña desde el backend
+   */
+  const handleAbrirModalWhatsApp = async (prospecto) => {
     // Validar que tenga teléfono
     if (!prospecto.telefono_wapp || prospecto.telefono_wapp.trim() === '') {
       alert('Este prospecto no tiene teléfono de WhatsApp');
       return;
     }
 
-    setProspectoSeleccionado(prospecto);
-    setMostrarModalWhatsApp(true);
+    // Validar que tenga envio_id
+    if (!prospecto.envio_id) {
+      alert('Este prospecto no tiene un envío asociado en la campaña');
+      return;
+    }
+
+    setLoadingEnvio(true);
+    
+    try {
+      // Llamar al backend para obtener mensaje personalizado
+      const response = await enviosService.prepareManual(prospecto.envio_id);
+      
+      if (response.success) {
+        console.log('📞 Teléfono recibido del backend:', response.data.telefono);
+        console.log('📨 Mensaje recibido:', response.data.mensaje_final);
+        console.log('🔍 Datos completos:', response.data);
+        
+        setProspectoSeleccionado(prospecto);
+        setDatosEnvioPreparado(response.data);
+        setMostrarModalWhatsApp(true);
+      }
+    } catch (error) {
+      console.error('Error al preparar envío:', error);
+      alert('Error al preparar envío: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setLoadingEnvio(false);
+    }
   };
 
+  /**
+   * FASE 2: Abrir WhatsApp y confirmar envío
+   * Usa el mensaje personalizado de la campaña y registra el envío
+   */
   const handleConfirmarWhatsApp = async () => {
-    if (!prospectoSeleccionado) return;
+    if (!datosEnvioPreparado) return;
 
     try {
-      // Normalizar teléfono a formato E.164 sin '+' (solo números)
-      const telefonoNormalizado = prospectoSeleccionado.telefono_wapp.replace(/\D/g, '');
-
-      // Crear mensaje base
-      const mensaje = `Hola ${prospectoSeleccionado.nombre}, te contacto desde Desarrollo y Diseño.`;
-
-      // Encode mensaje
-      const mensajeCodificado = encodeURIComponent(mensaje);
-
-      // ✅ CORRECTO: Usar web.whatsapp.com/send
-      const urlWhatsApp = `https://web.whatsapp.com/send?phone=${telefonoNormalizado}&text=${mensajeCodificado}`;
-
-      // TODO: Registrar en ll_envios_whatsapp (pendiente TAREA 2 y 3)
-      // await api.post('/sender/envios/:id/manual/confirm', ...);
-
-      // Abrir WhatsApp Web
+      // Abrir WhatsApp Web con mensaje personalizado de la campaña
+      const urlWhatsApp = `https://web.whatsapp.com/send?phone=${datosEnvioPreparado.telefono}&text=${encodeURIComponent(datosEnvioPreparado.mensaje_final)}`;
       window.open(urlWhatsApp, '_blank');
 
       // Cerrar modal
       setMostrarModalWhatsApp(false);
-      setProspectoSeleccionado(null);
+
+      // Confirmar si el usuario envió el mensaje
+      setTimeout(() => {
+        const confirmado = window.confirm('¿Ya enviaste el mensaje por WhatsApp? Presiona OK para confirmar.');
+        
+        if (confirmado) {
+          confirmarEstadoEnviado();
+        } else {
+          alert('El envío fue cancelado. El estado permanece como pendiente.');
+          setDatosEnvioPreparado(null);
+          setProspectoSeleccionado(null);
+        }
+      }, 2000);
 
     } catch (error) {
-      console.error('Error al procesar envío:', error);
-      alert('Error al registrar el envío');
+      console.error('Error al abrir WhatsApp:', error);
+      alert('Error al abrir WhatsApp: ' + error.message);
+      setDatosEnvioPreparado(null);
+      setProspectoSeleccionado(null);
+    }
+  };
+
+  /**
+   * Confirmar estado 'enviado' en el backend
+   */
+  const confirmarEstadoEnviado = async () => {
+    if (!datosEnvioPreparado) return;
+
+    try {
+      const response = await enviosService.confirmManual(datosEnvioPreparado.envio_id);
+      
+      if (response.success) {
+        alert('✅ Envío confirmado correctamente');
+        setDatosEnvioPreparado(null);
+        setProspectoSeleccionado(null);
+        // Recargar lista para actualizar estados
+        cargarProspectos();
+      }
+    } catch (error) {
+      console.error('Error al confirmar envío:', error);
+      alert('Error al confirmar envío: ' + (error.response?.data?.message || error.message));
+      setDatosEnvioPreparado(null);
+      setProspectoSeleccionado(null);
     }
   };
 
@@ -423,14 +482,14 @@ const GestionDestinatariosPage = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Mensaje
                 </label>
-                <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
-                  Hola {prospectoSeleccionado.nombre}, te contacto desde Desarrollo y Diseño.
-                </p>
+                <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg max-h-40 overflow-y-auto">
+                  {datosEnvioPreparado?.mensaje_final || 'Cargando mensaje...'}
+                </div>
               </div>
 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <p className="text-xs text-blue-800">
-                  ℹ️ Se abrirá WhatsApp Web en una nueva pestaña. El envío se registrará pero NO cambiará el estado automáticamente.
+                  ⚠️ Al presionar "Abrir WhatsApp", se abrirá una nueva ventana. Después de enviar el mensaje, confirma el envío para actualizar el estado.
                 </p>
               </div>
             </div>
@@ -440,6 +499,7 @@ const GestionDestinatariosPage = () => {
                 onClick={() => {
                   setMostrarModalWhatsApp(false);
                   setProspectoSeleccionado(null);
+                  setDatosEnvioPreparado(null);
                 }}
                 className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
@@ -447,7 +507,8 @@ const GestionDestinatariosPage = () => {
               </button>
               <button
                 onClick={handleConfirmarWhatsApp}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+                disabled={!datosEnvioPreparado}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 disabled:bg-gray-300"
               >
                 <MessageCircle className="h-4 w-4" />
                 Abrir WhatsApp
