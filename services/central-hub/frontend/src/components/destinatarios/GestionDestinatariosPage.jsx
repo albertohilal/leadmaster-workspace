@@ -23,6 +23,7 @@ const GestionDestinatariosPage = () => {
   const [mostrarModalWhatsApp, setMostrarModalWhatsApp] = useState(false);
   const [datosEnvioPreparado, setDatosEnvioPreparado] = useState(null);
   const [loadingEnvio, setLoadingEnvio] = useState(false);
+  const [whatsappAbierto, setWhatsappAbierto] = useState(false);
 
   useEffect(() => {
     cargarCampanas();
@@ -201,63 +202,62 @@ const GestionDestinatariosPage = () => {
   };
 
   /**
-   * FASE 2: Abrir WhatsApp y confirmar envío
-   * Usa el mensaje personalizado de la campaña y registra el envío
+   * FASE 2: Abrir WhatsApp
+   * Solo abre WhatsApp, el modal permanece abierto para confirmación manual
    */
-  const handleConfirmarWhatsApp = async () => {
+  const handleAbrirWhatsApp = () => {
     if (!datosEnvioPreparado) return;
 
     try {
       // Abrir WhatsApp Web con mensaje personalizado de la campaña
       const urlWhatsApp = `https://web.whatsapp.com/send?phone=${datosEnvioPreparado.telefono}&text=${encodeURIComponent(datosEnvioPreparado.mensaje_final)}`;
       window.open(urlWhatsApp, '_blank');
-
-      // Cerrar modal
-      setMostrarModalWhatsApp(false);
-
-      // Confirmar si el usuario envió el mensaje
-      setTimeout(() => {
-        const confirmado = window.confirm('¿Ya enviaste el mensaje por WhatsApp? Presiona OK para confirmar.');
-        
-        if (confirmado) {
-          confirmarEstadoEnviado();
-        } else {
-          alert('El envío fue cancelado. El estado permanece como pendiente.');
-          setDatosEnvioPreparado(null);
-          setProspectoSeleccionado(null);
-        }
-      }, 2000);
-
+      
+      // Cambiar estado a "WhatsApp abierto, esperando confirmación"
+      setWhatsappAbierto(true);
     } catch (error) {
       console.error('Error al abrir WhatsApp:', error);
       alert('Error al abrir WhatsApp: ' + error.message);
-      setDatosEnvioPreparado(null);
-      setProspectoSeleccionado(null);
     }
   };
 
   /**
-   * Confirmar estado 'enviado' en el backend
+   * FASE 3: Confirmar estado 'enviado' en el backend
+   * El usuario confirma manualmente que ya envió el mensaje
    */
   const confirmarEstadoEnviado = async () => {
     if (!datosEnvioPreparado) return;
 
+    setLoadingEnvio(true);
     try {
       const response = await enviosService.confirmManual(datosEnvioPreparado.envio_id);
       
       if (response.success) {
         alert('✅ Envío confirmado correctamente');
+        // Limpiar estados y cerrar modal
+        setMostrarModalWhatsApp(false);
         setDatosEnvioPreparado(null);
         setProspectoSeleccionado(null);
+        setWhatsappAbierto(false);
         // Recargar lista para actualizar estados
         cargarProspectos();
       }
     } catch (error) {
       console.error('Error al confirmar envío:', error);
       alert('Error al confirmar envío: ' + (error.response?.data?.message || error.message));
-      setDatosEnvioPreparado(null);
-      setProspectoSeleccionado(null);
+    } finally {
+      setLoadingEnvio(false);
     }
+  };
+
+  /**
+   * Cancelar envío y cerrar modal
+   */
+  const cancelarEnvio = () => {
+    setMostrarModalWhatsApp(false);
+    setProspectoSeleccionado(null);
+    setDatosEnvioPreparado(null);
+    setWhatsappAbierto(false);
   };
 
   return (
@@ -487,32 +487,47 @@ const GestionDestinatariosPage = () => {
                 </div>
               </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <p className="text-xs text-blue-800">
-                  ⚠️ Al presionar "Abrir WhatsApp", se abrirá una nueva ventana. Después de enviar el mensaje, confirma el envío para actualizar el estado.
-                </p>
-              </div>
+              {!whatsappAbierto ? (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-xs text-blue-800">
+                    ℹ️ Presiona "Abrir WhatsApp" para abrir una ventana con el mensaje. Luego confirma el envío cuando hayas enviado el mensaje.
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <p className="text-xs text-green-800">
+                    ✅ WhatsApp abierto. Envía el mensaje y luego presiona "Confirmar Envío" para actualizar el estado.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="px-6 py-4 border-t flex justify-end gap-3">
               <button
-                onClick={() => {
-                  setMostrarModalWhatsApp(false);
-                  setProspectoSeleccionado(null);
-                  setDatosEnvioPreparado(null);
-                }}
+                onClick={cancelarEnvio}
                 className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Cancelar
               </button>
-              <button
-                onClick={handleConfirmarWhatsApp}
-                disabled={!datosEnvioPreparado}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 disabled:bg-gray-300"
-              >
-                <MessageCircle className="h-4 w-4" />
-                Abrir WhatsApp
-              </button>
+              
+              {!whatsappAbierto ? (
+                <button
+                  onClick={handleAbrirWhatsApp}
+                  disabled={!datosEnvioPreparado}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 disabled:bg-gray-300"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  Abrir WhatsApp
+                </button>
+              ) : (
+                <button
+                  onClick={confirmarEstadoEnviado}
+                  disabled={loadingEnvio}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:bg-gray-300"
+                >
+                  {loadingEnvio ? 'Confirmando...' : '✓ Confirmar Envío'}
+                </button>
+              )}
             </div>
           </div>
         </div>
