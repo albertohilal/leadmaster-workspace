@@ -220,6 +220,15 @@ exports.confirmManual = async (req, res) => {
       });
     }
 
+    // Generar message_id interno para envío manual
+    const messageId = `MANUAL-${envioId}-${Date.now()}`;
+
+    // Actualizar message_id en la base de datos (usando conexión transaccional)
+    await connection.execute(
+      `UPDATE ll_envios_whatsapp SET message_id = ? WHERE id = ?`,
+      [messageId, envioId]
+    );
+
     // Cambiar estado usando el servicio oficial (con transacción y auditoría)
     await cambiarEstado(
       { connection },
