@@ -271,3 +271,161 @@ exports.confirmManual = async (req, res) => {
     });
   }
 };
+
+/**
+ * TAREA: Reintentar envío con error (Política v1.2.0)
+ * POST /api/envios/:id/reintentar
+ * 
+ * Permite reintentar un envío en estado 'error':
+ * - Valida que el envío exista y pertenezca al cliente
+ * - Valida que el estado actual sea 'error'
+ * - Requiere justificación >= 10 caracteres (no genérica)
+ * - Cambia estado a 'pendiente' usando cambiarEstado()
+ * - Registra en historial con origen='manual', usuario_id y justificación
+ * - Cumple con política: error→pendiente solo manual con auditoría
+ * 
+ * Seguridad:
+ * - Validación estricta de permisos (multi-tenancy)
+ * - Requiere usuarioId para auditoría obligatoria
+ * - Usa transacciones para evitar condiciones de carrera
+ * - Validación de justificación en estadoService (segunda capa)
+ */
+exports.reintentar = async (req, res) => {
+  let connection = null;
+  
+  try {
+    const { id: envioId } = req.params;
+    const { justificacion } = req.body;
+    const clienteId = req.user?.cliente_id;
+    const usuarioId = req.user?.id;
+
+    // Validación de autenticación
+    if (!clienteId || !usuarioId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Usuario no autenticado'
+      });
+    }
+
+    // Validar que envioId sea un número válido
+    if (!envioId || isNaN(parseInt(envioId))) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID de envío inválido'
+      });
+    }
+
+    // Validar justificación (primera capa - controlador)
+    if (!justificacion || typeof justificacion !== 'string' || justificacion.trim().length < 10) {
+      return res.status(400).json({
+        success: false,
+        message: 'Justificación requerida (mínimo 10 caracteres)'
+      });
+    }
+
+    // Obtener conexión para transacción
+    connection = await pool.getConnection();
+
+    // Verificar que el envío existe y pertenece al cliente
+    const [envios] = await connection.execute(`
+      SELECT 
+        env.id,
+        env.campania_id,
+        env.estado,
+        env.detalle_error,
+        camp.cliente_id,
+        camp.nombre as campania_nombre,
+        env.telefono_wapp,
+        env.nombre_destino
+      FROM ll_envios_whatsapp env
+      INNER JOIN ll_campanias_whatsapp camp ON env.campania_id = camp.id
+      WHERE env.id = ? AND camp.cliente_id = ?
+    `, [envioId, clienteId]);
+
+    if (envios.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Envío no encontrado o no tienes permisos para acceder'
+      });
+    }
+
+    const envio = envios[0];
+
+    // Validar que el estado sea 'error'
+    if (envio.estado !== 'error') {
+      return res.status(400).json({
+        success: false,
+        message: `Solo se pueden reintentar envíos en estado 'error'. Estado actual: ${envio.estado}`,
+        estado_actual: envio.estado
+      });
+    }
+
+    // Cambiar estado usando el servicio oficial
+    // (estadoService validará origen='manual', usuarioId y justificación - segunda capa)
+    await cambiarEstado(
+      { connection },
+      envioId,
+      'pendiente',
+      'manual',
+      justificacion.trim(),
+      { usuarioId }
+    );
+
+    // Liberar conexión
+    connection.release();
+    connection = null;
+
+    console.log(
+      `[Reintentar] Envío ${envioId} cambiado error→pendiente por usuario ${usuarioId}. ` +
+      `Justificación: "${justificacion.trim()}"`
+    );
+
+    res.json({
+      success: true,
+      message: 'Envío marcado para reintento',
+      data: {
+        envio_id: envioId,
+        estado_nuevo: 'pendiente',
+        campania_id: envio.campania_id,
+        telefono: envio.telefono_wapp,
+        nombre_destino: envio.nombre_destino,
+        error_anterior: envio.detalle_error,
+        justificacion: justificacion.trim()
+      }
+    });
+
+  } catch (error) {
+    // Liberar conexión si hay error
+    if (connection) {
+      connection.release();
+    }
+
+    console.error('Error en reintentar:', error);
+    
+    // Mensajes específicos según tipo de error
+    if (error.message && error.message.includes('Transición no permitida')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Transición de estado no permitida',
+        error: error.message
+      });
+    }
+
+    if (error.message && (
+      error.message.includes('Justificación') ||
+      error.message.includes('justificación') ||
+      error.message.includes('genérica')
+    )) {
+      return res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor'
+    });
+  }
+};
+

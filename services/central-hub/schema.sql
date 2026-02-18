@@ -65,11 +65,13 @@ CREATE TABLE `ll_envios_whatsapp` (
   `mensaje_final` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `estado` enum('pendiente','enviado','error') DEFAULT 'pendiente',
   `fecha_envio` datetime DEFAULT NULL,
+  `message_id` varchar(255) DEFAULT NULL COMMENT 'ID del mensaje en WhatsApp (trazabilidad con Session Manager)',
   `lugar_id` int(11) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `idx_unico_envio` (`campania_id`,`telefono_wapp`),
   KEY `idx_envios_lugar_camp_estado` (`lugar_id`,`campania_id`,`estado`),
   KEY `idx_envios_camp_estado` (`campania_id`,`estado`),
+  KEY `idx_message_id` (`message_id`),
   CONSTRAINT `ll_envios_whatsapp_ibfk_1` FOREIGN KEY (`campania_id`) REFERENCES `ll_campanias_whatsapp` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=5191 DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -78,13 +80,16 @@ CREATE TABLE `ll_envios_whatsapp` (
 CREATE TABLE `ll_envios_whatsapp_historial` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `envio_id` int(11) NOT NULL,
-  `estado_anterior` enum('no_incluido','pendiente','enviado','error') NOT NULL,
-  `estado_nuevo` enum('no_incluido','pendiente','enviado','error') NOT NULL,
+  `estado_anterior` enum('pendiente','enviado','error') NOT NULL COMMENT 'Estados oficiales Política v1.2.0',
+  `estado_nuevo` enum('pendiente','enviado','error') NOT NULL COMMENT 'Estados oficiales Política v1.2.0',
   `origen` varchar(50) NOT NULL,
   `detalle` text DEFAULT NULL,
+  `usuario_id` int(11) DEFAULT NULL COMMENT 'Usuario que realizó cambio manual (auditoría)',
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `idx_envio_id` (`envio_id`),
-  CONSTRAINT `fk_envio_historial` FOREIGN KEY (`envio_id`) REFERENCES `ll_envios_whatsapp` (`id`) ON DELETE CASCADE
+  KEY `idx_historial_usuario` (`usuario_id`),
+  CONSTRAINT `fk_envio_historial` FOREIGN KEY (`envio_id`) REFERENCES `ll_envios_whatsapp` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_historial_usuario` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;

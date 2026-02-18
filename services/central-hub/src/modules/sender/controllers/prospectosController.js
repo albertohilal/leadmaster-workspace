@@ -30,7 +30,7 @@ const prospectosController = {
         SELECT
           s.rowid AS prospecto_id,
           s.nom AS nombre,
-          COALESCE(env.estado, 'no_incluido') AS estado_campania,
+          env.estado AS estado_campania,
           s.phone_mobile AS telefono_wapp,
           s.address AS direccion,
           env.id AS envio_id,
