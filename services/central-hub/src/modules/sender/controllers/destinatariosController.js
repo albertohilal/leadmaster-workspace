@@ -41,9 +41,9 @@ const destinatariosController = {
       // Calcular estadísticas
       const estadisticas = {
         total: destinatarios.length,
-        enviados: destinatarios.filter(d => d.estado === 'sent_manual').length,
+        enviados: destinatarios.filter(d => d.estado === 'enviado').length,
         pendientes: destinatarios.filter(d => d.estado === 'pendiente').length,
-        fallidos: destinatarios.filter(d => d.estado === 'fallido').length
+        errores: destinatarios.filter(d => d.estado === 'error').length
       };
 
       res.json({
@@ -71,9 +71,9 @@ const destinatariosController = {
       const [resumen] = await db.execute(`
         SELECT 
           COUNT(*) as total,
-          SUM(CASE WHEN env.estado = 'sent_manual' THEN 1 ELSE 0 END) as enviados,
+          SUM(CASE WHEN env.estado = 'enviado' THEN 1 ELSE 0 END) as enviados,
           SUM(CASE WHEN env.estado = 'pendiente' THEN 1 ELSE 0 END) as pendientes,
-          SUM(CASE WHEN env.estado = 'fallido' THEN 1 ELSE 0 END) as fallidos
+          SUM(CASE WHEN env.estado = 'error' THEN 1 ELSE 0 END) as errores
         FROM ll_envios_whatsapp env
         LEFT JOIN ll_campanias_whatsapp camp ON env.campania_id = camp.id
         WHERE camp.id = ? AND camp.cliente_id = ?
@@ -81,7 +81,7 @@ const destinatariosController = {
 
       res.json({
         success: true,
-        data: resumen[0] || { total: 0, enviados: 0, pendientes: 0, fallidos: 0 }
+        data: resumen[0] || { total: 0, enviados: 0, pendientes: 0, errores: 0 }
       });
     } catch (error) {
       console.error('Error al obtener resumen de destinatarios:', error);
@@ -187,6 +187,8 @@ const destinatariosController = {
       const erroresInsercion = [];
 
       // Procesar cada destinatario
+      // REFACTORIZACIÓN 2026-02-20: Confiar en índice UNIQUE (campania_id, telefono_wapp)
+      // No hacer SELECT previo, capturar ER_DUP_ENTRY en catch
       for (let i = 0; i < destinatarios.length; i++) {
         const dest = destinatarios[i];
         const telefonoLimpio = dest.telefono_wapp.trim();
@@ -194,13 +196,29 @@ const destinatariosController = {
         try {
           console.log(`🔄 Procesando ${i + 1}/${destinatarios.length}: ${telefonoLimpio}`);
 
-          // Verificar si ya existe
-          const [existente] = await db.execute(
-            'SELECT id FROM ll_envios_whatsapp WHERE campania_id = ? AND telefono_wapp = ?',
-            [campaniaId, telefonoLimpio]
-          );
+          // Intentar INSERT directamente (confiar en índice UNIQUE)
+          const [result] = await db.execute(`
+            INSERT INTO ll_envios_whatsapp 
+            (campania_id, telefono_wapp, nombre_destino, mensaje_final, estado, lugar_id)
+            VALUES (?, ?, ?, ?, 'pendiente', ?)
+          `, [
+            campaniaId, 
+            telefonoLimpio, 
+            dest.nombre_destino || null, 
+            mensajeFinal, 
+            dest.lugar_id || null
+          ]);
 
-          if (existente.length > 0) {
+          console.log(`✅ Insertado ID ${result.insertId}: ${telefonoLimpio}`);
+
+          agregados.push({
+            id: result.insertId,
+            telefono: telefonoLimpio,
+            nombre: dest.nombre_destino || null
+          });
+        } catch (error) {
+          // Detectar duplicado por índice UNIQUE
+          if (error.code === 'ER_DUP_ENTRY') {
             console.log(`⚠️  Duplicado: ${telefonoLimpio}`);
             duplicados.push({
               telefono: telefonoLimpio,
@@ -208,33 +226,12 @@ const destinatariosController = {
               razon: 'Ya existe en la campaña'
             });
           } else {
-            // Agregar nuevo destinatario
-            const [result] = await db.execute(`
-              INSERT INTO ll_envios_whatsapp 
-              (campania_id, telefono_wapp, nombre_destino, mensaje_final, estado, lugar_id)
-              VALUES (?, ?, ?, ?, 'pendiente', ?)
-            `, [
-              campaniaId, 
-              telefonoLimpio, 
-              dest.nombre_destino || null, 
-              mensajeFinal, 
-              dest.lugar_id || null
-            ]);
-
-            console.log(`✅ Insertado ID ${result.insertId}: ${telefonoLimpio}`);
-
-            agregados.push({
-              id: result.insertId,
+            console.error(`❌ Error al procesar ${telefonoLimpio}:`, error.message);
+            erroresInsercion.push({
               telefono: telefonoLimpio,
-              nombre: dest.nombre_destino || null
+              error: error.message
             });
           }
-        } catch (error) {
-          console.error(`❌ Error al procesar ${telefonoLimpio}:`, error.message);
-          erroresInsercion.push({
-            telefono: telefonoLimpio,
-            error: error.message
-          });
         }
       }
 
@@ -312,7 +309,7 @@ const destinatariosController = {
 
         if (existente.length > 0) {
           // Solo permitir eliminar si no fue enviado
-          if (existente[0].estado === 'pendiente' || existente[0].estado === 'fallido') {
+          if (existente[0].estado === 'pendiente' || existente[0].estado === 'error') {
             await db.execute(
               'DELETE FROM ll_envios_whatsapp WHERE campania_id = ? AND telefono_wapp = ?',
               [campaniaId, telefono]
