@@ -2,7 +2,8 @@
 
 **Status:** Draft  
 **Purpose:** Documento que define el contexto de negocio, modelo operativo y realidad del cliente  
-**Last Updated:** 2026-02-21
+**Last Updated:** 2026-02-21  
+**Related:** [PROJECT_STATUS.md](docs/constitutional/PROJECT_STATUS.md)
 
 ---
 

@@ -1,6 +1,6 @@
 # LeadMaster Central Hub - Project Status
 
-**Last Updated:** January 2, 2026 23:55 UTC  
+**Last Updated:** February 21, 2026  
 **Branch:** feature/central-hub-session-manager  
 **Environment:** Production (Contabo VPS)  
 **Domain:** https://desarrolloydisenioweb.com.ar
@@ -34,10 +34,49 @@
 - API Auth: https://desarrolloydisenioweb.com.ar/auth/*
 - Health Check: https://desarrolloydisenioweb.com.ar/health
 
-### 📋 Phase 3: WhatsApp Session Lifecycle
+### 🎯 Phase 3: Prospect Quality & Service Optimization (HIGH PRIORITY)
+**Status:** PLANNED (Documentation Ready)  
+**Planned Start:** Immediate  
+**Estimated Duration:** 3-4 days  
+**Documentation:** [`docs/PHASE-4-COMMERCIAL-INTELLIGENCE.md`](PHASE-4-COMMERCIAL-INTELLIGENCE.md) (extracted scoring components)
+
+**Business Context:**  
+LeadMaster is a **prospect generation service**, not (yet) a SaaS automation platform. This phase focuses on improving **service quality and deliverability**—the core value proposition for clients.
+
+**Scope:** Implement scoring system that ensures we only contact qualified, reachable prospects.
+
+**Critical Implementation (Must Have):**
+- [ ] Database extension: `ll_societe_extended` scoring fields
+- [ ] `score_contactabilidad` calculation (phone validity, WhatsApp verification)
+- [ ] `validado_tecnicamente` flag (BLOCKS sending if false)
+- [ ] Basic digital maturity scoring (website, corporate email)
+- [ ] Sender middleware: block if `score_contactabilidad < 70`
+- [ ] Manual validation interface for sales team
+
+**Optional (Nice to Have):**
+- [ ] `score_potencial` (commercial value estimation)
+- [ ] Frontend scoring display and filtering
+- [ ] Automated re-scoring on data changes
+
+**Impact:**
+- ✅ Improves deliverability and response rates (service quality)
+- ✅ Reduces wasted effort on unreachable prospects
+- ✅ Protects client reputation (no spam behavior)
+- ✅ Provides data-driven validation metrics for sales team
+
+**Why This Is Priority #1:**  
+Prospect quality directly affects service results and client satisfaction. Automation can wait; deliverability cannot.
+
+**Blockers:** None  
+**Dependencies:** ✅ Phase 2 completed
+
+### 📋 Phase 4: WhatsApp Session Lifecycle Automation
 **Status:** PLANNED (Not Started)  
-**Planned Start:** TBD  
+**Planned Start:** After Phase 3  
 **Documentation:** [`docs/PHASE-3-PLAN.md`](PHASE-3-PLAN.md)
+
+**Business Context:**  
+Session management improves operational efficiency but is NOT the current business bottleneck. Manual QR reconnection is acceptable while validating service model.
 
 **Planned Scope:**
 - [ ] WhatsApp connection flow (QR generation)
@@ -47,8 +86,38 @@
 - [ ] Session state machine
 - [ ] Frontend integration
 
+**Why This Is Phase 4 (Not 3):**  
+- Current manual process is manageable at service validation scale
+- Quality of outreach matters more than speed at this stage
+- Sessions are stable enough for controlled sending campaigns
+
 **Blockers:** None  
-**Dependencies:** ✅ All met (Phase 2 completed)
+**Dependencies:** ✅ Phase 2 completed
+
+### 📊 Phase 5: Advanced Commercial Intelligence (Future)
+**Status:** DEFERRED (Post-Validation)  
+**Planned Start:** After service model validated with 5-10 clients  
+**Documentation:** [`docs/PHASE-4-COMMERCIAL-INTELLIGENCE.md`](PHASE-4-COMMERCIAL-INTELLIGENCE.md) (full specification)
+
+**Scope:** Advanced scoring, predictive modeling, data-driven optimization.
+
+**Future Components:**
+- Advanced `score_potencial` modeling (industry fit, company size, engagement)
+- Scoring formula calibration based on conversion data
+- A/B testing for messaging effectiveness
+- Automated prospect recommendation engine
+- Score staleness monitoring and auto-refresh
+
+**Why This Is Deferred:**  
+- Need real conversion data to calibrate formulas
+- Must validate basic service model first
+- Avoid over-engineering before product-market fit
+- Focus on execution, not optimization
+
+**Trigger for Activation:**  
+- 10+ successful client campaigns completed
+- Response rate baseline established
+- Conversion data available for modeling
 
 ---
 
@@ -73,9 +142,9 @@ PM2 Process: leadmaster-hub
 
 ### Active Modules
 - ✅ `auth` - JWT authentication
-- ✅ `session-manager` - WhatsApp session routes (Phase 3 pending)
-- ✅ `sender` - Mass messaging (Phase 4 pending)
-- ✅ `listener` - Auto-responses (Phase 4 pending)
+- ✅ `session-manager` - WhatsApp session routes (manual process, Phase 4 enhancement planned)
+- ✅ `sender` - Mass messaging (Phase 3 will add scoring validation)
+- ✅ `listener` - Auto-responses (Phase 4/5 pending)
 - ✅ `sync-contacts` - Gmail integration
 
 ---
@@ -101,10 +170,13 @@ M services/central-hub/src/integrations/sessionManager/sessionManagerClient.js
 
 ### Documentation State
 - ✅ `docs/PHASE-2-COMPLETED.md` - Complete and validated
-- ✅ `docs/PHASE-3-PLAN.md` - Planning document ready
+- ✅ `docs/PHASE-3-PLAN.md` - WhatsApp session lifecycle (deferred to Phase 4)
+- ✅ `docs/PHASE-4-COMMERCIAL-INTELLIGENCE.md` - Full scoring specification (Phase 3 + Phase 5)
 - ✅ `docs/SSL-Cloudflare-Setup.md` - SSL setup guide
 - ✅ `docs/Checklist-Post-SSL.md` - SSL validation checklist
 - ✅ `README.md` - Updated with infrastructure info
+
+**Note:** Phase 3 extracts scoring components from PHASE-4 doc, Phase 5 defers advanced features.
 
 ---
 
@@ -135,21 +207,79 @@ M services/central-hub/src/integrations/sessionManager/sessionManagerClient.js
 
 ---
 
-## Next Steps
+## Strategic Roadmap Alignment
 
-### Immediate (Phase 3)
-1. Review Phase 3 plan: [`docs/PHASE-3-PLAN.md`](PHASE-3-PLAN.md)
-2. Setup Session Manager standalone service
-3. Implement WhatsApp connection flow
-4. Add WebSocket support for real-time updates
-5. Test QR generation and scanning
-6. Validate session persistence
+### Short Term (0–30 Days) - Service Quality
 
-### Future Phases
-- **Phase 4:** Message sending/receiving + Campaigns
-- **Phase 5:** Listener automation + IA integration
-- **Phase 6:** Dashboard + Analytics
-- **Phase 7:** Multi-tenant support
+**Priority:** Deliverability and prospect validation
+
+**Phase 3 Execution:**
+1. Deploy scoring database schema (score_contactabilidad, validado_tecnicamente)
+2. Implement basic scoring formulas (phone validation, WhatsApp verification)
+3. Integrate scoring middleware into sender (BLOCK low-quality sends)
+4. Run baseline scoring on existing prospect database
+5. Validate scoring accuracy with test campaigns
+
+**Success Metrics:**
+- 100% of sends pass `validado_tecnicamente = 1` check
+- score_contactabilidad >= 70 for all outbound messages
+- Response rate baseline established (target: 15-25%)
+- Zero spam complaints or blocks
+
+**Expected Outcome:**  
+Improved deliverability and client-ready metrics to demonstrate service quality.
+
+---
+
+### Medium Term (30–90 Days) - Operational Efficiency
+
+**Priority:** Reduce manual effort, refine messaging, validate service model
+
+**Phase 4 Execution (if needed):**
+1. Implement WhatsApp session persistence (reduce manual QR scans)
+2. Add real-time session monitoring
+3. Build frontend session management UI
+
+**Service Validation:**
+1. Complete 5-10 client campaigns with scoring system
+2. Collect response rate data by score bands
+3. Refine scoring formulas based on actual conversion data
+4. Document messaging best practices (what works, what doesn't)
+
+**Success Metrics:**
+- Session uptime >= 95% (reduce manual intervention)
+- 10+ campaigns completed with documented results
+- Clear correlation between scoring and response rates
+- Client testimonials on prospect quality
+
+**Expected Outcome:**  
+Proven service model with metrics, ready for controlled growth.
+
+---
+
+### Long Term (90+ Days) - Data-Driven Optimization
+
+**Priority:** Scale validated service, optimize with data
+
+**Phase 5 Activation (conditional):**
+1. Advanced scoring models (score_potencial, industry fit)
+2. A/B testing for messaging effectiveness
+3. Automated prospect recommendation engine
+4. Predictive response modeling
+
+**Business Evolution:**
+- Expand to 20-30 active clients (if model validated)
+- Consider partial automation (templates, campaigns)
+- Evaluate SaaS potential (only if service scales)
+
+**Success Metrics:**
+- Scoring formulas calibrated with 100+ campaign data points
+- Conversion rate improvement >= 20% vs baseline
+- Client retention rate >= 80%
+- Profitable unit economics at scale
+
+**Expected Outcome:**  
+Scalable, data-optimized service ready for growth or platform evolution.
 
 ---
 
@@ -209,19 +339,38 @@ pm2 logs leadmaster-hub
 
 ### Current Risks: ✅ LOW
 
-**Phase 2 Status:**
-- ✅ Production stable
-- ✅ No critical errors
-- ✅ SSL/TLS validated
-- ✅ Authentication secure
+**Production Status:**
+- ✅ Infrastructure stable (Nginx + SSL/TLS + PM2)
+- ✅ Authentication secure (JWT)
+- ✅ No critical errors in production
 - ✅ Monitoring active
 
-**Phase 3 Preparation:**
-- ✅ Architecture planned
-- ✅ Dependencies identified
-- ✅ Testing strategy defined
-- ⚠️ Session Manager needs setup
-- ⚠️ WebSocket integration needed
+**Business Risks:**
+
+**Risk 1: Deliverability Issues**  
+**Impact:** High - Directly affects service quality  
+**Mitigation:** Phase 3 scoring system addresses this (blocks low-quality sends)
+
+**Risk 2: Over-Engineering Too Early**  
+**Impact:** Medium - Wastes resources before validation  
+**Mitigation:** Deferred Phase 5, focus on execution over optimization
+
+**Risk 3: Session Stability (Manual QR)**  
+**Impact:** Low - Manageable at current scale  
+**Mitigation:** Phase 4 planned when operational burden increases
+
+**Risk 4: Lack of Conversion Data**  
+**Impact:** Medium - Cannot calibrate scoring without data  
+**Mitigation:** Phase 3 establishes baseline, Phase 5 deferred until data exists
+
+### Technical Debt: Acceptable
+
+- WhatsApp session requires manual reconnection (acceptable for now)
+- No automated re-scoring system (manual triggers sufficient)
+- Limited frontend analytics (focus on core sending flow first)
+- No multi-tenant architecture (single client focus validates model)
+
+**Strategy:** Deliver working service first, optimize later with real data.
 
 ---
 
@@ -229,11 +378,13 @@ pm2 logs leadmaster-hub
 
 ✅ **Phase 2 is formally closed and validated.**  
 ✅ **Production environment is stable and operational.**  
-✅ **Ready to proceed with Phase 3 planning and implementation.**  
-✅ **No blockers identified.**
+🎯 **Phase 3 (Prospect Quality) is the immediate priority.**  
+✅ **Strategic roadmap aligned with service-first business model.**  
+✅ **No blockers identified for Phase 3 execution.**
 
 ---
 
-**Document Version:** 1.0  
-**Approved by:** Alberto Hilal  
-**Date:** 2026-01-02
+**Document Version:** 2.0  
+**Last Review:** Alberto Hilal  
+**Date:** 2026-02-21  
+**Strategic Focus:** Deliverability and service quality before automation

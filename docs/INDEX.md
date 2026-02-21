@@ -7,16 +7,20 @@
 
 ---
 
-## Constitutional Layer (Root)
+## Constitutional Layer
 
 _Documents that define project identity, business model, and decision history_
 
-- README.md
-- PROJECT_REALITY.md
-- BUSINESS_ENGINE.md
-- SYSTEM_BOUNDARIES.md
-- DECISION_LOG.md
-- PR_INSTRUCTIONS.md
+**Root:**
+- [README.md](../README.md)
+- [PROJECT_REALITY.md](../PROJECT_REALITY.md)
+- [BUSINESS_ENGINE.md](../BUSINESS_ENGINE.md)
+- [SYSTEM_BOUNDARIES.md](../SYSTEM_BOUNDARIES.md)
+- [DECISION_LOG.md](../DECISION_LOG.md)
+- [PR_INSTRUCTIONS.md](../PR_INSTRUCTIONS.md)
+
+**Constitutional (Versioned):**
+- [PROJECT_STATUS.md v3.0](constitutional/PROJECT_STATUS.md) — Official strategic and operational state
 
 ---
 

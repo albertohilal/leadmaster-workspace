@@ -2,7 +2,8 @@
 
 **Status:** Draft  
 **Purpose:** Define qué está dentro y fuera del alcance del sistema  
-**Last Updated:** 2026-02-21
+**Last Updated:** 2026-02-21  
+**Related:** [PROJECT_STATUS.md](docs/constitutional/PROJECT_STATUS.md)
 
 ---
 
