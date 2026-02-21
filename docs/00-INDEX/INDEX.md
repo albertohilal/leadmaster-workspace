@@ -3,67 +3,94 @@
 **LeadMaster Workspace — Central Documentation Hub**
 
 **Last Updated:** 2026-02-21  
-**Status:** Structure created, content migration pending
+**Version:** 2.1  
+**Official Rules:** [DOCUMENTATION_RULES.md](DOCUMENTATION_RULES.md)
 
 ---
 
-## Constitutional Layer
+## 00-INDEX — Documentation Rules
+
+📋 [DOCUMENTATION_RULES.md](DOCUMENTATION_RULES.md) — Official documentation standard
+
+---
+
+## 01-CONSTITUCIONAL — Strategic Framework
 
 _Documents that define project identity, business model, and decision history_
 
-**Root:**
-- [README.md](../README.md)
-- [PROJECT_REALITY.md](../PROJECT_REALITY.md)
-- [BUSINESS_ENGINE.md](../BUSINESS_ENGINE.md)
-- [SYSTEM_BOUNDARIES.md](../SYSTEM_BOUNDARIES.md)
-- [DECISION_LOG.md](../DECISION_LOG.md)
-- [PR_INSTRUCTIONS.md](../PR_INSTRUCTIONS.md)
+**Root Level:**
+- [README.md](../../README.md)
+- [PROJECT_REALITY.md](../../PROJECT_REALITY.md)
+- [BUSINESS_ENGINE.md](../../BUSINESS_ENGINE.md)
+- [SYSTEM_BOUNDARIES.md](../../SYSTEM_BOUNDARIES.md)
+- [DECISION_LOG.md](../../DECISION_LOG.md)
+- [PR_INSTRUCTIONS.md](../../PR_INSTRUCTIONS.md)
 
-**Constitutional (Versioned):**
-- [PROJECT_STATUS.md v3.0](constitutional/PROJECT_STATUS.md) — Official strategic and operational state
-
----
-
-## Architecture
-
-_System design, architectural patterns, and technical blueprints_
+**Versioned (Official Authority):**
+- [PROJECT_STATUS.md v3.0](../01-CONSTITUCIONAL/PROJECT_STATUS.md) — Strategic and operational state
 
 ---
 
-## Contracts
+## 02-ARQUITECTURA — System Design
 
-_API specifications, HTTP contracts, and interface definitions_
+_Architectural patterns, technical decisions, and structural blueprints_
+
+_(Empty - to be populated)_
 
 ---
 
-## Integration
+## 03-INFRAESTRUCTURA — Deployment & Operations
+
+_SSL, servers, PM2, Nginx, and operational guides_
+
+- [SSL-Cloudflare-Setup.md](../SSL-Cloudflare-Setup.md)
+- [Checklist-Post-SSL.md](../Checklist-Post-SSL.md)
+
+---
+
+## 04-INTEGRACION — Module Connections
 
 _Integration guides between services and external systems_
 
----
-
-## Phases
-
-_Project phases, milestones, and roadmaps_
+- [Integration-CentralHub-SessionManager.md](../Integration-CentralHub-SessionManager.md)
+- [INFORME-FINAL-INTEGRACION-SESSION-MANAGER.md](../INFORME-FINAL-INTEGRACION-SESSION-MANAGER.md)
 
 ---
 
-## Infrastructure
-
-_Deployment, DevOps, SSL, PM2, and operational guides_
-
----
-
-## Reports
+## 05-REPORTES — Dated Reports
 
 _Diagnostic reports, implementation reports, and technical analyses_
 
----
+**Structure:** `05-REPORTES/YYYY-MM/REPORT_NAME_YYYY-MM-DD.md`
 
-## Archive
-
-_Obsolete documentation, completed diagnostics, and historical backups_
+- [2026-02/](../05-REPORTES/2026-02/) — February 2026 reports
 
 ---
 
-**Note:** This index will be populated with links as documentation is organized into the new structure.
+## 06-FASES — Project Phases
+
+_Phase documentation, milestones, and roadmaps_
+
+- [PHASE-2-COMPLETED.md](../PHASE-2-COMPLETED.md)
+- [PHASE-3-PLAN.md](../PHASE-3-PLAN.md)
+- [PHASE-4-COMMERCIAL-INTELLIGENCE.md](../PHASE-4-COMMERCIAL-INTELLIGENCE.md)
+
+---
+
+## 07-CONTRATOS — API Specifications
+
+_HTTP contracts, interface definitions, and formal agreements_
+
+- [Contratos-HTTP-LeadMaster-Workspace.md](../Contratos-HTTP-LeadMaster-Workspace.md)
+
+---
+
+## 99-ARCHIVO — Obsolete Versions
+
+_Superseded documentation and historical references_
+
+- [PROJECT_STATUS_TECHNICAL_v2.md](../99-ARCHIVO/PROJECT_STATUS_TECHNICAL_v2.md)
+
+---
+
+**Note:** This index follows the official structure defined in [DOCUMENTATION_RULES.md](DOCUMENTATION_RULES.md).
