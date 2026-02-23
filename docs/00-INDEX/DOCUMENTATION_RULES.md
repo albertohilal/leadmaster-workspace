@@ -168,3 +168,82 @@ All AI-generated documents are subject to architectural review.
 
 **Authority:** Alberto Hilal  
 **Effective Date:** 2026-02-21
+
+---
+
+## Documentation Scope Levels
+
+### 1. Workspace-Level Documentation
+
+Location:
+```
+docs/
+```
+
+This directory contains documentation that applies to the entire workspace.
+
+Includes:
+- Constitutional framework
+- Global architecture
+- Infrastructure documentation
+- Cross-service integration
+- HTTP contracts between services
+- Global phase planning
+- Governance and decision logs
+
+Rule:
+Only documentation that impacts more than one service belongs here.
+
+This directory must NOT contain:
+- Service-specific bug reports
+- Local diagnostics
+- Internal implementation notes
+- Temporary operational reports
+
+---
+
+### 2. Service-Level Documentation
+
+Location:
+```
+services/<service-name>/docs/
+```
+
+Each service maintains its own internal documentation.
+
+Includes:
+- Diagnostics and debugging reports
+- Local implementation notes
+- Service-specific architectural details
+- Internal refactors
+- Module-level guides
+- Operational procedures specific to the service
+
+Rule:
+If the document affects only one service, it belongs in that service's docs directory.
+
+---
+
+### 3. Anti-Pattern Rule
+
+Markdown files (.md) must NOT be created in service root directories.
+
+Example of incorrect placement:
+```
+services/central-hub/DIAGNOSTICO_X.md
+```
+
+Correct placement:
+```
+services/central-hub/docs/diagnosticos/DIAGNOSTICO_X.md
+```
+
+---
+
+### 4. Governance Principle
+
+The workspace documentation defines the system.
+Service documentation defines implementation.
+
+They must never duplicate each other.
+They must reference each other instead.
