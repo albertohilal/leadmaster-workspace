@@ -22,6 +22,34 @@
 
 ---
 
+## Structural Integrity Rule
+
+**The numeric folder structure is FIXED and IMMUTABLE.**
+
+Rules:
+- The folders under `docs/` follow a strict numeric convention
+- **No new numbered folders can be created** without architectural review
+- **Parallel folders like `06-ROADMAP` are FORBIDDEN**
+- New documents must live within an existing folder
+- File naming must use hyphens (`-`), not underscores (`_`)
+
+Examples of violations:
+```
+❌ docs/06-ROADMAP/          (conflicts with 06-FASES)
+❌ docs/08-FEATURES/         (no such category exists)
+❌ docs/AI_DOCUMENT.md       (underscores not allowed)
+```
+
+Correct approach:
+```
+✅ docs/06-FASES/AI-LISTENER-EVOLUTION-PLAN.md
+✅ docs/02-ARQUITECTURA/NEW-DESIGN-PATTERN.md
+```
+
+**Rationale:** The numeric taxonomy provides clear navigation and prevents category proliferation. Any new category must justify its existence and integrate into the strategic framework.
+
+---
+
 ## Mandatory Rule
 
 Every generated document must:
