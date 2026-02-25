@@ -58,11 +58,9 @@ module.exports = {
       
       // === Graceful shutdown ===
       kill_timeout: 10000,
-      wait_ready: true,
-      listen_timeout: 10000,
       
       // === Prevención de loops ===
-      stop_exit_codes: [0],
+      // Nota: Removido stop_exit_codes para permitir auto-recovery ante cualquier exit
       
       // === Node.js options ===
       node_args: '--max-old-space-size=2048'
