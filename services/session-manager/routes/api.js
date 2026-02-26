@@ -1,5 +1,5 @@
 const express = require('express');
-const session = require('../whatsapp/venom-session');
+const session = require('../whatsapp/wwebjs-session');
 
 const router = express.Router();
 

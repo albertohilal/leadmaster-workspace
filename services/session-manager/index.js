@@ -1,6 +1,6 @@
 require('dotenv').config();
 const app = require('./app');
-const venomSession = require('./whatsapp/venom-session');
+const wwebjsSession = require('./whatsapp/wwebjs-session');
 
 const PORT = process.env.PORT || 3001;
 
@@ -20,7 +20,7 @@ const server = app.listen(PORT, async () => {
   // Initialize WhatsApp session after HTTP server is ready
   console.log('[Bootstrap] Initializing ADMIN WhatsApp session...');
   try {
-    await venomSession.connect();
+    await wwebjsSession.connect();
     console.log('[Bootstrap] ✅ WhatsApp session initialized successfully');
   } catch (error) {
     console.error('[Bootstrap] ⚠️  Failed to initialize WhatsApp session:', error.message);
