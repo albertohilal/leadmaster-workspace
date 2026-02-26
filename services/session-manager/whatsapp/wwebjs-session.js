@@ -1,6 +1,7 @@
 const path = require('path');
 const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
+const qrcodeTerminal = require('qrcode-terminal');
+const QRCode = require('qrcode'); // ← NUEVO
 
 const SESSION_NAME = 'admin';
 const TOKENS_DIR = path.resolve(__dirname, '..', 'tokens');
@@ -9,7 +10,7 @@ let client = null;
 let connectPromise = null;
 
 let sessionStatus = 'INIT';
-let currentQR = null;
+let currentQR = null; // ahora será base64 image
 let qrAttempts = 0;
 
 /* =======================================================
@@ -17,14 +18,30 @@ let qrAttempts = 0;
 ======================================================= */
 
 function attachEventHandlers(waClient) {
-  waClient.on('qr', (qr) => {
-    currentQR = qr;
-    sessionStatus = 'QR_REQUIRED';
-    qrAttempts += 1;
+  waClient.on('qr', async (qr) => {
+    try {
+      // Convertimos raw string → base64 PNG
+      const qrBase64 = await QRCode.toDataURL(qr);
 
-    console.log(`\n================ QR RECEIVED (Attempt ${qrAttempts}) ================\n`);
-    qrcode.generate(qr, { small: true });
-    console.log('\nScan from: WhatsApp → Dispositivos vinculados → Vincular dispositivo\n');
+      currentQR = qrBase64;
+      sessionStatus = 'QR_REQUIRED';
+      qrAttempts += 1;
+
+      console.log(
+        `\n================ QR RECEIVED (Attempt ${qrAttempts}) ================\n`
+      );
+
+      // Mostrar en terminal (solo debug)
+      qrcodeTerminal.generate(qr, { small: true });
+
+      console.log(
+        '\nScan from: WhatsApp → Dispositivos vinculados → Vincular dispositivo\n'
+      );
+    } catch (err) {
+      console.error('[WWEBJS] Failed to convert QR:', err?.message || err);
+      sessionStatus = 'ERROR';
+      currentQR = null;
+    }
   });
 
   waClient.on('authenticated', () => {
@@ -197,7 +214,7 @@ function getSessionStatus() {
 }
 
 function getCurrentQR() {
-  return currentQR;
+  return currentQR; // ahora devuelve base64 image
 }
 
 /* =======================================================
