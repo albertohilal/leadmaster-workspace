@@ -14,8 +14,26 @@ router.get('/health', (req, res) => {
 
 // Estado de la sesión ADMIN (única sesión)
 router.get('/status', (req, res) => {
-  const state = session.getState();
-  res.status(200).json(state);
+  res.status(200).json({
+    status: session.getSessionStatus()
+  });
+});
+
+// QR actual (si existe) para autenticar sesión ADMIN
+router.get('/qr', (req, res) => {
+  const qr = session.getCurrentQR();
+
+  if (!qr) {
+    return res.status(200).json({ status: 'NO_QR' });
+  }
+
+  const isPngDataUrl = typeof qr === 'string' && qr.startsWith('data:image/png;base64,');
+
+  if (!isPngDataUrl) {
+    return res.status(200).json({ status: 'QR_AVAILABLE', qr, qrType: 'raw_string' });
+  }
+
+  return res.status(200).json({ status: 'QR_AVAILABLE', qr });
 });
 
 // Conectar sesión ADMIN (única sesión del sistema)

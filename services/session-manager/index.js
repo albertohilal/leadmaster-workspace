@@ -1,5 +1,6 @@
 require('dotenv').config();
 const app = require('./app');
+const venomSession = require('./whatsapp/venom-session');
 
 const PORT = process.env.PORT || 3001;
 
@@ -10,11 +11,21 @@ console.log(`Port: ${PORT}`);
 console.log(`Node Version: ${process.version}`);
 console.log('='.repeat(50));
 
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, async () => {
   console.log(`[Server] Listening on port ${PORT}`);
   console.log(`[Server] Health: http://localhost:${PORT}/health`);
   console.log(`[Server] Status: http://localhost:${PORT}/status`);
   console.log('='.repeat(50));
+  
+  // Initialize WhatsApp session after HTTP server is ready
+  console.log('[Bootstrap] Initializing ADMIN WhatsApp session...');
+  try {
+    await venomSession.connect();
+    console.log('[Bootstrap] ✅ WhatsApp session initialized successfully');
+  } catch (error) {
+    console.error('[Bootstrap] ⚠️  Failed to initialize WhatsApp session:', error.message);
+    console.error('[Bootstrap] Server will continue running without WhatsApp connection');
+  }
 });
 
 let isShuttingDown = false;
@@ -57,11 +68,11 @@ process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 process.on('uncaughtException', (error) => {
-  console.error('[FATAL] Uncaught exception:', error);
-  process.exit(1);
+  console.error('[UNCAUGHT_EXCEPTION] Error:', error);
+  // Do not hard-exit: keep API alive for operational recovery.
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('[FATAL] Unhandled rejection at:', promise, 'reason:', reason);
-  process.exit(1);
+  console.error('[UNHANDLED_REJECTION] at:', promise, 'reason:', reason);
+  // Do not hard-exit: QR/login flows can be flaky; service must remain available.
 });
