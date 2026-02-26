@@ -3,17 +3,16 @@ import React, { useState, useEffect, useRef } from 'react';
 /**
  * WhatsappSession Component
  * 
- * Gestiona la inicialización y estado de una sesión WhatsApp multi-cliente.
- * Implementa el flujo explícito: POST /init → Polling GET /status
+ * Gestiona la inicialización y estado de una sesión WhatsApp.
+ * Implementa el flujo explícito: POST /connect → Polling GET /status → GET /qr (si aplica)
  * 
  * Estados del backend (session-manager):
- * - NOT_INITIALIZED: Cliente no existe o no inicializado
- * - INITIALIZING: Lanzando Puppeteer/Chromium
- * - QR_REQUIRED: Esperando escaneo de QR
- * - READY: Sesión conectada y lista
- * - AUTH_FAILURE: Fallo de autenticación
- * - DISCONNECTED_*: Varios tipos de desconexión
- * - ERROR: Error fatal
+ * - INIT
+ * - QR_REQUIRED
+ * - AUTHENTICATED
+ * - READY
+ * - DISCONNECTED
+ * - ERROR
  */
 const WhatsappSession = ({ clienteId, sessionManagerUrl = 'http://localhost:3001' }) => {
   // Estado de UI
@@ -46,7 +45,7 @@ const WhatsappSession = ({ clienteId, sessionManagerUrl = 'http://localhost:3001
    */
   useEffect(() => {
     if (clienteId && !isInitializedRef.current) {
-      initSession();
+      connectSession();
     }
   }, [clienteId]);
 
@@ -62,8 +61,8 @@ const WhatsappSession = ({ clienteId, sessionManagerUrl = 'http://localhost:3001
   };
 
   /**
-   * Iniciar polling a GET /status
-   * Solo debe llamarse DESPUÉS de POST /init exitoso
+  * Iniciar polling a GET /status
+  * Solo debe llamarse DESPUÉS de POST /connect exitoso (o intento de connect)
    */
   const startPolling = () => {
     // Prevenir múltiples intervalos
@@ -84,24 +83,24 @@ const WhatsappSession = ({ clienteId, sessionManagerUrl = 'http://localhost:3001
   };
 
   /**
-   * POST /init
-   * Inicializa explícitamente el cliente WhatsApp en el backend
+   * POST /connect
+   * Solicita al backend iniciar (o reutilizar) la sesión WhatsApp
    * Solo se debe llamar UNA vez al montar el componente
    */
-  const initSession = async () => {
+  const connectSession = async () => {
     // Prevenir llamadas duplicadas
     if (isInitializedRef.current) {
       console.warn('[WhatsappSession] Session already initialized');
       return;
     }
 
-    console.log(`[WhatsappSession] Initializing session for cliente_id: ${clienteId}`);
+    console.log(`[WhatsappSession] Connecting session for cliente_id: ${clienteId}`);
     setLoading(true);
     setStatusMessage('Inicializando WhatsApp...');
     setError(null);
 
     try {
-      const response = await fetch(`${sessionManagerUrl}/init`, {
+      const response = await fetch(`${sessionManagerUrl}/connect`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -114,32 +113,26 @@ const WhatsappSession = ({ clienteId, sessionManagerUrl = 'http://localhost:3001
       // Verificar si el componente sigue montado
       if (!isMountedRef.current) return;
 
-      // Manejar errores del backend
-      if (data.error) {
-        console.error('[WhatsappSession] Init error:', data);
-        setError(data.message || 'Error al inicializar sesión WhatsApp');
+      if (!response.ok || data?.success === false) {
+        console.error('[WhatsappSession] Connect error:', data);
+        setError(data?.error || 'Error al inicializar sesión WhatsApp');
         setStatusMessage('Error de inicialización');
         setLoading(false);
         return;
       }
 
-      console.log('[WhatsappSession] Init successful:', data);
+      console.log('[WhatsappSession] Connect successful:', data);
 
       // Marcar como inicializado
       isInitializedRef.current = true;
 
-      // Actualizar UI según respuesta
-      if (data.action === 'NO_ACTION_NEEDED') {
-        setStatusMessage('Cliente ya inicializado previamente');
-      } else {
-        setStatusMessage('Inicialización exitosa. Cargando estado...');
-      }
+      setStatusMessage(data?.alreadyConnected ? 'Sesión ya iniciada. Cargando estado...' : 'Conectando...');
 
-      // CRÍTICO: Iniciar polling SOLO después de init exitoso
+      // CRÍTICO: Iniciar polling SOLO después de connect exitoso
       startPolling();
 
     } catch (err) {
-      console.error('[WhatsappSession] Network error during init:', err);
+      console.error('[WhatsappSession] Network error during connect:', err);
       
       if (!isMountedRef.current) return;
 
@@ -152,7 +145,7 @@ const WhatsappSession = ({ clienteId, sessionManagerUrl = 'http://localhost:3001
   /**
    * GET /status
    * Consulta el estado actual de la sesión WhatsApp
-   * NO inicializa, solo consulta
+   * NO conecta, solo consulta
    */
   const fetchStatus = async () => {
     try {
@@ -169,29 +162,16 @@ const WhatsappSession = ({ clienteId, sessionManagerUrl = 'http://localhost:3001
       // Verificar si el componente sigue montado
       if (!isMountedRef.current) return;
 
-      console.log('[WhatsappSession] Status:', data.state);
+      const state = data?.status || data?.state;
+      console.log('[WhatsappSession] Status:', state);
 
       // Actualizar estado backend
-      setBackendState(data.state);
+      setBackendState(state);
 
       // Interpretar estado según modelo de 9 estados
-      switch (data.state) {
-        case 'NOT_INITIALIZED':
-          setStatusMessage('Esperando inicialización...');
-          setLoading(true);
-          setConnected(false);
-          setQrCodeBase64(null);
-          break;
-
-        case 'INITIALIZING':
-          setStatusMessage('Generando sesión de WhatsApp...');
-          setLoading(true);
-          setConnected(false);
-          setQrCodeBase64(null);
-          break;
-
-        case 'RECONNECTING':
-          setStatusMessage('Reconectando sesión existente...');
+      switch (state) {
+        case 'INIT':
+          setStatusMessage('Inicializando WhatsApp...');
           setLoading(true);
           setConnected(false);
           setQrCodeBase64(null);
@@ -201,11 +181,16 @@ const WhatsappSession = ({ clienteId, sessionManagerUrl = 'http://localhost:3001
           setStatusMessage('Escanea el código QR con tu teléfono');
           setLoading(false);
           setConnected(false);
-          
-          // Actualizar QR solo si cambió
-          if (data.qr_code_base64 && data.qr_code_base64 !== qrCodeBase64) {
-            setQrCodeBase64(data.qr_code_base64);
-          }
+
+          // QR viene por endpoint separado
+          fetchQR();
+          break;
+
+        case 'AUTHENTICATED':
+          setStatusMessage('Autenticado. Finalizando conexión...');
+          setLoading(true);
+          setConnected(false);
+          setQrCodeBase64(null);
           break;
 
         case 'READY':
@@ -219,34 +204,8 @@ const WhatsappSession = ({ clienteId, sessionManagerUrl = 'http://localhost:3001
           stopPolling();
           break;
 
-        case 'AUTH_FAILURE':
-          setStatusMessage('Fallo de autenticación. Reinicia la sesión.');
-          setError('La autenticación de WhatsApp falló');
-          setLoading(false);
-          setConnected(false);
-          setQrCodeBase64(null);
-          stopPolling();
-          break;
-
-        case 'DISCONNECTED_RECOVERABLE':
-          setStatusMessage('Desconectado temporalmente. Reintentando...');
-          setLoading(true);
-          setConnected(false);
-          setQrCodeBase64(null);
-          break;
-
-        case 'DISCONNECTED_LOGOUT':
-          setStatusMessage('Sesión cerrada manualmente desde el teléfono');
-          setError('Debes volver a escanear el código QR');
-          setLoading(false);
-          setConnected(false);
-          setQrCodeBase64(null);
-          stopPolling();
-          break;
-
-        case 'DISCONNECTED_BANNED':
-          setStatusMessage('Número bloqueado por WhatsApp');
-          setError('Este número ha sido bloqueado por WhatsApp');
+        case 'DISCONNECTED':
+          setStatusMessage('WhatsApp desconectado. Reintentá conectar.');
           setLoading(false);
           setConnected(false);
           setQrCodeBase64(null);
@@ -255,7 +214,7 @@ const WhatsappSession = ({ clienteId, sessionManagerUrl = 'http://localhost:3001
 
         case 'ERROR':
           setStatusMessage('Error en la sesión de WhatsApp');
-          setError(data.recommended_action || 'Error desconocido');
+          setError('Error en la sesión');
           setLoading(false);
           setConnected(false);
           setQrCodeBase64(null);
@@ -263,8 +222,8 @@ const WhatsappSession = ({ clienteId, sessionManagerUrl = 'http://localhost:3001
           break;
 
         default:
-          console.warn('[WhatsappSession] Unknown state:', data.state);
-          setStatusMessage(`Estado desconocido: ${data.state}`);
+          console.warn('[WhatsappSession] Unknown state:', state);
+          setStatusMessage(`Estado desconocido: ${String(state)}`);
           setLoading(false);
           break;
       }
@@ -276,6 +235,37 @@ const WhatsappSession = ({ clienteId, sessionManagerUrl = 'http://localhost:3001
 
       // No detener polling por errores transitorios de red
       setError('Error temporal de conexión. Reintentando...');
+    }
+  };
+
+  /**
+   * GET /qr
+   * Obtiene el QR actual en formato Data URL (image/png)
+   */
+  const fetchQR = async () => {
+    try {
+      const response = await fetch(`${sessionManagerUrl}/qr`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Cliente-Id': String(clienteId)
+        }
+      });
+
+      const data = await response.json();
+
+      if (!isMountedRef.current) return;
+
+      if (data?.status !== 'QR_AVAILABLE' || !data?.qr) {
+        setQrCodeBase64(null);
+        return;
+      }
+
+      if (data.qr !== qrCodeBase64) {
+        setQrCodeBase64(data.qr);
+      }
+    } catch (err) {
+      console.error('[WhatsappSession] Network error during QR fetch:', err);
     }
   };
 
@@ -297,7 +287,7 @@ const WhatsappSession = ({ clienteId, sessionManagerUrl = 'http://localhost:3001
     setBackendState(null);
 
     // Reiniciar flujo
-    initSession();
+    connectSession();
   };
 
   return (
@@ -368,7 +358,7 @@ const WhatsappSession = ({ clienteId, sessionManagerUrl = 'http://localhost:3001
 
         {/* Acciones */}
         <div className="whatsapp-session-actions">
-          {(error || backendState === 'DISCONNECTED_LOGOUT') && (
+          {(error || backendState === 'DISCONNECTED' || backendState === 'ERROR') && (
             <button 
               className="btn btn-primary" 
               onClick={restartSession}
@@ -390,7 +380,7 @@ const WhatsappSession = ({ clienteId, sessionManagerUrl = 'http://localhost:3001
       </div>
 
       {/* Debug info (solo en desarrollo) */}
-      {process.env.NODE_ENV === 'development' && (
+      {import.meta.env.DEV && (
         <div className="debug-info">
           <details>
             <summary>Debug Info</summary>
