@@ -211,18 +211,18 @@ $ curl http://localhost:3012/health
 #### Estado de Sesiones WhatsApp
 
 ```bash
-$ curl -H "X-Cliente-Id: 1" http://localhost:3001/status
+$ curl http://localhost:3001/api/session-manager/sessions/acme-01
 {
-  "cliente_id": 1,
-  "connected": false,
-  "state": "INITIALIZING",
-  "can_send_messages": false,
-  "recommended_action": "Initializing for first time - wait"
+   "instance_id": "acme-01",
+   "status": "init",
+   "qr_status": "none",
+   "qr_string": null,
+   "updated_at": "2026-02-27T12:00:00Z"
 }
 ```
 
 **Interpretación:**  
-Las sesiones están en estado `INITIALIZING`, lo cual es correcto después de un reinicio limpio. Requieren escaneo de código QR para autenticación.
+Las sesiones pueden iniciar en `init` y transicionar a `qr_required` cuando el QR esté disponible. El envío solo es válido cuando `status = connected`.
 
 ---
 
@@ -338,7 +338,7 @@ curl http://localhost:3001/health
 curl http://localhost:3012/health
 
 # 5. Verificar estado de WhatsApp
-curl -H "X-Cliente-Id: 1" http://localhost:3001/status
+curl http://localhost:3001/api/session-manager/sessions/acme-01
 ```
 
 ---
@@ -379,7 +379,7 @@ Las sesiones detectadas (`cliente_1` y `cliente_51`) necesitan reautenticación:
 
 4. **Verificar conexión:**
    ```bash
-   curl -H "X-Cliente-Id: 1" http://localhost:3001/status
+   curl http://localhost:3001/api/session-manager/sessions/acme-01
    # Esperar: "connected": true, "state": "CONNECTED"
    ```
 
@@ -449,8 +449,8 @@ curl -s http://localhost:3012/health | grep "healthy"
 
 **Cada 4 horas:**
 ```bash
-curl -H "X-Cliente-Id: 1" http://localhost:3001/status | grep "connected"
-curl -H "X-Cliente-Id: 51" http://localhost:3001/status | grep "connected"
+curl http://localhost:3001/api/session-manager/sessions/acme-01 | grep "\"status\""
+curl http://localhost:3001/api/session-manager/sessions/acme-02 | grep "\"status\""
 ```
 
 **Cada 24 horas:**
@@ -518,7 +518,7 @@ pm2 save
 **Síntomas:**
 ```json
 {
-  "state": "INITIALIZING",
+   "status": "init",
   "connected": false,
   "recommended_action": "Initializing for first time - wait"
 }
@@ -590,7 +590,7 @@ grep -i "SESSION_MANAGER_BASE_URL\|undefined\|not defined" /root/.pm2/logs/*.log
 - [x] Variable `PORT` configurada en ambos servicios
 - [x] Procesos PM2 en estado "online"
 - [x] `/health` endpoints responden correctamente
-- [x] `/status` endpoint de WhatsApp responde (aunque sin conexión activa)
+- [x] `GET /api/session-manager/sessions/:instance_id` responde (aunque sin conexión activa)
 - [x] Configuración guardada con `pm2 save`
 
 ### Post-Producción (Pendiente)
@@ -768,7 +768,7 @@ Escaneo de códigos QR para reconectar sesiones WhatsApp.
  * ARQUITECTURA:
  * - Puerto: 3001
  * - 1 instancia ÚNICA para TODOS los clientes
- * - Clientes se inicializan bajo demanda vía header X-Cliente-Id
+ * - Instancias se inicializan bajo demanda vía `instance_id` en la ruta
  * - NO cluster mode
  */
 

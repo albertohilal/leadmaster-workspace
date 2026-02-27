@@ -22,8 +22,8 @@ Su propósito es:
 ## 2. Principios generales
 
 1. Todos los contratos son **HTTP/JSON**
-2. Todo request debe incluir **`cliente_id`**
-3. Los servicios son **stateful por cliente**, pero **stateless entre requests**
+2. Todo request debe incluir una **identidad de contrato** (según el servicio)
+3. Los servicios pueden ser **stateful por identidad**, pero **stateless entre requests**
 4. Los errores deben ser explícitos y tipificados
 5. No se asume orden de ejecución implícito
 
@@ -31,9 +31,14 @@ Su propósito es:
 
 ## 3. Identidad multicliente
 
-### Campo obligatorio
+El workspace es multi-tenant, pero **no todas las integraciones comparten la misma identidad**.
 
-Todos los requests deben incluir:
+### 3.1 Identidad de negocio: `cliente_id`
+
+- Identifica tenant/cliente del producto.
+- Se usa en servicios de dominio (central-hub, sender, massive-sender, etc.).
+
+Ejemplo:
 
 ```json
 {
@@ -41,17 +46,18 @@ Todos los requests deben incluir:
 }
 ```
 
-Puede viajar:
+### 3.2 Identidad WhatsApp: `instance_id` (única identidad de la capa WhatsApp)
 
-* en el body (POST)
-* en query params (GET)
-* o en header interno
+- Identificador opaco y estable de una instancia WhatsApp.
+- **Session-manager y servicios WhatsApp-layer no aceptan `cliente_id`.**
 
-```http
-X-Cliente-Id: 51
+Ejemplo:
+
+```json
+{
+  "instance_id": "acme-01"
+}
 ```
-
-📌 Si `cliente_id` falta o es inválido → **HTTP 400**
 
 ---
 
@@ -59,7 +65,7 @@ X-Cliente-Id: 51
 
 Responsable de:
 
-* Mantener sesión WhatsApp por cliente
+* Mantener sesión WhatsApp por `instance_id`
 * Exponer estado operativo
 * Enviar mensajes
 * Proveer información básica de la cuenta
@@ -67,57 +73,67 @@ Responsable de:
 
 ---
 
-### 4.1 GET /status
+### 4.1 GET /api/session-manager/sessions/{instance_id}
 
 **Descripción**
-Devuelve el estado actual de la sesión WhatsApp para un cliente.
+Devuelve el estado actual de la sesión WhatsApp para una instancia.
 
 **Request**
 
 ```http
-GET /status
-X-Cliente-Id: 51
+GET /api/session-manager/sessions/acme-01
 ```
 
 **Response 200**
 
 ```json
 {
-  "cliente_id": 51,
-  "connected": true,
-  "state": "READY"
+  "instance_id": "acme-01",
+  "status": "connected",
+  "qr_status": "none",
+  "qr_string": null,
+  "updated_at": "2026-02-27T12:00:00Z"
 }
 ```
 
-**Estados posibles (`state`)**
+**Estados posibles (`status`)**
 
-* `INIT`
-* `QR_REQUIRED`
-* `READY`
-* `DISCONNECTED`
+* `init`
+* `qr_required`
+* `connecting`
+* `connected`
+* `disconnected`
+* `error`
+
+**Estados posibles (`qr_status`)**
+
+* `none`
+* `generated`
+* `expired`
+* `used`
 
 ---
 
-### 4.2 GET /qr-code
+### 4.2 POST /api/session-manager/sessions/{instance_id}/qr
 
 **Descripción**
-Devuelve el QR code actual cuando la sesión requiere autenticación.
-
-**Condición**
-Solo disponible cuando `state = QR_REQUIRED`.
+Inicia (si hace falta) la sesión para la instancia y devuelve un snapshot con QR cuando corresponda.
 
 **Request**
 
 ```http
-GET /qr-code
-X-Cliente-Id: 51
+POST /api/session-manager/sessions/acme-01/qr
 ```
 
 **Response 200**
 
 ```json
 {
-  "qr": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgA..."
+  "instance_id": "acme-01",
+  "status": "qr_required",
+  "qr_status": "generated",
+  "qr_string": "2@...",
+  "updated_at": "2026-02-27T12:00:00Z"
 }
 ```
 
@@ -127,7 +143,7 @@ X-Cliente-Id: 51
 
 ---
 
-### 4.3 POST /send
+### 4.3 POST /api/session-manager/sessions/{instance_id}/send
 
 **Descripción**
 Envía un mensaje WhatsApp.
@@ -136,7 +152,6 @@ Envía un mensaje WhatsApp.
 
 ```json
 {
-  "cliente_id": 51,
   "to": "5491123456789",
   "message": "Hola, este es un mensaje de prueba"
 }
@@ -154,12 +169,12 @@ Envía un mensaje WhatsApp.
 **Errores comunes**
 
 * `400` → datos inválidos
-* `409` → sesión no lista (`state != READY`)
+* `409` → sesión no conectada (`status != connected`)
 * `500` → error interno WhatsApp
 
 ---
 
-### 4.4 POST /disconnect
+### 4.4 POST /api/session-manager/sessions/{instance_id}/disconnect
 
 **Descripción**
 Desconecta la sesión WhatsApp de forma controlada.
@@ -169,23 +184,21 @@ Solo para mantenimiento o recuperación.
 
 **Request**
 
-```json
-{
-  "cliente_id": 51
-}
+```http
+POST /api/session-manager/sessions/acme-01/disconnect
 ```
 
 **Response 200**
 
 ```json
 {
-  "disconnected": true
+  "ok": true
 }
 ```
 
 ---
 
-### 4.5 GET /account-info
+### 4.5 GET /api/session-manager/sessions/{instance_id}/account-info (opcional)
 
 **Descripción**
 Devuelve información básica de la cuenta WhatsApp conectada.
@@ -193,8 +206,7 @@ Devuelve información básica de la cuenta WhatsApp conectada.
 **Request**
 
 ```http
-GET /account-info
-X-Cliente-Id: 51
+GET /api/session-manager/sessions/acme-01/account-info
 ```
 
 **Response 200**
@@ -220,43 +232,10 @@ Healthcheck del servicio session-manager.
 {
   "service": "session-manager",
   "status": "healthy",
-  "cliente_id": 51,
   "uptime": 86400,
   "whatsapp": "connected"
 }
 ```
-
----
-
-### 4.2 POST /send
-
-**Descripción**
-Envía un mensaje WhatsApp.
-
-**Request**
-
-```json
-{
-  "cliente_id": 51,
-  "to": "5491123456789",
-  "message": "Hola, este es un mensaje de prueba"
-}
-```
-
-**Response 200**
-
-```json
-{
-  "ok": true,
-  "message_id": "wamid.HBgLM..."
-}
-```
-
-**Errores comunes**
-
-* `400` → datos inválidos
-* `409` → sesión no lista (`state != READY`)
-* `500` → error interno WhatsApp
 
 ---
 
@@ -277,7 +256,7 @@ Endpoint interno llamado por session-manager.
 
 ```json
 {
-  "cliente_id": 51,
+  "instance_id": "acme-01",
   "from": "5491199988877",
   "message": "Hola, necesito info",
   "timestamp": "2026-01-01T12:30:00Z"
@@ -347,7 +326,9 @@ req.cliente_id
 Ese valor:
 
 * se valida contra `ll_usuarios`
-* se propaga a otros servicios
+* se propaga a servicios de negocio
+
+Para operaciones WhatsApp, central-hub debe resolver además un `instance_id` (opaco) y usarlo con session-manager/listener.
 
 ---
 

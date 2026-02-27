@@ -1,8 +1,8 @@
 # Integration Plan: Central Hub ↔ Session Manager
 
-**Version:** 1.0  
-**Status:** Planning  
-**Date:** 2026-01-01
+**Version:** 2.0  
+**Status:** Active (Contract-aligned)  
+**Date:** 2026-02-27
 
 ---
 
@@ -22,13 +22,13 @@ Define the integration boundaries and requirements for `leadmaster-central-hub` 
 | Endpoint | Method | Purpose | Priority |
 |----------|--------|---------|----------|
 | `/health` | GET | Service availability check | High |
-| `/status` | GET | WhatsApp session state | High |
-| `/send` | POST | Send WhatsApp message | Critical |
+| `/api/session-manager/sessions/:instance_id` | GET | Session snapshot (status + QR status) | High |
+| `/api/session-manager/sessions/:instance_id/send` | POST | Send WhatsApp message | Critical |
+| `/api/session-manager/sessions/:instance_id/qr` | POST | Request/refresh QR | High |
+| `/api/session-manager/sessions/:instance_id/disconnect` | POST | Controlled disconnect | Medium |
 
 ### Not in Phase 1:
-- `/qr-code` - Manual authentication only
-- `/account-info` - Informational, not operational
-- `/disconnect` - Maintenance only
+- `/api/session-manager/sessions/:instance_id/account-info` - Informational, not operational
 
 ---
 
@@ -51,8 +51,12 @@ SESSION_MANAGER_BASE_URL=http://localhost:3001
 **Headers:**
 ```http
 Content-Type: application/json
-X-Cliente-Id: <from_req.cliente_id>
 ```
+
+**Identity rule (constitutional):**
+
+- Session-manager is addressed **only** by `instance_id` in the URL path.
+- `cliente_id` and `X-Cliente-Id` are **forbidden** in WhatsApp-layer requests.
 
 **Timeouts:**
 - Connection timeout: `5s`
@@ -81,8 +85,8 @@ X-Cliente-Id: <from_req.cliente_id>
 ### 4.1 Central Hub Responsibilities
 
 **MUST:**
-- Validate `cliente_id` from authenticated user
-- Call session-manager with proper headers
+- Resolve and authorize an `instance_id` for the authenticated context
+- Call session-manager using canonical instance-based routes
 - Handle HTTP errors gracefully
 - Return meaningful errors to API consumers
 - Log all session-manager interactions
@@ -93,11 +97,12 @@ X-Cliente-Id: <from_req.cliente_id>
 - Store WhatsApp session state
 - Retry failed sends automatically (business logic decision)
 - Queue messages (separate service responsibility)
+- Translate or remap session-manager enums (consume as-is)
 
 ### 4.2 Session Manager Responsibilities
 
 **MUST:**
-- Maintain WhatsApp session per `cliente_id`
+- Maintain WhatsApp session per `instance_id`
 - Respond to HTTP requests synchronously
 - Return session state accurately
 - Handle one message send at a time
@@ -120,13 +125,12 @@ Client Request
     ↓
 Central Hub API
     ├─ Authenticate user
-    ├─ Extract cliente_id
+    ├─ Resolve instance_id
     ├─ Validate payload
     ↓
 HTTP POST to Session Manager
-    POST /send
+    POST /api/session-manager/sessions/:instance_id/send
     {
-      "cliente_id": 51,
       "to": "5491123456789",
       "message": "..."
     }
@@ -171,7 +175,14 @@ GET /status from Session Manager
 Return state to caller
 ```
 
-**Caller decides** whether to proceed based on `state`.
+GET `/api/session-manager/sessions/:instance_id` from Session Manager
+    ↓
+**Caller decides** whether to proceed based on `status`.
+
+**Frozen enums (no translations):**
+
+- `status`: `init | qr_required | connecting | connected | disconnected | error`
+- `qr_status`: `none | generated | expired | used`
 
 ---
 
@@ -182,7 +193,6 @@ Return state to caller
 | Variable | Service | Required | Example |
 |----------|---------|----------|---------|
 | `SESSION_MANAGER_BASE_URL` | central-hub | Yes | `http://localhost:3001` |
-| `CLIENTE_ID` | session-manager | Yes | `51` |
 | `PORT` | session-manager | No | `3001` |
 
 ### Startup Validation
@@ -193,9 +203,8 @@ Return state to caller
 3. Continue startup
 
 **Session Manager:**
-1. Check `CLIENTE_ID` is set (fail fast if missing)
-2. Initialize WhatsApp client
-3. Start HTTP server
+1. Start HTTP server
+2. Initialize WhatsApp sessions on-demand per `instance_id`
 
 ---
 

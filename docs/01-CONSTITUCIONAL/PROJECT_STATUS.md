@@ -191,3 +191,18 @@ Any new feature must align with:
 - Risk control discipline
 
 Deviation requires explicit decision entry in DECISION_LOG.md.
+
+---
+
+# 10. 2026-02 Constitutional Milestone — WhatsApp Contract Freeze
+
+Milestone:
+
+- La capa WhatsApp queda definida por `instance_id` como **única identidad** (sin `cliente_id` / sin `X-Cliente-Id`).
+- Enums congelados para estados (sin `READY`, `AUTHENTICATED`, `QR_GENERATED`).
+- Prohibida la traducción/mapeo de estados entre servicios: se consumen **as-is**.
+
+Documentos normativos:
+
+- [SYSTEM_BOUNDARIES.md](./SYSTEM_BOUNDARIES.md)
+- [ARCHITECTURE_STATE_2026_02.md](./ARCHITECTURE_STATE_2026_02.md)

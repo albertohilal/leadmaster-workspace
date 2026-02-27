@@ -28,6 +28,7 @@ _Documents that define project identity, business model, and decision history_
 
 **Versioned (Official Authority):**
 - [PROJECT_STATUS.md v3.0](../01-CONSTITUCIONAL/PROJECT_STATUS.md) — Strategic and operational state
+- [ARCHITECTURE_STATE_2026_02.md](../01-CONSTITUCIONAL/ARCHITECTURE_STATE_2026_02.md) — WhatsApp contract freeze (instance_id + frozen enums)
 
 ---
 

@@ -1,4 +1,6 @@
-# Phase 3 - WhatsApp Session Lifecycle
+# Phase 4 - WhatsApp Session Lifecycle
+
+> Nota: el nombre del archivo se mantiene por compatibilidad documental. En la estructura estratégica oficial (ver `PROJECT_STATUS.md`), WhatsApp lifecycle corresponde a Phase 4.
 
 ## Status: 📋 PLANNED (Not Started)
 
@@ -11,7 +13,7 @@
 
 ## Executive Summary
 
-Phase 3 implementará el ciclo de vida completo de la sesión WhatsApp, permitiendo a los usuarios conectar, mantener y gestionar su sesión WhatsApp desde el frontend. Incluye generación de QR, autenticación, persistencia y actualizaciones en tiempo real.
+Esta fase implementará el ciclo de vida completo de la sesión WhatsApp, permitiendo a los usuarios conectar, mantener y gestionar su sesión WhatsApp desde el frontend. Incluye generación de QR, persistencia y actualizaciones en tiempo real.
 
 **Objetivo principal:** Usuario puede conectar WhatsApp y mantener sesión activa de forma confiable.
 
@@ -48,7 +50,7 @@ Frontend (React) → Nginx → Central Hub (Express)
                               └── listener
 ```
 
-### Target State (Phase 3)
+### Target State (Phase 4)
 ```
 Frontend (React + WebSocket)
     ↓
@@ -68,34 +70,33 @@ Central Hub (Express + Socket.io)
 
 ```
 1. User clicks "Conectar WhatsApp"
-   Frontend → POST /session-manager/connect
+  Frontend → POST /session-manager/sessions/:instance_id/qr
    
 2. Central Hub → Session Manager (HTTP)
-   POST http://localhost:3001/connect
+  POST http://localhost:3001/api/session-manager/sessions/:instance_id/qr
    
 3. Session Manager inicia whatsapp-web.js
-   Estado: CONNECTING
+  Estado: connecting
    
 4. whatsapp-web.js emite evento 'qr'
    Session Manager almacena QR
-   Estado: QR_GENERATED
+  Estado: qr_required (qr_status=generated)
    
-5. Central Hub polling/webhook obtiene QR
-   GET http://localhost:3001/qr
+5. Central Hub obtiene QR del snapshot
+  POST http://localhost:3001/api/session-manager/sessions/:instance_id/qr
    
 6. Central Hub envía QR a Frontend vía WebSocket
    socket.emit('qr', { qr: base64 })
    
 7. User escanea QR con WhatsApp mobile
-   whatsapp-web.js detecta autenticación
-   Estado: AUTHENTICATED
-   
+  Session Manager transiciona a connecting
+
 8. whatsapp-web.js emite evento 'ready'
-   Session Manager confirma conexión
-   Estado: READY
+  Session Manager confirma conexión
+  Estado: connected
    
 9. Central Hub notifica a Frontend
-   socket.emit('status', { status: 'READY' })
+  socket.emit('status', { status: 'connected' })
    
 10. Frontend muestra "Conectado"
     UI actualizada, QR desaparece
@@ -107,90 +108,68 @@ Central Hub (Express + Socket.io)
 
 ### Backend Endpoints
 
-#### 1. POST /session-manager/connect
+#### 1. POST /session-manager/sessions/:instance_id/qr
+
+Este endpoint (en central-hub) solicita a session-manager el QR/snapshot para una instancia.
+
 **Request:**
-```json
-{
-  "clienteId": 51
-}
-```
 
-**Response (202 Accepted):**
-```json
-{
-  "success": true,
-  "message": "Conexión iniciada",
-  "status": "CONNECTING"
-}
-```
-
-**Errors:**
-- 400: clienteId inválido
-- 409: Sesión ya conectada
-- 503: Session Manager no disponible
-
-#### 2. GET /session-manager/qr
-**Query:**
-```
-?clienteId=51
+```http
+POST /session-manager/sessions/acme-01/qr
 ```
 
 **Response (200 OK):**
+
 ```json
 {
-  "success": true,
-  "qr": "data:image/png;base64,iVBORw0KGgoAAAANS...",
-  "expiresAt": "2026-01-03T00:05:00Z"
+  "instance_id": "acme-01",
+  "status": "qr_required",
+  "qr_status": "generated",
+  "qr_string": "2@...",
+  "updated_at": "2026-02-27T12:00:00Z"
 }
 ```
 
-**Response (404 Not Found):**
-```json
-{
-  "success": false,
-  "message": "QR no disponible aún"
-}
-```
+#### 2. GET /session-manager/sessions/:instance_id
 
-#### 3. GET /session-manager/status
-**Query:**
-```
-?clienteId=51
-```
-
-**Response (200 OK):**
-```json
-{
-  "success": true,
-  "status": "READY",
-  "connectedAt": "2026-01-02T23:50:00Z",
-  "phoneNumber": "+5491123456789"
-}
-```
-
-**States:**
-- `DISCONNECTED` - No conectado
-- `CONNECTING` - Iniciando conexión
-- `QR_GENERATED` - QR disponible para escaneo
-- `AUTHENTICATED` - QR escaneado, esperando sincronización
-- `READY` - Completamente conectado
-- `ERROR` - Error de conexión
-
-#### 4. POST /session-manager/disconnect
 **Request:**
-```json
-{
-  "clienteId": 51
-}
+
+```http
+GET /session-manager/sessions/acme-01
 ```
 
 **Response (200 OK):**
+
 ```json
 {
-  "success": true,
-  "message": "Sesión desconectada"
+  "instance_id": "acme-01",
+  "status": "connected",
+  "qr_status": "used",
+  "qr_string": null,
+  "updated_at": "2026-02-27T12:00:00Z"
 }
 ```
+
+#### 3. POST /session-manager/sessions/:instance_id/disconnect
+
+```http
+POST /session-manager/sessions/acme-01/disconnect
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "ok": true
+}
+```
+
+#### Frozen enums (constitutional)
+
+- `SessionStatus`: `init`, `qr_required`, `connecting`, `connected`, `disconnected`, `error`
+- `QRStatus`: `none`, `generated`, `expired`, `used`
+
+No se permiten estados legacy (`READY`, `AUTHENTICATED`, `QR_GENERATED`).
 
 ### WebSocket Events
 
@@ -203,17 +182,18 @@ socket.emit('authenticate', { token: '<JWT>' });
 
 **`subscribe-session`**
 ```javascript
-socket.emit('subscribe-session', { clienteId: 51 });
+socket.emit('subscribe-session', { instance_id: 'acme-01' });
 ```
 
 **`request-qr`**
 ```javascript
-socket.emit('request-qr', { clienteId: 51 });
+socket.emit('request-qr', { instance_id: 'acme-01' });
 ```
 
 #### Server → Client
 
 **`authenticated`**
+> Evento de autenticación del canal WebSocket (JWT). No representa un estado de WhatsApp.
 ```javascript
 socket.emit('authenticated', { success: true });
 ```
@@ -221,7 +201,7 @@ socket.emit('authenticated', { success: true });
 **`session-status`**
 ```javascript
 socket.emit('session-status', {
-  status: 'READY',
+  status: 'connected',
   connectedAt: '2026-01-02T23:50:00Z',
   phoneNumber: '+5491123456789'
 });
@@ -254,25 +234,12 @@ socket.emit('connection-error', {
 
 #### Endpoints a implementar
 
-**POST /connect**
-- Inicia cliente whatsapp-web.js
-- Retorna 202 Accepted
-- Genera QR internamente
+Session-manager (standalone) expone:
 
-**GET /qr**
-- Retorna QR actual (si existe)
-- 404 si no hay QR disponible
-
-**GET /status**
-- Retorna estado actual de la sesión
-- Info de conexión (número, etc.)
-
-**POST /disconnect**
-- Cierra cliente whatsapp-web.js
-- Limpia estado interno
-
-**GET /health**
-- Health check del servicio
+- `GET /health`
+- `GET /api/session-manager/sessions/{instance_id}`
+- `POST /api/session-manager/sessions/{instance_id}/qr`
+- `POST /api/session-manager/sessions/{instance_id}/disconnect`
 
 #### whatsapp-web.js Events
 
@@ -280,15 +247,11 @@ socket.emit('connection-error', {
 client.on('qr', (qr) => {
   // Almacenar QR en memoria
   // Convertir a base64 si es necesario
-  // Actualizar estado a QR_GENERATED
-});
-
-client.on('authenticated', () => {
-  // Actualizar estado a AUTHENTICATED
+  // Actualizar a status=qr_required y qr_status=generated
 });
 
 client.on('ready', () => {
-  // Actualizar estado a READY
+  // Actualizar estado a connected
   // Almacenar info de usuario
 });
 
@@ -310,7 +273,7 @@ client.on('auth_failure', (msg) => {
 **Props:**
 ```javascript
 {
-  clienteId: number,
+  instance_id: string,
   onConnected: () => void,
   onDisconnected: () => void,
   onError: (error) => void
@@ -320,7 +283,7 @@ client.on('auth_failure', (msg) => {
 **State:**
 ```javascript
 {
-  status: 'DISCONNECTED' | 'CONNECTING' | 'QR_GENERATED' | 'READY',
+  status: 'init' | 'qr_required' | 'connecting' | 'connected' | 'disconnected' | 'error',
   qrCode: string | null,
   phoneNumber: string | null,
   error: string | null
@@ -362,10 +325,10 @@ refreshQR()        // Regenera QR expirado
 ```
 
 **Visual States:**
-- 🔴 DISCONNECTED - Rojo, "Desconectado"
-- 🟡 CONNECTING - Amarillo, "Conectando..."
-- 🟡 QR_GENERATED - Amarillo, "Esperando escaneo"
-- 🟢 READY - Verde, "Conectado (+549...)"
+- 🔴 disconnected - Rojo, "Desconectado"
+- 🟡 connecting - Amarillo, "Conectando..."
+- 🟡 qr_required (generated) - Amarillo, "Esperando escaneo"
+- 🟢 connected - Verde, "Conectado (+549...)"
 
 ---
 
@@ -383,9 +346,8 @@ refreshQR()        // Regenera QR expirado
 **Day 1 - Afternoon:**
 - [ ] Implement whatsapp-web.js client wrapper
 - [ ] Add event listeners (qr, ready, disconnected)
-- [ ] Implement POST /connect endpoint
-- [ ] Implement GET /qr endpoint
-- [ ] Implement GET /status endpoint
+- [ ] Implement POST /sessions/:instance_id/qr endpoint
+- [ ] Implement GET /sessions/:instance_id endpoint
 - [ ] Test QR generation locally
 
 ### Phase 3.2: Central Hub Integration (Backend)
@@ -396,7 +358,7 @@ refreshQR()        // Regenera QR expirado
 - [ ] Add timeout handling
 - [ ] Create session-manager controller
 - [ ] Implement connect/disconnect routes
-- [ ] Add middleware for clienteId extraction
+- [ ] Add middleware for instance_id authorization
 
 **Day 2 - Afternoon:**
 - [ ] Install socket.io server
@@ -531,8 +493,8 @@ test('Usuario puede conectar WhatsApp', async ({ page }) => {
 ### Low Risk
 
 🟢 **Multi-tenant Isolation**
-- **Mitigation:** Validar clienteId en cada request
-- **Fallback:** Error 403 si clienteId no coincide
+- **Mitigation:** Autorizar `instance_id` contra el contexto autenticado
+- **Fallback:** Error 403 si la instancia no corresponde
 
 🟢 **Memoria/Performance**
 - **Mitigation:** Un cliente WhatsApp por process
@@ -667,7 +629,7 @@ Phase 3 se considera completa cuando:
 
 **Document Version:** 1.0  
 **Created:** 2026-01-02  
-**Author:** GitHub Copilot (Claude Sonnet 4.5)  
+**Author:** GitHub Copilot  
 **Status:** 📋 DRAFT - Pending Approval
 
 ---
@@ -678,15 +640,14 @@ Phase 3 se considera completa cuando:
 
 ```
 T+0s   Usuario: Click "Conectar WhatsApp"
-T+1s   Backend: POST /session-manager/connect → 202 Accepted
+T+1s   Backend: POST /session-manager/sessions/:instance_id/qr → 200 OK
 T+2s   Session Manager: Inicia whatsapp-web.js
 T+3s   whatsapp-web.js: Emite evento 'qr'
-T+4s   Backend: GET /session-manager/qr → QR obtenido
+T+4s   Backend: QR incluido en snapshot (qr_status=generated)
 T+4s   Frontend: WebSocket recibe QR, muestra en pantalla
 T+10s  Usuario: Escanea QR con móvil
-T+11s  whatsapp-web.js: Emite evento 'authenticated'
 T+12s  whatsapp-web.js: Emite evento 'ready'
-T+13s  Backend: WebSocket notifica status=READY
+T+13s  Backend: WebSocket notifica status=connected
 T+13s  Frontend: Muestra "Conectado ✓"
 ```
 
@@ -749,7 +710,7 @@ ls -la services/session-manager/sessions/
 ```bash
 # Esperar hasta 30 segundos (sincronización WhatsApp)
 # Si no conecta, regenerar sesión:
-rm -rf services/session-manager/sessions/cliente_<ID>
+rm -rf services/session-manager/sessions/instance_<ID>
 # Reintentar conexión
 ```
 
