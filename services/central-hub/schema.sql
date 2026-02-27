@@ -1,5 +1,14 @@
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
+
+-- Tabla mínima requerida por FKs (p.ej. ll_envios_whatsapp_historial.usuario_id)
+-- En CI este schema se usa para bootstrap; si la app necesita más columnas,
+-- deben agregarse vía migraciones sin romper este orden de dependencias.
+CREATE TABLE IF NOT EXISTS `usuarios` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
 CREATE TABLE `ll_campanias_whatsapp` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `nombre` varchar(255) NOT NULL,
