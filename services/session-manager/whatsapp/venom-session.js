@@ -146,27 +146,6 @@ async function disconnect() {
   return { success: true, message: 'Disconnected' };
 }
 
-async function sendMessage(clienteId, to, message) {
-  if (!adminClient || sessionStatus !== 'READY') throw new Error('SESSION_NOT_READY');
-
-  const rawNumber = String(to).replace(/\D/g, '');
-  const chatId = `${rawNumber}@c.us`;
-
-  try {
-    await adminClient.sendMessage(chatId, message);
-    return {
-      success: true,
-      cliente_id: clienteId,
-      to: rawNumber,
-      timestamp: new Date().toISOString(),
-      method: 'whatsapp-web.js'
-    };
-  } catch (error) {
-    console.error('[WhatsAppSession] sendMessage error:', error?.message || error);
-    throw error;
-  }
-}
-
 function getState() {
   return { status: sessionStatus };
 }
@@ -186,7 +165,6 @@ function getQrAttempts() {
 module.exports = {
   connect,
   disconnect,
-  sendMessage,
   getState,
   getSessionStatus,
   getCurrentQR,

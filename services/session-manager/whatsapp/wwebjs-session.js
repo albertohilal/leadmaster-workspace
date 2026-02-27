@@ -1,3 +1,4 @@
+const fs = require('fs');
 const path = require('path');
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcodeTerminal = require('qrcode-terminal');
@@ -10,8 +11,9 @@ let client = null;
 let connectPromise = null;
 
 let sessionStatus = 'INIT';
-let currentQR = null; // ahora será base64 image
+let currentQR = null; // puede ser PNG base64 (dataURL) o raw string
 let qrAttempts = 0;
+let qrTimestamp = null; // ISO del último QR recibido
 
 /* =======================================================
    EVENT HANDLERS
@@ -19,29 +21,37 @@ let qrAttempts = 0;
 
 function attachEventHandlers(waClient) {
   waClient.on('qr', async (qr) => {
+    // Estado y métricas SIEMPRE se actualizan aunque falle conversión
+    sessionStatus = 'QR_REQUIRED';
+    qrAttempts += 1;
+    qrTimestamp = new Date().toISOString();
+
+    console.log(
+      `\n================ QR RECEIVED (Attempt ${qrAttempts}) ================\n`
+    );
+
+    // Mostrar en terminal (solo debug). Usa raw string.
     try {
-      // Convertimos raw string → base64 PNG
-      const qrBase64 = await QRCode.toDataURL(qr);
-
-      currentQR = qrBase64;
-      sessionStatus = 'QR_REQUIRED';
-      qrAttempts += 1;
-
-      console.log(
-        `\n================ QR RECEIVED (Attempt ${qrAttempts}) ================\n`
-      );
-
-      // Mostrar en terminal (solo debug)
       qrcodeTerminal.generate(qr, { small: true });
+    } catch (_) {}
 
-      console.log(
-        '\nScan from: WhatsApp → Dispositivos vinculados → Vincular dispositivo\n'
-      );
+    // Intentar convertir raw string → base64 PNG (dataURL)
+    try {
+      const qrBase64 = await QRCode.toDataURL(qr);
+      currentQR = qrBase64;
+      console.log('[WWEBJS] QR stored as PNG dataURL');
     } catch (err) {
-      console.error('[WWEBJS] Failed to convert QR:', err?.message || err);
-      sessionStatus = 'ERROR';
-      currentQR = null;
+      // Fallback: raw string (NO invalida el flujo)
+      currentQR = qr;
+      console.warn(
+        '[WWEBJS] QR PNG conversion failed; falling back to raw string:',
+        err?.message || err
+      );
     }
+
+    console.log(
+      '\nScan from: WhatsApp → Dispositivos vinculados → Vincular dispositivo\n'
+    );
   });
 
   waClient.on('authenticated', () => {
@@ -62,6 +72,8 @@ function attachEventHandlers(waClient) {
     sessionStatus = 'DISCONNECTED';
     currentQR = null;
     qrAttempts = 0;
+    qrTimestamp = null;
+    connectPromise = null;
 
     try {
       await waClient.destroy();
@@ -76,6 +88,8 @@ function attachEventHandlers(waClient) {
     sessionStatus = 'ERROR';
     currentQR = null;
     qrAttempts = 0;
+    qrTimestamp = null;
+    connectPromise = null;
 
     try {
       await waClient.destroy();
@@ -94,6 +108,11 @@ async function connect() {
     return { alreadyConnected: true, state: sessionStatus, session: SESSION_NAME };
   }
 
+  // Evitar bloqueo por promesas colgadas en estados terminales
+  if (connectPromise && (sessionStatus === 'DISCONNECTED' || sessionStatus === 'ERROR')) {
+    connectPromise = null;
+  }
+
   if (connectPromise) {
     return { alreadyConnected: true, state: sessionStatus, session: SESSION_NAME };
   }
@@ -101,6 +120,16 @@ async function connect() {
   sessionStatus = 'INIT';
   currentQR = null;
   qrAttempts = 0;
+  qrTimestamp = null;
+
+  // Asegurar carpeta de tokens (LocalAuth) antes de iniciar cliente
+  try {
+    fs.mkdirSync(TOKENS_DIR, { recursive: true });
+  } catch (error) {
+    console.error('[WWEBJS] Failed to ensure TOKENS_DIR exists:', error?.message || error);
+    sessionStatus = 'ERROR';
+    return { alreadyConnected: false, state: sessionStatus, session: SESSION_NAME };
+  }
 
   try {
     const waClient = new Client({
@@ -123,20 +152,29 @@ async function connect() {
     attachEventHandlers(waClient);
     client = waClient;
 
-    connectPromise = waClient
+    const initPromise = waClient
       .initialize()
       .catch((error) => {
         console.error('[WWEBJS] Error while connecting:', error?.message || error);
 
-        sessionStatus = 'ERROR';
-        currentQR = null;
-        qrAttempts = 0;
-        client = null;
+        // Solo limpiar si este sigue siendo el client actual
+        if (client === waClient) {
+          sessionStatus = 'ERROR';
+          currentQR = null;
+          qrAttempts = 0;
+          qrTimestamp = null;
+          client = null;
+        }
+
         return null;
       })
       .finally(() => {
-        connectPromise = null;
+        if (connectPromise === initPromise) {
+          connectPromise = null;
+        }
       });
+
+    connectPromise = initPromise;
 
     return { alreadyConnected: false, state: sessionStatus, session: SESSION_NAME };
   } catch (error) {
@@ -145,6 +183,7 @@ async function connect() {
     sessionStatus = 'ERROR';
     currentQR = null;
     qrAttempts = 0;
+    qrTimestamp = null;
     client = null;
     connectPromise = null;
 
@@ -161,6 +200,8 @@ async function disconnect() {
     sessionStatus = 'DISCONNECTED';
     currentQR = null;
     qrAttempts = 0;
+    qrTimestamp = null;
+    connectPromise = null;
     return { success: true, message: 'No active session' };
   }
 
@@ -168,37 +209,26 @@ async function disconnect() {
   client = null;
 
   try {
-    await currentClient.destroy();
+    try {
+      if (typeof currentClient.logout === 'function') {
+        await currentClient.logout();
+      }
+    } catch (_) {}
+
+    try {
+      if (typeof currentClient.destroy === 'function') {
+        await currentClient.destroy();
+      }
+    } catch (_) {}
   } catch (_) {}
 
   sessionStatus = 'DISCONNECTED';
   currentQR = null;
   qrAttempts = 0;
+  qrTimestamp = null;
+  connectPromise = null;
 
   return { success: true, message: 'Disconnected' };
-}
-
-/* =======================================================
-   SEND MESSAGE
-======================================================= */
-
-async function sendMessage(clienteId, to, message) {
-  if (!client || sessionStatus !== 'READY') {
-    throw new Error('SESSION_NOT_READY');
-  }
-
-  const rawNumber = String(to).replace(/\D/g, '');
-  const chatId = `${rawNumber}@c.us`;
-
-  await client.sendMessage(chatId, message);
-
-  return {
-    success: true,
-    cliente_id: clienteId,
-    to: rawNumber,
-    timestamp: new Date().toISOString(),
-    method: 'WWEBJS'
-  };
 }
 
 /* =======================================================
@@ -214,7 +244,15 @@ function getSessionStatus() {
 }
 
 function getCurrentQR() {
-  return currentQR; // ahora devuelve base64 image
+  return currentQR;
+}
+
+function getQrAttempts() {
+  return qrAttempts;
+}
+
+function getQrTimestamp() {
+  return qrTimestamp;
 }
 
 /* =======================================================
@@ -224,8 +262,9 @@ function getCurrentQR() {
 module.exports = {
   connect,
   disconnect,
-  sendMessage,
   isConnected,
   getSessionStatus,
-  getCurrentQR
+  getCurrentQR,
+  getQrAttempts,
+  getQrTimestamp
 };

@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Session Manager — QR + Status</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --card: #121a33;
+      --muted: #9aa6c0;
+      --text: #e8eefc;
+
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #f59e0b;
+
+      --border: rgba(255,255,255,0.12);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: radial-gradient(1200px 600px at 20% 0%, rgba(59,130,246,0.18), transparent 60%),
+                  radial-gradient(900px 500px at 80% 20%, rgba(34,197,94,0.12), transparent 55%),
+                  var(--bg);
+      color: var(--text);
+      padding: 18px;
+    }
+
+    .container { max-width: 980px; margin: 0 auto; }
+    h1 { font-size: 18px; margin: 0 0 14px; font-weight: 700; }
+    .row { display: grid; grid-template-columns: 1fr; gap: 14px; }
+    @media (min-width: 880px) {
+      .row { grid-template-columns: 1.1fr 0.9fr; }
+    }
+
+    .card {
+      background: rgba(18, 26, 51, 0.85);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.28);
+      backdrop-filter: blur(6px);
+    }
+
+    .label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    .input {
+      width: 100%;
+      padding: 10px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,0.25);
+      color: var(--text);
+      outline: none;
+    }
+    .input:focus { border-color: rgba(59,130,246,0.65); }
+
+    .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .btn {
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,0.25);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+    .btn:hover:not(:disabled) { border-color: rgba(255,255,255,0.22); }
+
+    .status-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,0.22);
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+    .dot {
+      width: 10px; height: 10px;
+      border-radius: 999px;
+      background: var(--yellow);
+      box-shadow: 0 0 0 3px rgba(245,158,11,0.18);
+    }
+
+    .dot.ready { background: var(--green); box-shadow: 0 0 0 3px rgba(34,197,94,0.18); }
+    .dot.bad { background: var(--red); box-shadow: 0 0 0 3px rgba(239,68,68,0.18); }
+    .dot.warn { background: var(--yellow); box-shadow: 0 0 0 3px rgba(245,158,11,0.18); }
+
+    .muted { color: var(--muted); font-size: 12px; }
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: rgba(0,0,0,0.25);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      margin: 0;
+    }
+
+    .qr-box {
+      display: grid;
+      place-items: center;
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px dashed rgba(255,255,255,0.18);
+      background: rgba(0,0,0,0.18);
+      min-height: 260px;
+    }
+
+    img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: white;
+    }
+
+    .err {
+      color: #fecaca;
+      background: rgba(239,68,68,0.12);
+      border: 1px solid rgba(239,68,68,0.25);
+      padding: 10px;
+      border-radius: 10px;
+      font-size: 12px;
+      white-space: pre-wrap;
+    }
+
+    .split { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    @media (min-width: 880px) {
+      .split { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Session Manager — QR y Estado (ADMIN)</h1>
+
+    <div class="card" style="margin-bottom: 14px;">
+      <div class="label">BASE_URL (por defecto: <span class="mono" id="defaultOrigin" style="display:inline; padding:2px 6px; border-radius:8px;">location.origin</span>)</div>
+      <div class="toolbar">
+        <input id="baseUrl" class="input" type="text" placeholder="http://localhost:3001" />
+        <button id="btnConnect" class="btn">POST /connect</button>
+        <button id="btnDisconnect" class="btn">POST /disconnect</button>
+        <button id="btnRefresh" class="btn">Refrescar ahora</button>
+        <span class="muted" id="pollInfo">Auto-refresh: cada 2s</span>
+      </div>
+      <div style="margin-top: 10px;" class="status-line">
+        <div class="pill">
+          <span class="dot warn" id="statusDot"></span>
+          <span>STATUS:</span>
+          <span id="statusText">—</span>
+        </div>
+        <div class="muted">
+          Última actualización: <span id="lastUpdated">—</span>
+        </div>
+      </div>
+      <div id="errorBox" style="margin-top: 10px; display:none;" class="err"></div>
+    </div>
+
+    <div class="row">
+      <div class="card">
+        <div class="label">QR</div>
+        <div class="qr-box">
+          <div id="qrEmpty" class="muted">Cargando…</div>
+          <img id="qrImg" alt="QR" style="display:none;" />
+          <div id="qrRaw" class="muted" style="display:none; text-align:center;">
+            QR raw recibido (sin render en frontend, por restricción de dependencias).
+          </div>
+        </div>
+        <div class="muted" style="margin-top: 10px;">
+          Tip: si el status está en <b>QR_REQUIRED</b>, escaneá el QR desde WhatsApp → Dispositivos vinculados.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="label">Debug</div>
+        <div class="split">
+          <div>
+            <div class="muted" style="margin: 2px 0 8px;">GET /status</div>
+            <pre class="mono" id="debugStatus">{}</pre>
+          </div>
+          <div>
+            <div class="muted" style="margin: 2px 0 8px;">GET /qr</div>
+            <pre class="mono" id="debugQr">{}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const els = {
+      defaultOrigin: document.getElementById('defaultOrigin'),
+      baseUrl: document.getElementById('baseUrl'),
+      btnConnect: document.getElementById('btnConnect'),
+      btnDisconnect: document.getElementById('btnDisconnect'),
+      btnRefresh: document.getElementById('btnRefresh'),
+      statusDot: document.getElementById('statusDot'),
+      statusText: document.getElementById('statusText'),
+      lastUpdated: document.getElementById('lastUpdated'),
+      errorBox: document.getElementById('errorBox'),
+
+      qrImg: document.getElementById('qrImg'),
+      qrEmpty: document.getElementById('qrEmpty'),
+      qrRaw: document.getElementById('qrRaw'),
+
+      debugStatus: document.getElementById('debugStatus'),
+      debugQr: document.getElementById('debugQr')
+    };
+
+    els.defaultOrigin.textContent = location.origin;
+    els.baseUrl.value = location.origin;
+
+    let lastQrValue = null;
+    let inFlight = false;
+
+    function normalizeBaseUrl(value) {
+      const trimmed = String(value || '').trim();
+      if (!trimmed) return location.origin;
+      return trimmed.replace(/\/+$/, '');
+    }
+
+    function url(base, path) {
+      return normalizeBaseUrl(base) + path;
+    }
+
+    function setError(text) {
+      if (!text) {
+        els.errorBox.style.display = 'none';
+        els.errorBox.textContent = '';
+        return;
+      }
+      els.errorBox.style.display = 'block';
+      els.errorBox.textContent = text;
+    }
+
+    function setStatusPill(status) {
+      els.statusText.textContent = status || '—';
+
+      const dot = els.statusDot;
+      dot.classList.remove('ready', 'bad', 'warn');
+
+      if (status === 'READY') {
+        dot.classList.add('ready');
+      } else if (status === 'ERROR' || status === 'DISCONNECTED') {
+        dot.classList.add('bad');
+      } else {
+        dot.classList.add('warn');
+      }
+    }
+
+    async function fetchJson(fullUrl, options = {}) {
+      const resp = await fetch(fullUrl, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(options.headers || {})
+        }
+      });
+
+      const text = await resp.text();
+      let data = null;
+
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch (_) {
+        // Dejar data=null si no es JSON
+      }
+
+      if (!resp.ok) {
+        const details = data ? JSON.stringify(data, null, 2) : text;
+        throw new Error(`HTTP ${resp.status} ${resp.statusText}\n${fullUrl}\n\n${details}`);
+      }
+
+      return data;
+    }
+
+    function setQrUI(qrPayload) {
+      // Estados por defecto
+      els.qrEmpty.style.display = 'none';
+      els.qrImg.style.display = 'none';
+      els.qrRaw.style.display = 'none';
+
+      if (!qrPayload || typeof qrPayload !== 'object') {
+        els.qrEmpty.style.display = 'block';
+        els.qrEmpty.textContent = 'Sin respuesta válida de /qr';
+        lastQrValue = null;
+        return;
+      }
+
+      // Contrato: {status:"NO_QR"} o {status:"QR_AVAILABLE", qr:"..."}
+      if (qrPayload.status === 'NO_QR') {
+        els.qrEmpty.style.display = 'block';
+        els.qrEmpty.textContent = 'NO_QR (aún no hay QR disponible)';
+        lastQrValue = null;
+        return;
+      }
+
+      if (qrPayload.status !== 'QR_AVAILABLE') {
+        els.qrEmpty.style.display = 'block';
+        els.qrEmpty.textContent = `Estado /qr: ${String(qrPayload.status)}`;
+        lastQrValue = null;
+        return;
+      }
+
+      const qrValue = qrPayload.qr;
+      if (!qrValue || typeof qrValue !== 'string') {
+        els.qrEmpty.style.display = 'block';
+        els.qrEmpty.textContent = 'QR_AVAILABLE pero sin campo qr válido';
+        lastQrValue = null;
+        return;
+      }
+
+      const isPngDataUrl = qrValue.startsWith('data:image/png;base64,');
+      if (isPngDataUrl) {
+        els.qrImg.style.display = 'block';
+        // Evitar parpadeo: no reasignar src si no cambió
+        if (qrValue !== lastQrValue) {
+          els.qrImg.src = qrValue;
+          lastQrValue = qrValue;
+        }
+        return;
+      }
+
+      // Raw string (fallback)
+      els.qrRaw.style.display = 'block';
+      lastQrValue = qrValue;
+    }
+
+    function pretty(obj) {
+      try { return JSON.stringify(obj, null, 2); } catch (_) { return String(obj); }
+    }
+
+    async function refresh() {
+      if (inFlight) return;
+      inFlight = true;
+
+      const base = normalizeBaseUrl(els.baseUrl.value);
+      const bust = `?_=${Date.now()}`;
+
+      try {
+        setError(null);
+
+        const [statusPayload, qrPayload] = await Promise.all([
+          fetchJson(url(base, '/status') + bust),
+          fetchJson(url(base, '/qr') + bust)
+        ]);
+
+        els.debugStatus.textContent = pretty(statusPayload);
+        els.debugQr.textContent = pretty(qrPayload);
+
+        setStatusPill(statusPayload && statusPayload.status);
+        setQrUI(qrPayload);
+
+        els.lastUpdated.textContent = new Date().toLocaleString();
+      } catch (err) {
+        setError(String(err && err.message ? err.message : err));
+      } finally {
+        inFlight = false;
+      }
+    }
+
+    async function postAction(path) {
+      const base = normalizeBaseUrl(els.baseUrl.value);
+      const actionUrl = url(base, path) + `?_=${Date.now()}`;
+
+      els.btnConnect.disabled = true;
+      els.btnDisconnect.disabled = true;
+      els.btnRefresh.disabled = true;
+
+      try {
+        setError(null);
+        const result = await fetchJson(actionUrl, { method: 'POST', body: '{}' });
+        // Mostrar retorno en Debug QR para facilitar diagnóstico sin agregar otro panel
+        els.debugQr.textContent = pretty(result);
+      } catch (err) {
+        setError(String(err && err.message ? err.message : err));
+      } finally {
+        els.btnConnect.disabled = false;
+        els.btnDisconnect.disabled = false;
+        els.btnRefresh.disabled = false;
+        await refresh();
+      }
+    }
+
+    els.btnConnect.addEventListener('click', () => postAction('/connect'));
+    els.btnDisconnect.addEventListener('click', () => postAction('/disconnect'));
+    els.btnRefresh.addEventListener('click', () => refresh());
+
+    // Auto refresh cada 2s
+    refresh();
+    setInterval(refresh, 2000);
+  </script>
+</body>
+</html>

@@ -1,6 +1,12 @@
 require('dotenv').config();
+const express = require('express');
+const path = require('path');
+
 const app = require('./app');
 const wwebjsSession = require('./whatsapp/wwebjs-session');
+
+// Static UI (QR viewer)
+app.use(express.static(path.join(__dirname, 'public')));
 
 const PORT = process.env.PORT || 3001;
 
@@ -15,8 +21,9 @@ const server = app.listen(PORT, async () => {
   console.log(`[Server] Listening on port ${PORT}`);
   console.log(`[Server] Health: http://localhost:${PORT}/health`);
   console.log(`[Server] Status: http://localhost:${PORT}/status`);
+  console.log(`[Server] QR UI:  http://localhost:${PORT}/qr.html`);
   console.log('='.repeat(50));
-  
+
   // Initialize WhatsApp session after HTTP server is ready
   console.log('[Bootstrap] Initializing ADMIN WhatsApp session...');
   try {
@@ -35,7 +42,7 @@ const gracefulShutdown = async (signal) => {
     console.log('[Shutdown] Already shutting down, ignoring signal');
     return;
   }
-  
+
   isShuttingDown = true;
   console.log(`\n[Shutdown] Received ${signal}, initiating graceful shutdown...`);
 
@@ -53,10 +60,17 @@ const gracefulShutdown = async (signal) => {
       });
     });
 
+    console.log('[Shutdown] Disconnecting WhatsApp session...');
+    try {
+      await wwebjsSession.disconnect();
+      console.log('[Shutdown] ✅ WhatsApp disconnected');
+    } catch (e) {
+      console.warn('[Shutdown] ⚠️  WhatsApp disconnect failed:', e?.message || e);
+    }
+
     clearTimeout(forceExitTimer);
     console.log('[Shutdown] ✅ Graceful shutdown completed');
     process.exit(0);
-
   } catch (error) {
     console.error('[Shutdown] ❌ Error during shutdown:', error);
     clearTimeout(forceExitTimer);
