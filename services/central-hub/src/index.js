@@ -9,18 +9,21 @@ const app = express();
 /* =========================
    Configuración Express
 ========================= */
-// Desactivar ETag para evitar respuestas 304 en endpoints de estado dinámico
+
+// Desactivar ETag para evitar respuestas 304 en endpoints dinámicos
 app.set('etag', false);
 
 /* =========================
    Middleware base
 ========================= */
+
 app.use(express.json());
 app.use(cors());
 
 /* =========================
    HEALTH (antes de todo)
 ========================= */
+
 app.get('/health', (req, res) => {
   res.json({
     status: 'healthy',
@@ -39,7 +42,6 @@ app.get('/health', (req, res) => {
  * Frontend → /api/* → Nginx → Express /api/*
  * 
  * Nginx pasa /api/* tal cual a Express (NO elimina el prefijo)
- * Express monta todas las rutas API bajo /api
  */
 
 // Health check (sin autenticación)
@@ -54,9 +56,24 @@ app.use('/api/auth', require('./modules/auth/routes/authRoutes'));
 // Admin WhatsApp (single-admin)
 app.use('/api/admin/whatsapp', require('./routes/adminWhatsapp.routes'));
 
-// WhatsApp (proxy a session-manager)
+/* =====================================================
+   WhatsApp PROXY LEGACY (NO TOCAR)
+===================================================== */
+
 const whatsappQrProxy = require('./routes/whatsappQrProxy');
 app.use('/api/whatsapp', whatsappQrProxy);
+
+/* =====================================================
+   WhatsApp PROXY V2 (NUEVO CONTRATO LIMPIO)
+   Temporalmente bajo /api/whatsapp-v2
+===================================================== */
+
+const whatsappSessionProxyV2 = require('./routes/whatsappSessionProxyV2');
+app.use('/api/whatsapp-v2', whatsappSessionProxyV2);
+
+/* =====================================================
+   Otros módulos
+===================================================== */
 
 // Session Manager (uso interno del Hub)
 app.use('/api/session-manager', require('./modules/session-manager/routes'));
@@ -70,18 +87,17 @@ app.use('/api/listener', require('./modules/listener/routes/listenerRoutes'));
 // Sync Contacts
 app.use('/api/sync-contacts', require('./modules/sync-contacts/routes'));
 
-/**
- * QR Code Read-Only Proxy (sin /api por compatibilidad)
- * 
- * Header requerido: X-Cliente-Id
- * Solo lectura del QR ya generado por session-manager
- */
+/* =====================================================
+   QR Code Read-Only Proxy (sin /api por compatibilidad)
+===================================================== */
+
 const qrCodeProxy = require('./routes/qrCodeProxy');
 app.use('/qr-code', qrCodeProxy);
 
 /* =========================
-   404 Handler para API (antes del frontend)
+   404 Handler para API
 ========================= */
+
 app.use('/api/*', (req, res) => {
   res.status(404).json({
     error: 'Not Found',
@@ -93,21 +109,23 @@ app.use('/api/*', (req, res) => {
 /* =========================
    Frontend (SIEMPRE AL FINAL)
 ========================= */
+
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
 /* =========================
    Server
 ========================= */
+
 const PORT = process.env.PORT || 3012;
 
 const server = app.listen(PORT, () => {
   console.log(`🚀 Leadmaster Central Hub corriendo en http://localhost:${PORT}`);
-  
+
   // Inicializar scheduler de programaciones
   const programacionScheduler = require('./modules/sender/services/programacionScheduler');
   programacionScheduler.start();
   console.log('⏰ Scheduler de programaciones iniciado (cada 60 segundos)');
-  
+
   // Signal to PM2 that app is ready (wait_ready: true)
   if (process.send) {
     process.send('ready');
@@ -117,14 +135,15 @@ const server = app.listen(PORT, () => {
 /* =========================
    Graceful Shutdown
 ========================= */
+
 const gracefulShutdown = (signal) => {
   console.log(`\n⚠️  ${signal} recibido. Cerrando servidor...`);
-  
+
   server.close(() => {
     console.log('✅ Servidor cerrado correctamente');
     process.exit(0);
   });
-  
+
   // Forzar cierre si no responde en 10 segundos
   setTimeout(() => {
     console.error('❌ Tiempo de espera excedido. Forzando cierre.');
@@ -138,15 +157,13 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 /* =========================
    Global Error Handlers
 ========================= */
+
 process.on('uncaughtException', (error) => {
   console.error('❌ UNCAUGHT EXCEPTION:', error);
   console.error(error.stack);
-  // En producción, loguear y continuar (no crash)
-  // PM2 reiniciará si es crítico
 });
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('❌ UNHANDLED REJECTION at:', promise);
   console.error('Reason:', reason);
-  // En producción, loguear y continuar
 });

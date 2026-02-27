@@ -6,7 +6,7 @@ import LandingPage from './components/landing/LandingPage';
 import Login from './components/auth/Login';
 import Layout from './components/layout/Layout';
 import Dashboard from './components/dashboard/Dashboard';
-import SessionManager from './components/whatsapp/SessionManager';
+import WhatsappSessionV2 from './components/whatsapp/WhatsappSessionV2'; // ✅ CAMBIO
 import LeadsManager from './components/leads/LeadsManager';
 import ListenerControl from './components/listener/ListenerControl';
 import AdminSessions from './components/admin/AdminSessions';
@@ -66,7 +66,7 @@ function App() {
             element={
               <ProtectedRoute>
                 <Layout>
-                  <SessionManager />
+                  <WhatsappSessionV2 /> {/* ✅ CAMBIO */}
                 </Layout>
               </ProtectedRoute>
             }

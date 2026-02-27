@@ -19,51 +19,43 @@ module.exports = {
       name: 'session-manager',
       script: 'index.js',
       cwd: '/root/leadmaster-workspace/services/session-manager',
-      
+
       // === Proceso único (NO cluster) ===
       instances: 1,
       exec_mode: 'fork',
-      
+
       // === Variables de entorno ===
       env: {
         NODE_ENV: 'production',
         PORT: 3001,
-        LOGIN_MODE: 'server' // Modo headless para producción (con tokens existentes)
+
+        // 🔥 CLAVE: Xvfb display persistente
+        DISPLAY: ':99'
       },
-      env_local: {
-        NODE_ENV: 'development',
-        PORT: 3001,
-        LOGIN_MODE: 'local' // Modo con Chrome visible para primera autenticación
-      },
-      
+
       // === Auto-reinicio inteligente ===
       autorestart: true,
       max_restarts: 10,
       min_uptime: '10s',
       max_memory_restart: '1G',
-      
+
       // === Manejo de errores ===
       exp_backoff_restart_delay: 100,
       restart_delay: 5000,
-      
+
       // === Logs ===
       error_file: '/root/.pm2/logs/session-manager-error.log',
       out_file: '/root/.pm2/logs/session-manager-out.log',
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       merge_logs: true,
-      
+
       // === Opciones de monitoreo ===
       watch: false,
       ignore_watch: ['node_modules', '.wwebjs_auth', '.git'],
-      
+
       // === Graceful shutdown ===
       kill_timeout: 10000,
-      wait_ready: true,
-      listen_timeout: 10000,
-      
-      // === Prevención de loops ===
-      stop_exit_codes: [0],
-      
+
       // === Node.js options ===
       node_args: '--max-old-space-size=2048'
     }

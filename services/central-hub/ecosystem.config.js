@@ -35,7 +35,7 @@ module.exports = {
         DRY_RUN: 'true', // ⚠️ BLOQUEO de envíos reales
 
         // ---- Campañas automáticas ----
-        AUTO_CAMPAIGNS_ENABLED: 'true'
+        AUTO_CAMPAIGNS_ENABLED: 'false'
       },
 
       // === Auto-reinicio inteligente ===

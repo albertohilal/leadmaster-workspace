@@ -6,9 +6,11 @@ const prospectosController = {
    * 
    * MODELO DE NEGOCIO:
    * - Los prospectos base pertenecen al cliente (ll_lugares_clientes -> llxbx_societe)
-   * - El estado por campaña se obtiene desde ll_envios_whatsapp (LEFT JOIN)
+   * - Se agrupa por phone_mobile para garantizar 1 fila = 1 número único
+   * - El estado por campaña se obtiene desde ll_envios_whatsapp (LEFT JOIN por telefono_wapp)
    * - Una campaña define el cliente_id
-   * - Devuelve TODOS los prospectos del cliente aunque no tengan envío
+   * - Regla: 1 campaña + 1 teléfono = 1 envío máximo
+   * - Devuelve números únicos aunque tengan múltiples sucursales
    * 
    * Query params:
    * - campania_id (obligatorio): ID de la campaña
@@ -26,15 +28,20 @@ const prospectosController = {
         });
       }
 
+      // REFACTORIZACIÓN 2026-02-20:
+      // Agrupación por phone_mobile para garantizar 1 fila = 1 número único
+      // LEFT JOIN por telefono_wapp (no por lugar_id) para obtener estado correcto
+      // Regla de negocio: 1 campaña + 1 teléfono = 1 envío
       const sql = `
         SELECT
-          s.rowid AS prospecto_id,
-          s.nom AS nombre,
-          COALESCE(env.estado, 'no_incluido') AS estado_campania,
+          MIN(s.rowid) AS prospecto_id,
+          MAX(s.nom) AS nombre,
           s.phone_mobile AS telefono_wapp,
-          s.address AS direccion,
-          env.id AS envio_id,
-          env.fecha_envio
+          COUNT(*) AS total_sucursales,
+          MAX(s.address) AS direccion,
+          MAX(env.estado) AS estado_campania,
+          MAX(env.id) AS envio_id,
+          MAX(env.fecha_envio) AS fecha_envio
         FROM ll_campanias_whatsapp c
         JOIN ll_lugares_clientes lc
           ON lc.cliente_id = c.cliente_id
@@ -42,10 +49,13 @@ const prospectosController = {
           ON s.rowid = lc.societe_id
         LEFT JOIN ll_envios_whatsapp env
           ON env.campania_id = c.id
-         AND env.lugar_id = s.rowid
+         AND env.telefono_wapp = s.phone_mobile
         WHERE c.id = ?
           AND s.entity = 1
-        ORDER BY s.nom ASC
+          AND s.phone_mobile IS NOT NULL
+          AND s.phone_mobile <> ''
+        GROUP BY s.phone_mobile
+        ORDER BY nombre ASC
       `;
 
       console.log('🔍 [prospectos] Query con campania_id:', campania_id);

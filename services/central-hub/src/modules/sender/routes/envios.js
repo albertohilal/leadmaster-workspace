@@ -13,4 +13,7 @@ router.get('/:id/manual/prepare', enviosController.prepareManual);
 // TAREA 3: Confirmar envío manual (cambiar estado a enviado)
 router.post('/:id/manual/confirm', enviosController.confirmManual);
 
+// TAREA: Reintentar envío en estado error (cambiar estado error→pendiente)
+router.post('/:id/reintentar', enviosController.reintentar);
+
 module.exports = router;

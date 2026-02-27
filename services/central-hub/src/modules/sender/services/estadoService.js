@@ -78,6 +78,68 @@ async function cambiarEstado(
 
     validarTransicion(estadoAnterior, nuevoEstado);
 
+    // ========================================================================
+    // VALIDACIÓN ESPECÍFICA: error → pendiente (Política v1.2.0)
+    // ========================================================================
+    if (estadoAnterior === 'error' && nuevoEstado === 'pendiente') {
+      // REGLA 1: Solo permitir desde origen manual
+      if (origen !== 'manual') {
+        throw new Error(
+          'Transición error→pendiente solo permitida con origen=manual. ' +
+          'El scheduler NO puede reintentar automáticamente.'
+        );
+      }
+
+      // REGLA 2: Requiere usuario_id (trazabilidad obligatoria)
+      if (!usuarioId || usuarioId <= 0) {
+        throw new Error(
+          'Reintento manual (error→pendiente) requiere usuarioId válido para auditoría'
+        );
+      }
+
+      // REGLA 3: Requiere justificación >= 10 caracteres, no genérica
+      if (!detalle || typeof detalle !== 'string') {
+        throw new Error(
+          'Reintento manual (error→pendiente) requiere justificación en campo detalle'
+        );
+      }
+
+      const justificacionLimpia = detalle.trim();
+      if (justificacionLimpia.length < 10) {
+        throw new Error(
+          `Justificación muy corta (${justificacionLimpia.length} caracteres). Mínimo 10 caracteres.`
+        );
+      }
+
+      // REGLA 4: No permitir justificaciones genéricas
+      const justificacionesProhibidas = [
+        'reintento',
+        'retry',
+        'error',
+        'intento',
+        'prueba',
+        'test',
+        'reintentar'
+      ];
+
+      const esGenerica = justificacionesProhibidas.some(
+        palabra => justificacionLimpia.toLowerCase() === palabra
+      );
+
+      if (esGenerica) {
+        throw new Error(
+          `Justificación demasiado genérica: "${justificacionLimpia}". ` +
+          'Proveer contexto específico del problema resuelto.'
+        );
+      }
+
+      console.log(
+        `[EstadoService] Reintento manual validado: envío ${envioId}, ` +
+        `usuario ${usuarioId}, justificación: "${justificacionLimpia}"`
+      );
+    }
+    // ========================================================================
+
     await conn.query(
       `INSERT INTO ll_envios_whatsapp_historial 
        (envio_id, estado_anterior, estado_nuevo, origen, detalle, usuario_id) 

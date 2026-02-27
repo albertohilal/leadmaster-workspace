@@ -87,17 +87,10 @@ infra/nginx/ssl/
 **/*.pem
 
 ########################################
-# Documentación local / diagnósticos (solo en raíces)
-########################################
-/DIAGNOSTICO_*.md
-/INFORME_*.md
-services/*/DIAGNOSTICO_*.md
-services/*/INFORME_*.md
-
-########################################
 # Carpetas auxiliares / trabajo local
 ########################################
 AUXILIAR/
+_internal/
 
 # Root accidental node files
 /package.json

@@ -47,11 +47,9 @@ module.exports = {
       
       // === Shutdown extendido (WhatsApp logout) ===
       kill_timeout: 30000, // 30 segundos para logout de todos los clientes
-      wait_ready: true,
-      listen_timeout: 15000,
       
       // === Prevención EADDRINUSE ===
-      stop_exit_codes: [0],
+      // Nota: Removido stop_exit_codes para permitir auto-recovery ante cualquier exit
       
       // === Node.js options ===
       node_args: '--max-old-space-size=1536 --experimental-modules'

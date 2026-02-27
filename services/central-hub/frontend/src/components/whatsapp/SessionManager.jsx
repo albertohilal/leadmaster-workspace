@@ -6,9 +6,7 @@ import Modal from '../common/Modal';
 import { sessionAPI } from '../../services/api';
 import {
   SessionStatus,
-  QRStatus,
-  getStatusColor,
-  getStatusText
+  QRStatus
 } from '../../constants/sessionStatus';
 
 const SessionManager = () => {
@@ -47,33 +45,43 @@ const SessionManager = () => {
 
     try {
       const response = await sessionAPI.getSession(clienteId);
-      const normalizedState = response?.data?.state?.toLowerCase();
+
+      // 👇 CORRECCIÓN CLAVE: ahora usamos "status"
+      const backendStatus = response?.data?.status;
 
       let mappedStatus = SessionStatus.ERROR;
 
-      switch (normalizedState) {
-        case SessionStatus.CONNECTED:
+      switch (backendStatus) {
+        case 'READY':
           mappedStatus = SessionStatus.CONNECTED;
           break;
-        case SessionStatus.QR_REQUIRED:
+
+        case 'QR_REQUIRED':
           mappedStatus = SessionStatus.QR_REQUIRED;
           break;
-        case SessionStatus.CONNECTING:
-        case SessionStatus.INIT:
-        case 'initializing':
-        case 'reconnecting':
+
+        case 'CONNECTING':
+        case 'INIT':
+        case 'INITIALIZING':
+        case 'RECONNECTING':
           mappedStatus = SessionStatus.CONNECTING;
           break;
-        case SessionStatus.DISCONNECTED:
+
+        case 'DISCONNECTED':
           mappedStatus = SessionStatus.DISCONNECTED;
           break;
+
+        case 'ERROR':
+          mappedStatus = SessionStatus.ERROR;
+          break;
+
         default:
           mappedStatus = SessionStatus.ERROR;
       }
 
       setSession({
         status: mappedStatus,
-        connected: Boolean(response.data.connected),
+        connected: backendStatus === 'READY',
         needs_qr: Boolean(response.data.needs_qr),
         qr_status: response.data.needs_qr ? QRStatus.REQUIRED : null,
         phone_number: response.data.phone_number || null
@@ -88,7 +96,7 @@ const SessionManager = () => {
 
   /**
    * ==========================
-   * Mostrar QR (read-only)
+   * Mostrar QR
    * ==========================
    */
   const handleShowQR = async () => {
@@ -101,26 +109,17 @@ const SessionManager = () => {
       setLoading(true);
       setError(null);
 
-      console.log('[QR] GET /qr-code | cliente:', clienteId);
-
       const response = await sessionAPI.getQRCode(clienteId);
-
-      // Defensa absoluta contra respuestas inválidas
       const qr = response?.data?.qr;
 
-      if (
-        typeof qr !== 'string' ||
-        !qr.startsWith('data:image/')
-      ) {
-        console.error('[QR] QR inválido o respuesta incorrecta:', response.data);
+      if (typeof qr !== 'string' || !qr.startsWith('data:image/')) {
+        console.error('[QR] Respuesta inválida:', response.data);
         setError('El servidor no devolvió un código QR válido');
         return;
       }
 
       setQrString(qr);
       setShowQRModal(true);
-
-      console.log('[QR] QR válido recibido y renderizado');
 
     } catch (err) {
       console.error('[QR] Error obteniendo QR:', err);
@@ -162,7 +161,9 @@ const SessionManager = () => {
       case SessionStatus.CONNECTED:
         return (
           <div className="space-y-4">
-            <p className="text-2xl font-bold text-green-600">WhatsApp conectado</p>
+            <p className="text-2xl font-bold text-green-600">
+              WhatsApp conectado
+            </p>
             {session.phone_number && (
               <p className="text-sm text-gray-500">
                 Teléfono: {session.phone_number}
@@ -174,7 +175,9 @@ const SessionManager = () => {
       case SessionStatus.QR_REQUIRED:
         return (
           <div className="space-y-4">
-            <p className="text-xl font-bold">Escaneá el QR para conectar</p>
+            <p className="text-xl font-bold">
+              Escaneá el QR para conectar
+            </p>
             <Button onClick={handleShowQR} disabled={loading}>
               Mostrar QR
             </Button>
