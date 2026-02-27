@@ -1,7 +1,7 @@
 # Integration Plan: Central Hub ↔ Session Manager
 
-**Version:** 2.0  
-**Status:** Active (Contract-aligned)  
+**Version:** 2.1  
+**Status:** Active (As-is aligned)  
 **Date:** 2026-02-27
 
 ---
@@ -15,20 +15,23 @@ Define the integration boundaries and requirements for `leadmaster-central-hub` 
 
 ---
 
-## 2. Session Manager Endpoints to Consume
+## 2. Session Manager Endpoints to Consume (IMPLEMENTED)
 
-### Phase 1: Essential Operations
+### Essential Operations
 
 | Endpoint | Method | Purpose | Priority |
 |----------|--------|---------|----------|
 | `/health` | GET | Service availability check | High |
-| `/api/session-manager/sessions/:instance_id` | GET | Session snapshot (status + QR status) | High |
-| `/api/session-manager/sessions/:instance_id/send` | POST | Send WhatsApp message | Critical |
-| `/api/session-manager/sessions/:instance_id/qr` | POST | Request/refresh QR | High |
-| `/api/session-manager/sessions/:instance_id/disconnect` | POST | Controlled disconnect | Medium |
+| `/status` | GET | Current session state (single-admin) | High |
+| `/qr` | GET | Current QR (if available) | High |
+| `/connect` | POST | Start/ensure connection | High |
+| `/disconnect` | POST | Controlled disconnect | Medium |
+| `/send` | POST | Send WhatsApp message | Critical |
 
-### Not in Phase 1:
-- `/api/session-manager/sessions/:instance_id/account-info` - Informational, not operational
+### Not implemented in session-manager today
+
+- Multi-instance routes (`/api/session-manager/sessions/:instance_id/...`)
+- Account-info endpoint
 
 ---
 
@@ -53,10 +56,11 @@ SESSION_MANAGER_BASE_URL=http://localhost:3001
 Content-Type: application/json
 ```
 
-**Identity rule (constitutional):**
+**Identity rule (as-is):**
 
-- Session-manager is addressed **only** by `instance_id` in the URL path.
-- `cliente_id` and `X-Cliente-Id` are **forbidden** in WhatsApp-layer requests.
+- `session-manager` es **single-admin** (no `instance_id`).
+- `cliente_id` es requerido por `POST /send` (validación), pero es **metadata** (no selecciona sesión).
+- `X-Cliente-Id` no es requerido por el upstream `session-manager`.
 
 **Timeouts:**
 - Connection timeout: `5s`
@@ -116,7 +120,7 @@ Content-Type: application/json
 
 ---
 
-## 5. Integration Contract
+## 5. Integration Contract (AS-IS)
 
 ### 5.1 Send Message Flow
 
@@ -129,10 +133,11 @@ Central Hub API
     ├─ Validate payload
     ↓
 HTTP POST to Session Manager
-    POST /api/session-manager/sessions/:instance_id/send
+        POST /send
     {
-      "to": "5491123456789",
-      "message": "..."
+            "cliente_id": 51,
+            "to": "5491123456789",
+            "message": "..."
     }
     ↓
 Session Manager Response
@@ -175,14 +180,13 @@ GET /status from Session Manager
 Return state to caller
 ```
 
-GET `/api/session-manager/sessions/:instance_id` from Session Manager
+GET `/status` from Session Manager
     ↓
 **Caller decides** whether to proceed based on `status`.
 
-**Frozen enums (no translations):**
+**Enums implementados (uppercase):**
 
-- `status`: `init | qr_required | connecting | connected | disconnected | error`
-- `qr_status`: `none | generated | expired | used`
+- `status`: `INIT | QR_REQUIRED | AUTHENTICATED | READY | DISCONNECTED | ERROR`
 
 ---
 
@@ -204,11 +208,11 @@ GET `/api/session-manager/sessions/:instance_id` from Session Manager
 
 **Session Manager:**
 1. Start HTTP server
-2. Initialize WhatsApp sessions on-demand per `instance_id`
+2. Best-effort connect on startup (single-admin)
 
 ---
 
-## 7. Error Code Mapping
+## 7. Error Code Mapping (AS-IS)
 
 ### Session Manager → Central Hub API
 
@@ -216,7 +220,7 @@ GET `/api/session-manager/sessions/:instance_id` from Session Manager
 |-----------------|------|-----------------|------|---------------|
 | Success | 200 | Success | 200 | Continue |
 | Invalid request | 400 | Validation error | 400 | Fix request |
-| Session not ready | 409 | Service unavailable | 503 | Wait/retry |
+| Session not ready | 503 | Service unavailable | 503 | Wait/retry |
 | Internal error | 500 | WhatsApp error | 502 | Investigate |
 | Timeout | - | Gateway timeout | 504 | Retry later |
 
@@ -240,15 +244,15 @@ GET `/api/session-manager/sessions/:instance_id` from Session Manager
 
 **Before coding:**
 - [x] Review HTTP contracts document
-- [x] Confirm session-manager is stable and tested
+- [x] Confirm session-manager API shape
 - [x] Define HTTP client module structure in central-hub
 
 **During implementation:**
 - [x] Add `SESSION_MANAGER_BASE_URL` env var
 - [x] Create HTTP client utility (axios/fetch)
-- [x] Implement `/send` integration only
-- [x] Add error handling and logging
-- [x] Test with session-manager running locally
+- [ ] Implement endpoints: `/status`, `/qr`, `/connect`, `/disconnect`, `/send`
+- [ ] Add error handling and logging
+- [ ] Test with session-manager running locally
 
 **After implementation:**
 - [ ] Validate error scenarios (timeout, 409, 500)
@@ -257,7 +261,15 @@ GET `/api/session-manager/sessions/:instance_id` from Session Manager
 
 ---
 
-## 10. Next Steps
+## 10. Known Gaps / Mismatches in Current Code
+
+Estos puntos son relevantes porque hoy existen **múltiples capas** en central-hub que no están alineadas entre sí ni con session-manager:
+
+- `session-manager` implementa `GET /qr`, pero el cliente `sessionManagerClient.getQrCode()` en central-hub apunta a `GET /qr-code` (no existe en session-manager).
+- `session-manager` responde `POST /send` con `{ success: true, data: ... }`, pero algunas capas en central-hub esperan `{ ok: true, message_id }`.
+- `session-manager` expone `GET /status` como `{ status: "READY" }`, pero hay código en central-hub que espera campos adicionales (`state`, `connected`).
+
+## 11. Next Steps
 
 1. Review this document with team
 2. Implement minimal HTTP client in central-hub

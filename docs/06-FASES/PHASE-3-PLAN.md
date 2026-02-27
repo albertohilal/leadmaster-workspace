@@ -2,7 +2,7 @@
 
 > Nota: el nombre del archivo se mantiene por compatibilidad documental. En la estructura estratégica oficial (ver `PROJECT_STATUS.md`), WhatsApp lifecycle corresponde a Phase 4.
 
-## Status: 📋 PLANNED (Not Started)
+## Status: 🟡 PARTIALLY IMPLEMENTED (Backend foundations)
 
 **Planned Start Date:** TBD  
 **Estimated Duration:** 2-3 days  
@@ -30,12 +30,12 @@ Esta fase implementará el ciclo de vida completo de la sesión WhatsApp, permit
 - [x] Módulos base activados
 
 ### 🔧 Required Before Starting
-- [ ] Session Manager standalone service funcionando localmente
-- [ ] whatsapp-web.js dependencia instalada
-- [ ] LocalAuth configurado y probado
-- [ ] Cliente HTTP a session-manager implementado
+- [x] Session Manager standalone service funcionando localmente
+- [x] whatsapp-web.js dependencia instalada
+- [x] LocalAuth configurado y probado
+- [x] Cliente HTTP a session-manager existe (con gaps de contract)
 - [ ] WebSocket library elegida (socket.io o ws)
-- [ ] QR code library elegida (qrcode o similar)
+- [x] QR code library elegida (qrcode)
 
 ---
 
@@ -45,7 +45,8 @@ Esta fase implementará el ciclo de vida completo de la sesión WhatsApp, permit
 ```
 Frontend (React) → Nginx → Central Hub (Express)
                               ├── auth ✅
-                              ├── session-manager (routes only)
+                              ├── WhatsApp proxies (varios contratos)
+                              ├── session-manager integration client (con gaps)
                               ├── sender
                               └── listener
 ```
@@ -68,35 +69,38 @@ Central Hub (Express + Socket.io)
 
 ### Data Flow: Connection
 
+> Importante: el **código actual** usa un `session-manager` **single-admin** con endpoints `/connect`, `/qr`, `/status`.
+> Las rutas multi-instancia con `:instance_id` que aparecen en esta fase representan el **target** (PLANNED), no el comportamiento real hoy.
+
 ```
 1. User clicks "Conectar WhatsApp"
-  Frontend → POST /session-manager/sessions/:instance_id/qr
+  Frontend → Central Hub (endpoint/plano a definir)
    
 2. Central Hub → Session Manager (HTTP)
-  POST http://localhost:3001/api/session-manager/sessions/:instance_id/qr
+  POST http://localhost:3001/connect
    
 3. Session Manager inicia whatsapp-web.js
-  Estado: connecting
+  Estado: INIT
    
 4. whatsapp-web.js emite evento 'qr'
    Session Manager almacena QR
-  Estado: qr_required (qr_status=generated)
+  Estado: QR_REQUIRED
    
-5. Central Hub obtiene QR del snapshot
-  POST http://localhost:3001/api/session-manager/sessions/:instance_id/qr
+5. Central Hub obtiene QR
+  GET http://localhost:3001/qr
    
 6. Central Hub envía QR a Frontend vía WebSocket
    socket.emit('qr', { qr: base64 })
    
 7. User escanea QR con WhatsApp mobile
-  Session Manager transiciona a connecting
+  Session Manager transiciona a AUTHENTICATED
 
 8. whatsapp-web.js emite evento 'ready'
   Session Manager confirma conexión
-  Estado: connected
+  Estado: READY
    
 9. Central Hub notifica a Frontend
-  socket.emit('status', { status: 'connected' })
+  socket.emit('status', { status: 'READY' })
    
 10. Frontend muestra "Conectado"
     UI actualizada, QR desaparece
@@ -108,7 +112,22 @@ Central Hub (Express + Socket.io)
 
 ### Backend Endpoints
 
-#### 1. POST /session-manager/sessions/:instance_id/qr
+#### AS-IS: Session Manager endpoints (implementados)
+
+- `GET http://localhost:3001/health`
+- `GET http://localhost:3001/status`
+- `GET http://localhost:3001/qr`
+- `POST http://localhost:3001/connect`
+- `POST http://localhost:3001/disconnect`
+- `POST http://localhost:3001/send` (requiere `cliente_id`, `to`, `message`)
+
+Ver contrato actualizado en `docs/07-CONTRATOS/Contratos-HTTP-LeadMaster-Workspace.md`.
+
+---
+
+#### PLANNED: Central Hub endpoints (target)
+
+#### 1. POST /session-manager/sessions/:instance_id/qr (PLANNED)
 
 Este endpoint (en central-hub) solicita a session-manager el QR/snapshot para una instancia.
 
@@ -130,7 +149,7 @@ POST /session-manager/sessions/acme-01/qr
 }
 ```
 
-#### 2. GET /session-manager/sessions/:instance_id
+#### 2. GET /session-manager/sessions/:instance_id (PLANNED)
 
 **Request:**
 
@@ -150,7 +169,7 @@ GET /session-manager/sessions/acme-01
 }
 ```
 
-#### 3. POST /session-manager/sessions/:instance_id/disconnect
+#### 3. POST /session-manager/sessions/:instance_id/disconnect (PLANNED)
 
 ```http
 POST /session-manager/sessions/acme-01/disconnect
@@ -164,12 +183,11 @@ POST /session-manager/sessions/acme-01/disconnect
 }
 ```
 
-#### Frozen enums (constitutional)
+#### Enums
 
-- `SessionStatus`: `init`, `qr_required`, `connecting`, `connected`, `disconnected`, `error`
-- `QRStatus`: `none`, `generated`, `expired`, `used`
+AS-IS (session-manager): `INIT | QR_REQUIRED | AUTHENTICATED | READY | DISCONNECTED | ERROR`
 
-No se permiten estados legacy (`READY`, `AUTHENTICATED`, `QR_GENERATED`).
+PLANNED (target contract freeze): `init | qr_required | connecting | connected | disconnected | error` + `QRStatus`.
 
 ### WebSocket Events
 
@@ -182,11 +200,13 @@ socket.emit('authenticate', { token: '<JWT>' });
 
 **`subscribe-session`**
 ```javascript
+// PLANNED: multi-instancia (no implementado hoy)
 socket.emit('subscribe-session', { instance_id: 'acme-01' });
 ```
 
 **`request-qr`**
 ```javascript
+// PLANNED: multi-instancia (no implementado hoy)
 socket.emit('request-qr', { instance_id: 'acme-01' });
 ```
 
@@ -532,7 +552,7 @@ test('Usuario puede conectar WhatsApp', async ({ page }) => {
 ```bash
 # Revertir a Phase 2
 git checkout feature/central-hub-session-manager
-pm2 restart leadmaster-hub
+pm2 restart leadmaster-central-hub
 ```
 
 **Step 2: Revert Frontend**
@@ -610,18 +630,18 @@ curl https://desarrolloydisenioweb.com.ar/
 
 ## Sign-Off Criteria
 
-Phase 3 se considera completa cuando:
+Esta fase se considera completa cuando (PLANNED):
 
-✅ Usuario puede conectar WhatsApp desde UI  
-✅ QR se genera y muestra correctamente  
-✅ Escaneo detectado automáticamente  
-✅ Estado "Conectado" persiste tras reload  
-✅ Estado persiste tras restart PM2  
-✅ Multi-tenant funciona (múltiples clientes)  
-✅ Desconexión manual funciona  
-✅ Auto-reconnect funciona  
-✅ Logs sin errores críticos  
-✅ Documentación completa  
+- [ ] Usuario puede conectar WhatsApp desde UI
+- [ ] QR se genera y muestra correctamente
+- [ ] Escaneo detectado automáticamente
+- [ ] Estado "Conectado" persiste tras reload
+- [ ] Estado persiste tras restart PM2 (AS-IS: persiste para sesión ADMIN única)
+- [ ] Multi-tenant (múltiples clientes/instancias) (NO implementado hoy)
+- [ ] Desconexión manual funciona (AS-IS: existe `POST /disconnect` en session-manager)
+- [ ] Auto-reconnect funciona (no garantizado hoy; depende de whatsapp-web.js y token)
+- [ ] Logs sin errores críticos
+- [ ] Documentación completa
 
 **Approval Required:** Alberto Hilal (Product Owner)
 
@@ -637,6 +657,9 @@ Phase 3 se considera completa cuando:
 ## Appendix A: Example Session Flow
 
 ### Happy Path
+
+> PLANNED: el flujo siguiente asume endpoints multi-instancia (`:instance_id`).
+> AS-IS: hoy el upstream `session-manager` es single-admin y el flujo real es `POST /connect` → `GET /qr` → `GET /status`.
 
 ```
 T+0s   Usuario: Click "Conectar WhatsApp"
@@ -689,7 +712,7 @@ pm2 logs session-manager
 pm2 restart session-manager
 
 # Si persiste, limpiar sesión
-rm -rf services/session-manager/sessions/cliente_*
+rm -rf services/session-manager/tokens/
 pm2 restart session-manager
 ```
 
@@ -703,14 +726,14 @@ pm2 restart session-manager
 pm2 logs session-manager | grep -i ready
 
 # Verificar permisos de sesión
-ls -la services/session-manager/sessions/
+ls -la services/session-manager/tokens/
 ```
 
 **Solución:**
 ```bash
 # Esperar hasta 30 segundos (sincronización WhatsApp)
-# Si no conecta, regenerar sesión:
-rm -rf services/session-manager/sessions/instance_<ID>
+# Si no conecta, regenerar sesión (single-admin):
+rm -rf services/session-manager/tokens/
 # Reintentar conexión
 ```
 
@@ -733,7 +756,7 @@ sudo ufw status | grep 3012
 # Si no, refresh manual del navegador
 
 # Backend:
-pm2 restart leadmaster-hub
+pm2 restart leadmaster-central-hub
 ```
 
 ---

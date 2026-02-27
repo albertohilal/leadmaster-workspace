@@ -199,7 +199,7 @@ tcp6  0  0  :::3012  :::*  LISTEN  node (central-hub)
 **session-manager:**
 ```bash
 $ curl http://localhost:3001/health
-{"status":"ok","service":"session-manager","whatsapp_state":"NOT_INITIALIZED"}
+{"status":"ok","service":"session-manager","timestamp":"2026-01-14T13:02:09.336Z"}
 ```
 
 **central-hub:**
@@ -211,18 +211,19 @@ $ curl http://localhost:3012/health
 #### Estado de Sesiones WhatsApp
 
 ```bash
-$ curl http://localhost:3001/api/session-manager/sessions/acme-01
-{
-   "instance_id": "acme-01",
-   "status": "init",
-   "qr_status": "none",
-   "qr_string": null,
-   "updated_at": "2026-02-27T12:00:00Z"
-}
+$ curl http://localhost:3001/status
+{"status":"INIT"}
+
+$ curl http://localhost:3001/qr
+{"status":"NO_QR"}
 ```
 
 **Interpretación:**  
-Las sesiones pueden iniciar en `init` y transicionar a `qr_required` cuando el QR esté disponible. El envío solo es válido cuando `status = connected`.
+`session-manager` opera como sesión **ADMIN única**. Estados típicos:
+
+`INIT → QR_REQUIRED → AUTHENTICATED → READY`.
+
+El envío solo es válido cuando `status = READY` (y el servicio valida `SESSION_NOT_READY` con HTTP 503 si no está listo).
 
 ---
 
@@ -338,7 +339,8 @@ curl http://localhost:3001/health
 curl http://localhost:3012/health
 
 # 5. Verificar estado de WhatsApp
-curl http://localhost:3001/api/session-manager/sessions/acme-01
+curl http://localhost:3001/status
+curl http://localhost:3001/qr
 ```
 
 ---
@@ -347,30 +349,28 @@ curl http://localhost:3001/api/session-manager/sessions/acme-01
 
 ### 6.1 Estados de Sesión
 
-Después del reinicio, las sesiones WhatsApp pasan por estos estados:
+Después del reinicio, el estado de WhatsApp (single-admin) pasa por estos estados (según `session-manager`):
 
 ```
-NOT_INITIALIZED → INITIALIZING → QR_REQUIRED → CONNECTED
-                                       ↓
-                                  DISCONNECTED
-                                       ↓
-                                  RECONNECTING
+INIT → QR_REQUIRED → AUTHENTICATED → READY
+  └───────────────→ ERROR
+READY → DISCONNECTED
 ```
 
-### 6.2 Reconexión de Sesiones
-
-Las sesiones detectadas (`cliente_1` y `cliente_51`) necesitan reautenticación:
+### 6.2 Reconexión de Sesión (ADMIN)
 
 **Pasos para reconectar:**
 
-1. **Acceder al frontend:**
-   ```
-   https://desarrolloydisenioweb.com.ar/whatsapp
+1. **Iniciar conexión (si aplica):**
+   ```bash
+   curl -X POST http://localhost:3001/connect
    ```
 
-2. **Solicitar código QR:**
-   - La interfaz detectará estado `INITIALIZING`
-   - Mostrará botón "Obtener Código QR"
+2. **Obtener código QR (cuando esté disponible):**
+   ```bash
+   curl http://localhost:3001/qr
+   # Esperar: {"status":"QR_AVAILABLE","qr":"data:image/png;base64,..."}
+   ```
 
 3. **Escanear con WhatsApp:**
    - Abrir WhatsApp en teléfono
@@ -379,26 +379,20 @@ Las sesiones detectadas (`cliente_1` y `cliente_51`) necesitan reautenticación:
 
 4. **Verificar conexión:**
    ```bash
-   curl http://localhost:3001/api/session-manager/sessions/acme-01
-   # Esperar: "connected": true, "state": "CONNECTED"
+   curl http://localhost:3001/status
+   # Esperar: {"status":"READY"}
    ```
 
 ### 6.3 Persistencia de Sesiones
 
-**Ubicación de datos de sesión:**
+**Ubicación de datos de sesión (LocalAuth):**
 ```
-/root/leadmaster-workspace/services/session-manager/sessions/
-├── cliente_1/
-│   └── session-cliente_1/
-└── cliente_51/
-    └── session-cliente_51/
+/root/leadmaster-workspace/services/session-manager/tokens/
 ```
 
 **Importante:**
-- ✅ Las sesiones persisten entre reinicios de PM2
-- ✅ NO requieren reescaneo de QR si se reinicia el servicio
-- ⚠️ Requieren reautenticación si WhatsApp detecta dispositivo sospechoso
-- ⚠️ Se invalidan después de ~14 días de inactividad
+- ✅ La sesión persiste entre reinicios de PM2 (mientras el token sea válido)
+- ⚠️ Puede requerir reautenticación si WhatsApp invalida el dispositivo/token
 
 ---
 
@@ -449,8 +443,7 @@ curl -s http://localhost:3012/health | grep "healthy"
 
 **Cada 4 horas:**
 ```bash
-curl http://localhost:3001/api/session-manager/sessions/acme-01 | grep "\"status\""
-curl http://localhost:3001/api/session-manager/sessions/acme-02 | grep "\"status\""
+curl -s http://localhost:3001/status | grep "\"status\""
 ```
 
 **Cada 24 horas:**
@@ -513,31 +506,31 @@ pm2 start ecosystem.config.js
 pm2 save
 ```
 
-#### Problema: WhatsApp en estado INITIALIZING permanente
+#### Problema: WhatsApp en estado INIT/QR_REQUIRED permanente
 
 **Síntomas:**
 ```json
 {
-   "status": "init",
-  "connected": false,
-  "recommended_action": "Initializing for first time - wait"
+   "status": "INIT"
 }
 ```
 
-**Causa:** Puppeteer/Chrome no puede iniciar o hay problema de sesión corrupta
+**Causa:** Puppeteer/Chrome no puede iniciar o hay problema de token LocalAuth corrupto
 
 **Solución:**
 ```bash
 # 1. Verificar logs de session-manager
 pm2 logs session-manager --lines 200 | grep -i error
 
-# 2. Limpiar sesión corrupta
-rm -rf /root/leadmaster-workspace/services/session-manager/sessions/cliente_1
+# 2. Limpiar tokens LocalAuth (esto fuerza reautenticación)
+rm -rf /root/leadmaster-workspace/services/session-manager/tokens/
 
 # 3. Reiniciar servicio
 pm2 restart session-manager
 
-# 4. Solicitar nuevo código QR desde frontend
+# 4. Conectar y pedir nuevo QR
+curl -X POST http://localhost:3001/connect
+curl http://localhost:3001/qr
 ```
 
 #### Problema: Procesos zombie de Chrome/Puppeteer
@@ -590,13 +583,13 @@ grep -i "SESSION_MANAGER_BASE_URL\|undefined\|not defined" /root/.pm2/logs/*.log
 - [x] Variable `PORT` configurada en ambos servicios
 - [x] Procesos PM2 en estado "online"
 - [x] `/health` endpoints responden correctamente
-- [x] `GET /api/session-manager/sessions/:instance_id` responde (aunque sin conexión activa)
+- [x] `GET /status` responde
+- [x] `GET /qr` responde
 - [x] Configuración guardada con `pm2 save`
 
 ### Post-Producción (Pendiente)
 
-- [ ] Sesión cliente_1 reconectada (requiere escaneo QR por usuario)
-- [ ] Sesión cliente_51 reconectada (requiere escaneo QR por usuario)
+- [ ] Sesión ADMIN reconectada (requiere escaneo QR por usuario)
 - [ ] Frontend muestra correctamente estado de WhatsApp
 - [ ] Envío de mensaje de prueba exitoso
 - [ ] Recepción de mensaje de prueba exitosa
@@ -619,19 +612,15 @@ grep -i "SESSION_MANAGER_BASE_URL\|undefined\|not defined" /root/.pm2/logs/*.log
 
 **Configuración actual:**
 
-Ambos servicios tienen configurado:
-```javascript
-wait_ready: true,
-listen_timeout: 15000  // session-manager
-listen_timeout: 10000  // central-hub
-```
+- `central-hub` tiene configurado `wait_ready: true` y `listen_timeout: 10000`.
+- `session-manager` **no** tiene `wait_ready` configurado en PM2.
 
 **Comportamiento:**
 
 - `wait_ready: true` indica a PM2 que debe esperar una señal explícita del proceso antes de considerarlo "online".
 - Esta señal se envía mediante `process.send('ready')` en el código de la aplicación.
 - Si el código **NO implementa** `process.send('ready')`, PM2 esperará hasta alcanzar `listen_timeout` y luego marcará el proceso como online de todas formas.
-- **Estado actual:** Los servicios no implementan `process.send('ready')`, por lo que PM2 espera el timeout completo (10-15 segundos) en cada inicio.
+- **Estado actual:** `central-hub` no implementa `process.send('ready')`, por lo que PM2 espera `listen_timeout` (~10s) en cada inicio.
 
 **Impacto:**
 
@@ -669,7 +658,7 @@ Mantener `wait_ready: true` sin modificar código, aceptando el delay de 10-15 s
 
 1. **Reconectar sesiones WhatsApp:**
    - Coordinar con usuario final para escaneo de códigos QR
-   - Validar que ambas sesiones (cliente_1 y cliente_51) se conecten
+   - Validar que la sesión ADMIN llegue a `READY`
 
 2. **Monitoreo inicial:**
    - Revisar logs cada 2 horas
@@ -768,7 +757,7 @@ Escaneo de códigos QR para reconectar sesiones WhatsApp.
  * ARQUITECTURA:
  * - Puerto: 3001
  * - 1 instancia ÚNICA para TODOS los clientes
- * - Instancias se inicializan bajo demanda vía `instance_id` en la ruta
+ * - Clientes se inicializan bajo demanda vía header X-Cliente-Id
  * - NO cluster mode
  */
 
@@ -779,11 +768,12 @@ module.exports = {
       script: 'index.js',
       cwd: '/root/leadmaster-workspace/services/session-manager',
       
-      // === Variables de entorno ===
-      env: {
-        NODE_ENV: 'production',
-        PORT: 3001
-      },
+         // === Variables de entorno ===
+         env: {
+            NODE_ENV: 'production',
+            PORT: 3001
+            // NO CLIENTE_ID - se pasa por header en cada request
+         },
       
       // === Proceso único (NO cluster) ===
       instances: 1,
@@ -792,12 +782,12 @@ module.exports = {
       // === Auto-reinicio limitado ===
       autorestart: true,
       max_restarts: 5,
-      min_uptime: '30s',
-      max_memory_restart: '1024M',
+      min_uptime: '30s', // WhatsApp tarda más en iniciar
+      max_memory_restart: '1024M', // Más memoria para múltiples clientes
       
       // === Backoff para evitar loops ===
       exp_backoff_restart_delay: 500,
-      restart_delay: 10000,
+      restart_delay: 10000, // 10 segundos entre reinicios
       
       // === Logs centralizados ===
       error_file: '/root/.pm2/logs/session-manager-error.log',
@@ -809,12 +799,10 @@ module.exports = {
       watch: false,
       
       // === Shutdown extendido (WhatsApp logout) ===
-      kill_timeout: 30000,
-      wait_ready: true,          // Nota: Requiere process.send('ready') en código
-      listen_timeout: 15000,     // Timeout si wait_ready no recibe señal
+      kill_timeout: 30000, // 30 segundos para logout de todos los clientes
       
       // === Prevención EADDRINUSE ===
-      stop_exit_codes: [0],
+      // Nota: Removido stop_exit_codes para permitir auto-recovery ante cualquier exit
       
       // === Node.js options ===
       node_args: '--max-old-space-size=1536 --experimental-modules'
@@ -849,7 +837,15 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: 3012,
-        SESSION_MANAGER_BASE_URL: 'http://localhost:3001'
+        
+            // ---- WhatsApp / Session Manager ----
+            SESSION_MANAGER_BASE_URL: 'http://localhost:3001',
+
+            // ---- Seguridad operativa ----
+            DRY_RUN: 'true', // ⚠️ BLOQUEO de envíos reales
+
+            // ---- Campañas automáticas ----
+            AUTO_CAMPAIGNS_ENABLED: 'false'
       },
       
       // === Auto-reinicio inteligente ===

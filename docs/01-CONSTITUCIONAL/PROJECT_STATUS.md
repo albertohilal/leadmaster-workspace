@@ -198,9 +198,14 @@ Deviation requires explicit decision entry in DECISION_LOG.md.
 
 Milestone:
 
-- La capa WhatsApp queda definida por `instance_id` como **única identidad** (sin `cliente_id` / sin `X-Cliente-Id`).
-- Enums congelados para estados (sin `READY`, `AUTHENTICATED`, `QR_GENERATED`).
-- Prohibida la traducción/mapeo de estados entre servicios: se consumen **as-is**.
+- Definido el **target contractual** de la capa WhatsApp (`instance_id` + enums congelados).
+
+Estado de implementación (AS-IS):
+
+- `session-manager` opera como **single-admin** (no hay `instance_id`).
+- `POST /send` requiere `cliente_id` (metadata) en el body.
+- Estados actuales son legacy/uppercase (`INIT`, `QR_REQUIRED`, `AUTHENTICATED`, `READY`, `DISCONNECTED`, `ERROR`).
+- En central-hub existen capas que normalizan/mapean estados y que no están alineadas entre sí.
 
 Documentos normativos:
 

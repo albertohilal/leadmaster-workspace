@@ -41,22 +41,26 @@ No incluye:
 - Vive en el dominio de **central-hub** (y servicios de negocio).
 - Se usa para autorización, queries, auditoría y trazabilidad del dominio.
 
-### 3.2 Identidad WhatsApp: instance_id (única identidad en la capa WhatsApp)
+### 3.2 Identidad WhatsApp (AS-IS): sesión ADMIN única
 
-- **`instance_id`** es la **única** identidad aceptada por la *capa WhatsApp*.
-- Es un identificador **opaco y estable** (string) de una instancia WhatsApp gestionada por el sistema.
-- `instance_id` **no es** `cliente_id` y **no debe** transportarlo.
+**Estado actual del código:**
 
-#### Prohibiciones
+- `session-manager` es **single-admin**: administra **una** sesión WhatsApp para todo el sistema.
+- No existe `instance_id` en la API real de `session-manager` hoy.
+- `cliente_id` aparece en `POST /send` como campo **requerido** por validación, pero es **metadata** (no selecciona sesión).
 
-- `cliente_id` **no** viaja a session-manager (ni header, ni query, ni body).
-- No existe header `X-Cliente-Id` en el contrato WhatsApp.
-- No se permite “traducción/mapeo de estados” entre servicios: los enums del contrato son consumidos **as-is**.
+Notas:
 
-#### Permiso de mapeo (solo en dominio central-hub)
+- En central-hub existen proxies/rutas que usan `cliente_id` (path) y/o `X-Cliente-Id` (header) para contexto/seguridad del producto.
+- En el estado actual, también existe **normalización/mapeo** de estados en algunas capas de central-hub.
 
-- Si existe relación entre `cliente_id` y `instance_id`, ese mapeo pertenece al dominio de **central-hub**.
-- Ningún servicio WhatsApp (session-manager, listener, etc.) debe requerir `cliente_id` para operar.
+### 3.3 Identidad WhatsApp (PLANNED): `instance_id` por instancia
+
+**Objetivo futuro (no implementado end-to-end):**
+
+- WhatsApp layer direccionada por `instance_id` (string opaco y estable).
+- `instance_id` no debe transportar `cliente_id`.
+- Si existe relación entre `cliente_id` y `instance_id`, el mapeo pertenece al dominio de **central-hub**.
 
 ## 4. Integraciones externas
 
@@ -84,8 +88,8 @@ No debe:
 
 Debe:
 
-- Gestionar sesiones WhatsApp **por `instance_id`**.
-- Exponer estado/QR/envío via HTTP siguiendo enums congelados.
+- Gestionar sesión WhatsApp **ADMIN única**.
+- Exponer estado/QR/envío via HTTP (`/status`, `/qr`, `/send`, `/connect`, `/disconnect`).
 
 No debe:
 
@@ -105,9 +109,22 @@ No debe:
 
 ## 6. Contratos congelados (WhatsApp layer)
 
-La capa WhatsApp expone enums congelados (ver [ARCHITECTURE_STATE_2026_02.md](./ARCHITECTURE_STATE_2026_02.md)):
+### 6.1 AS-IS (implementado hoy)
 
-- `SessionStatus`: `init`, `qr_required`, `connecting`, `connected`, `disconnected`, `error`
-- `QRStatus`: `none`, `generated`, `expired`, `used`
+`session-manager` expone el estado como string uppercase vía `GET /status`:
 
-Ningún servicio puede introducir nuevos estados o mapearlos a valores “locales”.
+- `INIT`
+- `QR_REQUIRED`
+- `AUTHENTICATED`
+- `READY`
+- `DISCONNECTED`
+- `ERROR`
+
+`GET /qr` retorna:
+
+- `{ "status": "NO_QR" }`, o
+- `{ "status": "QR_AVAILABLE", "qr": "data:image/png;base64,..." }`
+
+### 6.2 PLANNED (contrato congelado)
+
+El contrato “con enums congelados en minúscula + `instance_id`” está definido como objetivo en [ARCHITECTURE_STATE_2026_02.md](./ARCHITECTURE_STATE_2026_02.md), pero **no coincide** con el código actual.
