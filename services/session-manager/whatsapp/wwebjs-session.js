@@ -22,12 +22,25 @@ let qrTimestamp = null; // ISO del último QR recibido
 const CENTRAL_HUB_BASE_URL = String(process.env.CENTRAL_HUB_BASE_URL || '').replace(/\/+$/, '');
 const CENTRAL_HUB_USER = process.env.CENTRAL_HUB_USER;
 const CENTRAL_HUB_PASS = process.env.CENTRAL_HUB_PASS;
+const INTERNAL_LISTENER_TOKEN = process.env.INTERNAL_LISTENER_TOKEN;
 const CENTRAL_HUB_CLIENTE_ID = Number(
   process.env.CENTRAL_HUB_CLIENTE_ID || process.env.CLIENTE_ID || 1
 );
 
+if (INTERNAL_LISTENER_TOKEN) {
+  console.log('[WWEBJS->HUB] Using internal token header: enabled');
+}
+
 let centralHubToken = null;
 let centralHubLoginPromise = null;
+
+let centralHubBridgeDisabledLogged = false;
+
+function logCentralHubBridgeDisabledOnce() {
+  if (centralHubBridgeDisabledLogged) return;
+  centralHubBridgeDisabledLogged = true;
+  console.error('[WWEBJS->HUB] Central Hub bridge disabled: missing env');
+}
 
 function normalizePhone(raw) {
   if (!raw) return null;
@@ -43,6 +56,45 @@ function normalizePhone(raw) {
 
   const digits = withoutSuffix.replace(/\D+/g, '');
   return digits || null;
+}
+
+function normalizeDigits(raw) {
+  if (!raw) return null;
+  const value = String(raw).trim();
+
+  // Ignorar grupos
+  if (value.endsWith('@g.us')) return null;
+
+  const withoutSuffix = value
+    .replace(/@c\.us$/i, '')
+    .replace(/@g\.us$/i, '')
+    .replace(/@s\.whatsapp\.net$/i, '');
+
+  const digits = withoutSuffix.replace(/\D+/g, '');
+  return digits || null;
+}
+
+async function resolvePhoneFromMsg(msg, waClient) {
+  try {
+    if (msg && typeof msg.getContact === 'function') {
+      const contact = await msg.getContact();
+      const contactNumber = normalizeDigits(contact?.number);
+      if (contactNumber) return contactNumber;
+
+      const contactUser = normalizeDigits(contact?.id?.user);
+      if (contactUser) return contactUser;
+
+      const byWidUser = normalizeDigits(contact?.wid?.user);
+      if (byWidUser) return byWidUser;
+    }
+  } catch (_) {
+    // ignore and fallback
+  }
+
+  const fromFallback = normalizeDigits(msg?.from);
+  if (fromFallback) return fromFallback;
+
+  return null;
 }
 
 function isCentralHubConfigured() {
@@ -115,7 +167,7 @@ async function centralHubLogin() {
 
 async function postToCentralHubListener({ telefono, texto, esHumano }) {
   if (!isCentralHubConfigured()) {
-    console.error('[WWEBJS->HUB] Central Hub bridge disabled: missing env');
+    logCentralHubBridgeDisabledOnce();
     return false;
   }
 
@@ -165,6 +217,117 @@ async function postToCentralHubListener({ telefono, texto, esHumano }) {
   }
 }
 
+// Contrato formal: POST /incoming-message (persistencia)
+async function postToCentralHubIncomingMessage({ from, message, timestamp }) {
+  if (!isCentralHubConfigured()) {
+    logCentralHubBridgeDisabledOnce();
+    return false;
+  }
+
+  if (!from || !message || !timestamp) return false;
+
+  const payload = {
+    cliente_id: CENTRAL_HUB_CLIENTE_ID,
+    from,
+    message,
+    timestamp
+  };
+
+  const postOnce = async () => {
+    const token = centralHubToken || (await centralHubLogin());
+    const url = `${CENTRAL_HUB_BASE_URL}/api/listener/incoming-message`;
+    return fetchJsonWithTimeout(
+      url,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          ...(INTERNAL_LISTENER_TOKEN ? { 'X-Internal-Token': INTERNAL_LISTENER_TOKEN } : {})
+        },
+        body: JSON.stringify(payload)
+      },
+      8000
+    );
+  };
+
+  try {
+    let { resp, text } = await postOnce();
+
+    if (resp.status === 401) {
+      centralHubToken = null;
+      ({ resp, text } = await postOnce());
+    }
+
+    if (!resp.ok) {
+      console.error(
+        `[WWEBJS->HUB] incoming-message POST failed: HTTP ${resp.status} ${resp.statusText} :: ${text}`
+      );
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error('[WWEBJS->HUB] Failed to post incoming-message:', err?.message || err);
+    return false;
+  }
+}
+
+// Bonus: persistencia de mensajes salientes (OUT)
+async function postToCentralHubOutgoingMessage({ from, to, message, timestamp }) {
+  if (!isCentralHubConfigured()) {
+    logCentralHubBridgeDisabledOnce();
+    return false;
+  }
+
+  if (!from || !to || !message || !timestamp) return false;
+
+  const payload = {
+    cliente_id: CENTRAL_HUB_CLIENTE_ID,
+    from,
+    to,
+    message,
+    timestamp
+  };
+
+  const postOnce = async () => {
+    const token = centralHubToken || (await centralHubLogin());
+    const url = `${CENTRAL_HUB_BASE_URL}/api/listener/outgoing-message`;
+    return fetchJsonWithTimeout(
+      url,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          ...(INTERNAL_LISTENER_TOKEN ? { 'X-Internal-Token': INTERNAL_LISTENER_TOKEN } : {})
+        },
+        body: JSON.stringify(payload)
+      },
+      8000
+    );
+  };
+
+  try {
+    let { resp, text } = await postOnce();
+
+    if (resp.status === 401) {
+      centralHubToken = null;
+      ({ resp, text } = await postOnce());
+    }
+
+    if (!resp.ok) {
+      console.error(
+        `[WWEBJS->HUB] outgoing-message POST failed: HTTP ${resp.status} ${resp.statusText} :: ${text}`
+      );
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error('[WWEBJS->HUB] Failed to post outgoing-message:', err?.message || err);
+    return false;
+  }
+}
+
 /* =======================================================
    EVENT HANDLERS
 ======================================================= */
@@ -175,8 +338,12 @@ function attachEventHandlers(waClient) {
     try {
       if (!msg || msg.fromMe) return;
 
-      const telefono = normalizePhone(msg.from);
+      const telefono = await resolvePhoneFromMsg(msg, waClient);
       if (!telefono) return;
+
+      if (telefono && telefono.length > 16) {
+        console.warn('[WWEBJS] Suspicious phone detected', telefono);
+      }
 
       const texto = typeof msg.body === 'string' ? msg.body.trim() : '';
       if (!texto) return;
@@ -185,6 +352,17 @@ function attachEventHandlers(waClient) {
       if (ok) {
         console.log(`[WWEBJS->HUB] inbound saved telefono=${telefono}`);
       }
+
+      // Persistencia formal (idempotente por hash)
+      const tsIso = Number.isFinite(msg.timestamp)
+        ? new Date(msg.timestamp * 1000).toISOString()
+        : new Date().toISOString();
+
+      await postToCentralHubIncomingMessage({
+        from: telefono,
+        message: texto,
+        timestamp: tsIso
+      });
     } catch (err) {
       console.error('[WWEBJS->HUB] inbound handler error:', err?.message || err);
     }
@@ -204,6 +382,24 @@ function attachEventHandlers(waClient) {
       const ok = await postToCentralHubListener({ telefono, texto, esHumano: true });
       if (ok) {
         console.log(`[WWEBJS->HUB] outbound saved (human) telefono=${telefono}`);
+      }
+
+      // Persistencia formal OUT (idempotente por hash)
+      let fromPhone = normalizePhone(msg.from);
+      if (!fromPhone) {
+        fromPhone = normalizePhone(waClient?.info?.wid?.user);
+      }
+      if (fromPhone) {
+        const tsIso = Number.isFinite(msg.timestamp)
+          ? new Date(msg.timestamp * 1000).toISOString()
+          : new Date().toISOString();
+
+        await postToCentralHubOutgoingMessage({
+          from: fromPhone,
+          to: telefono,
+          message: texto,
+          timestamp: tsIso
+        });
       }
     } catch (err) {
       console.error('[WWEBJS->HUB] outbound handler error:', err?.message || err);

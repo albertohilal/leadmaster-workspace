@@ -28,8 +28,19 @@ module.exports = {
         NODE_ENV: 'production',
         PORT: 3012,
 
+        // ---- DB (iFastNet/byethost) ----
+        DB_HOST: 'sv46.byethost46.org',
+        DB_PORT: 3306,
+        DB_USER: 'iunaorg_b3toh',
+        DB_PASSWORD: 'elgeneral2018',
+        DB_NAME: 'iunaorg_dyd',
+
         // ---- WhatsApp / Session Manager ----
         SESSION_MANAGER_BASE_URL: 'http://localhost:3001',
+
+        // ---- Seguridad interna listener ----
+        INTERNAL_LISTENER_TOKEN:
+          'fecf5f229af0cddc6d55127650d16ff0845a1a6c1ce5e7e1f95d229fc6609c06',
 
         // ---- Seguridad operativa ----
         DRY_RUN: 'true', // ⚠️ BLOQUEO de envíos reales

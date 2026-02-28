@@ -12,6 +12,7 @@ mysql -u root -p leadmaster
 source /root/leadmaster-workspace/services/central-hub/db/migrations/001_fix_historial_enum_remove_no_incluido.sql
 source /root/leadmaster-workspace/services/central-hub/db/migrations/002_add_usuario_id_to_historial.sql
 source /root/leadmaster-workspace/services/central-hub/db/migrations/003_add_message_id_to_envios.sql
+source /root/leadmaster-workspace/services/central-hub/db/migrations/004_create_ll_whatsapp_messages.sql
 ```
 
 O desde la terminal bash:
@@ -23,6 +24,7 @@ cd /root/leadmaster-workspace/services/central-hub
 mysql -u root -p leadmaster < db/migrations/001_fix_historial_enum_remove_no_incluido.sql
 mysql -u root -p leadmaster < db/migrations/002_add_usuario_id_to_historial.sql
 mysql -u root -p leadmaster < db/migrations/003_add_message_id_to_envios.sql
+mysql -u root -p leadmaster < db/migrations/004_create_ll_whatsapp_messages.sql
 ```
 
 ## Orden de Ejecución
@@ -32,6 +34,7 @@ mysql -u root -p leadmaster < db/migrations/003_add_message_id_to_envios.sql
 | 001 | `fix_historial_enum_remove_no_incluido.sql` | Elimina 'no_incluido' del ENUM de historial | ⚠️ MEDIA |
 | 002 | `add_usuario_id_to_historial.sql` | Agrega columna usuario_id para auditoría | 🔴 ALTA |
 | 003 | `add_message_id_to_envios.sql` | Agrega columna message_id para trazabilidad | 🔴 ALTA |
+| 004 | `create_ll_whatsapp_messages.sql` | Crea tabla ll_whatsapp_messages para persistencia de listener | 🔴 ALTA |
 
 ## Idempotencia
 

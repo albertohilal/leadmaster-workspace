@@ -1,10 +1,10 @@
 /**
  * PM2 Ecosystem Config - Session Manager
- * 
+ *
  * ARQUITECTURA:
  * - Session Manager: Puerto 3001 (1 instancia única)
  * - Maneja la sesión WhatsApp single-admin
- * 
+ *
  * CRÍTICO:
  * - NO reiniciar este proceso innecesariamente (pérdida de sesión WhatsApp)
  * - NO usar cluster mode (WhatsApp es stateful)
@@ -30,7 +30,19 @@ module.exports = {
         PORT: 3001,
 
         // 🔥 CLAVE: Xvfb display persistente
-        DISPLAY: ':99'
+        DISPLAY: ':99',
+
+        // ---- Central Hub bridge ----
+        CENTRAL_HUB_BASE_URL: 'http://localhost:3012',
+        CENTRAL_HUB_USER: 'b3toh',
+        CENTRAL_HUB_PASS: 'elgeneral2018',
+
+        // Cliente default para persistencia/listener (si no se setea otro)
+        CENTRAL_HUB_CLIENTE_ID: '51',
+
+        // ---- Seguridad interna listener ----
+        INTERNAL_LISTENER_TOKEN:
+          'fecf5f229af0cddc6d55127650d16ff0845a1a6c1ce5e7e1f95d229fc6609c06'
       },
 
       // === Auto-reinicio inteligente ===
