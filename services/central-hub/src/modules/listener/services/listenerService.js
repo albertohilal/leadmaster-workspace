@@ -71,11 +71,11 @@ async function detectarIntervencionHumana(telefono, mensaje, conversacionId = nu
 }
 
 // Registrar mensaje en ll_ia_conversaciones con detección automática
-async function registrarMensajeConversacion(telefono, rol, mensaje, origenMensaje = 'ia') {
+async function registrarMensajeConversacion(clienteId, telefono, rol, mensaje, origenMensaje = 'ia') {
   try {
     const [result] = await pool.execute(
-      'INSERT INTO ll_ia_conversaciones (telefono, rol, mensaje, origen_mensaje, pauso_ia, created_at) VALUES (?, ?, ?, ?, ?, NOW())',
-      [telefono, rol, mensaje, origenMensaje, origenMensaje === 'humano']
+      'INSERT INTO ll_ia_conversaciones (cliente_id, telefono, rol, mensaje, origen_mensaje, pauso_ia, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())',
+      [clienteId, telefono, rol, mensaje, origenMensaje, origenMensaje === 'humano']
     );
     
     const conversacionId = result.insertId;
@@ -173,6 +173,8 @@ const {
  */
 async function onMessageReceived(message) {
   logs.push({ timestamp: Date.now(), message });
+
+  const clienteId = Number(message.cliente_id || 0);
   
   // Limpiar teléfono (quitar @c.us si existe)
   const telefonoLimpio = message.telefono.replace('@c.us', '');
@@ -183,9 +185,10 @@ async function onMessageReceived(message) {
     
     // Registrar en conversaciones como mensaje humano
     const registro = await registrarMensajeConversacion(
-      telefonoLimpio, 
+      clienteId,
+      telefonoLimpio,
       'assistant', // Los humanos responden como assistant
-      message.texto, 
+      message.texto,
       'humano'
     );
     
@@ -200,7 +203,7 @@ async function onMessageReceived(message) {
   }
   
   // Registrar mensaje entrante del usuario
-  await registrarMensajeConversacion(telefonoLimpio, 'user', message.texto, 'usuario');
+  await registrarMensajeConversacion(clienteId, telefonoLimpio, 'user', message.texto, 'usuario');
   
   if (mode !== 'respond') {
     return { respuesta: null, enviado: false, error: 'Modo no respond' };
@@ -267,9 +270,10 @@ async function onMessageReceived(message) {
       
       // Registrar respuesta de IA en conversaciones
       const registro = await registrarMensajeConversacion(
-        telefonoLimpio, 
-        'assistant', 
-        respuesta, 
+        clienteId,
+        telefonoLimpio,
+        'assistant',
+        respuesta,
         'ia'
       );
       conversacionIAId = registro.conversacionId;
