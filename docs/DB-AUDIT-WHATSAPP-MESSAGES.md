@@ -3,25 +3,74 @@
 **Date:** February 23, 2026  
 **Database:** `iunaorg_dyd`  
 **Scope:** Identify and analyze tables storing WhatsApp messages (inbound/outbound)  
-**Status:** Completed
+**Status:** IMPLEMENTED + VERIFIED (Phase 3 listener persistence) — Updated: 2026-03-01
 
 ---
 
-## 1. Executive Summary
+## 0. Phase 3 Status Update (IMPLEMENTED + VERIFIED)
 
-This audit analyzed 39 custom tables with prefix `ll_` in the LeadMaster database to identify WhatsApp message storage structures. Three primary tables were identified:
+> **Update notice (2026-03-01):** This audit was originally written in a pre-Phase-3 state.
+> As of 2026-03-01, a unified persistence table exists and is verified in production-like operation.
+
+### 0.1 What is implemented
+
+- Central Hub exposes listener endpoints for WhatsApp event ingestion:
+  - `POST /api/listener/incoming-message`
+  - `POST /api/listener/outgoing-message`
+- Listener endpoints require `Authorization: Bearer <jwt>` (missing token → `401` with `"Token no proporcionado"`).
+- Central Hub persists WhatsApp messages in a unified table:
+  - DB: `iunaorg_dyd`
+  - Table: `ll_whatsapp_messages`
+
+### 0.2 Observed columns (as-is)
+
+Visible columns verified:
+
+- `id`
+- `cliente_id`
+- `direction` (`IN` / `OUT`)
+- `wa_from`
+- `wa_to`
+- `message`
+- `ts_wa`
+- `message_hash`
+- `raw_json`
+
+### 0.3 Idempotency (as-is)
+
+- The persistence layer deduplicates by `message_hash`.
+- If the DB has a `UNIQUE` constraint on `message_hash`, duplicates are prevented at DB level.
+- If not, Central Hub applies deduplication by hash at application level.
+
+### 0.4 Verification evidence (2026-03-01)
+
+Evidence of end-to-end persistence in `ll_whatsapp_messages`:
+
+- Record `id=36` → `direction=IN`, `cliente_id=51`, `ts_wa=2026-03-01 12:48:27`
+- Record `id=37` → `direction=OUT`, `cliente_id=51`, `ts_wa=2026-03-01 12:49:10`
+
+---
+
+## 1. Executive Summary (Historical / pre-Phase-3 context)
+
+This audit analyzed 39 custom tables with prefix `ll_` in the LeadMaster database to identify WhatsApp message storage structures. Three primary tables were identified (pre-Phase-3):
 
 - **`ll_mensajes`** - Generic messages table (currently empty, not in use)
 - **`ll_envios_whatsapp`** - Outbound campaign messages (852 records, active)
 - **`ll_ia_conversaciones`** - AI conversation messages (98 records, active)
 
-**Key Finding:** There is no unified table for inbound/outbound WhatsApp messages. Current architecture splits:
+**Key Finding (historical, superseded):** There is no unified table for inbound/outbound WhatsApp messages. Current architecture splits:
 - Outbound messages → `ll_envios_whatsapp`
 - Inbound messages → `ll_ia_conversaciones` (rol='user')
+
+**Current Key Finding (2026-03-01, verified):** A unified table exists: `ll_whatsapp_messages`.
 
 ---
 
 ## 2. Complete Table Inventory: `ll_%` Prefix
+
+> **Historical note (pre-Phase-3):** Sections 2–9 below were written before `ll_whatsapp_messages` existed.
+> They analyze legacy candidate tables and are kept for context. For the **current, implemented** Phase 3 storage schema, see Section 0.
 
 **Total tables found:** 39
 
@@ -262,7 +311,7 @@ Individual (non-campaign) message sends.
 
 ---
 
-## 6. Critical Field Analysis
+## 6. Critical Field Analysis (Historical / pre-Phase-3)
 
 ### 6.1 `cliente_id` Presence
 
@@ -284,7 +333,7 @@ Individual (non-campaign) message sends.
 | `ll_envios_whatsapp` | ⚠️ Implicit | Outbound only (campaign sends) |
 | `ll_ia_conversaciones` | ✅ Explicit | `rol` enum ('user'=inbound, 'assistant'=outbound) |
 
-**Conclusion:** No table has a dedicated `direction` column. Direction is implicit or role-based.
+**Conclusion (historical):** No table has a dedicated `direction` column. Direction is implicit or role-based.
 
 ---
 
@@ -325,7 +374,10 @@ Current tables only store:
 
 ## 7. Technical Conclusions
 
-### 7.1 Current State Assessment
+> **Scope note:** This section is primarily **historical (pre-Phase-3)** and refers to the legacy tables analyzed in Sections 2–6.
+> The current Phase 3 storage is `ll_whatsapp_messages` (see Section 0).
+
+### 7.1 State Assessment (Historical / pre-Phase-3)
 
 **Strengths:**
 - ✅ Multi-tenant support in active tables (`cliente_id`)
@@ -334,7 +386,7 @@ Current tables only store:
 - ✅ State machine for outbound messages (`estado` enum)
 - ✅ WhatsApp `message_id` tracking
 
-**Weaknesses:**
+**Weaknesses (historical, superseded by Phase 3):**
 - ❌ No unified inbound/outbound message table
 - ❌ No `provider` field (cannot distinguish Web vs Meta API)
 - ❌ No `raw_payload` storage (debugging limitation)
@@ -342,9 +394,23 @@ Current tables only store:
 - ❌ Phone number indexing inconsistent
 - ⚠️ Implicit direction logic (split across tables)
 
+### 7.2 Current (Phase 3) gaps / hardening opportunities
+
+Based on the **implemented** table `ll_whatsapp_messages` (Section 0, as-is columns observed):
+
+- Confirm whether `message_hash` is enforced as `UNIQUE` at DB level; otherwise, ensure dedup remains reliable at app level.
+- Document and verify the exact mapping rules:
+  - incoming/outgoing → `direction` (`IN`/`OUT`)
+  - WhatsApp sender/recipient → `wa_from` / `wa_to`
+  - WhatsApp timestamp source → `ts_wa`
+- Improve observability for listener ingestion:
+  - explicit 4xx/5xx responses
+  - structured logs (without secrets) including status and error reason
+- Provider/source tagging is not represented as a dedicated column in the observed schema; if provider distinction is needed, document how it is currently inferred (if at all).
+
 ---
 
-### 7.2 Multi-Provider Support (Web + Meta API)
+### 7.3 Multi-Provider Support (Web + Meta API)
 
 **Question:** Does the current schema support both WhatsApp Web and Meta Cloud API?
 
@@ -368,7 +434,7 @@ Current tables only store:
 
 ---
 
-### 7.3 Multi-Tenant Readiness
+### 7.4 Multi-Tenant Readiness
 
 **Question:** Is the schema properly prepared for multi-tenant operation?
 
@@ -382,9 +448,12 @@ Current tables only store:
 
 ---
 
-## 8. Recommended Schema Migration
+## 8. Recommended Schema Migration (Historical / superseded)
 
-### 8.1 Option A: Extend `ll_ia_conversaciones` (Minimal Change)
+> **Status (2026-03-01):** A unified table `ll_whatsapp_messages` is **implemented + verified** (Section 0).
+> **Schema selection is CLOSED.** The options below are preserved only as historical design notes and do not represent current next steps.
+
+### 8.1 Option A: Extend `ll_ia_conversaciones` (Minimal Change) — Historical
 
 **Rationale:** Already in use, has proper indexing, supports direction via `rol`.
 
@@ -405,7 +474,7 @@ ALTER TABLE `ll_ia_conversaciones`
 
 ---
 
-### 8.2 Option B: Activate and Extend `ll_mensajes` (Clean Separation)
+### 8.2 Option B: Activate and Extend `ll_mensajes` (Clean Separation) — Historical
 
 **Rationale:** Purpose-built for messages but currently unused.
 
@@ -435,9 +504,12 @@ ALTER TABLE `ll_mensajes`
 
 ---
 
-### 8.3 Option C: Create New `ll_whatsapp_messages` (Future-Proof)
+### 8.3 Option C: Create New `ll_whatsapp_messages` (Future-Proof) — Historical
 
-**Rationale:** Fresh design specifically for WhatsApp message storage.
+**Rationale (historical):** Fresh design specifically for WhatsApp message storage.
+
+> **Important:** The SQL below is a **pre-implementation proposal** and does **not** describe the verified as-is schema.
+> The observed, implemented columns are listed in Section 0.2.
 
 ```sql
 CREATE TABLE `ll_whatsapp_messages` (
@@ -484,37 +556,28 @@ CREATE TABLE `ll_whatsapp_messages` (
 
 ## 9. Recommendation
 
-**Recommended Approach:** **Option B** - Activate and extend `ll_mensajes`
+### 9.1 Historical recommendation (Feb 23, 2026)
 
-**Justification:**
+At the time of the original audit, the recommended approach was **Option B** (activate and extend `ll_mensajes`) as a low-risk path to unified storage.
 
-1. **Designed for purpose:** Table already exists for generic message storage
-2. **Minimal risk:** Table is empty (no data migration needed from it)
-3. **Clear semantics:** Separates messages from AI conversation logic
-4. **Future-proof:** Can accommodate multiple providers and directions
-5. **Backward compatible:** Existing tables remain unchanged
+### 9.2 Current status (Mar 1, 2026)
 
-**Migration Strategy:**
+- **IMPLEMENTED + VERIFIED:** Central Hub persists WhatsApp messages in `iunaorg_dyd.ll_whatsapp_messages`.
+- Listener ingestion endpoints exist and require `Authorization: Bearer <jwt>`.
+- Evidence records exist (Section 0.4: `id=36` IN, `id=37` OUT, `cliente_id=51`).
 
-1. Apply ALTER TABLE to `ll_mensajes` (Option B SQL)
-2. Keep `ll_ia_conversaciones` for AI-specific conversation state
-3. Keep `ll_envios_whatsapp` for campaign tracking
-4. New listener service writes to `ll_mensajes`
-5. Gradually migrate historical data if needed
-
-**Estimated Downtime:** None (ALTER on empty table is instant)
+**Recommendation status:** CLOSED — no schema migration is recommended in this document. Focus is hardening/observability and documentation of the as-is behavior.
 
 ---
 
 ## 10. Next Steps
 
-1. **Review and approve** schema migration (Option B recommended)
-2. **Apply ALTER TABLE** to `ll_mensajes` in development environment
-3. **Update listener module** to write inbound messages to `ll_mensajes`
-4. **Update sender module** to optionally write to `ll_mensajes` (keep `ll_envios_whatsapp` for campaigns)
-5. **Add provider field** to session manager configuration
-6. **Test multi-tenant isolation** with different `cliente_id` values
-7. **Document webhook payload mapping** (Meta API → `raw_payload` JSON)
+> **Update (2026-03-01):** Listener persistence is implemented. Next steps should focus on hardening and observability rather than schema selection.
+
+1. Confirm and document whether `message_hash` is enforced as `UNIQUE` (or explicitly confirm dedup is app-level).
+2. Ensure listener endpoints return explicit 4xx/5xx payloads for troubleshooting, and log errors with enough context (without logging tokens or secrets).
+3. Validate multi-tenant behavior with multiple `cliente_id` values (not only `51`).
+4. Document the exact message ingestion mapping (incoming/outgoing → `direction`, sender/recipient → `wa_from`/`wa_to`, timestamp source → `ts_wa`).
 
 ---
 
@@ -555,7 +618,7 @@ SELECT COUNT(*) FROM ll_ia_conversaciones;
 ---
 
 **Report Generated:** February 23, 2026  
-**Database:** `iunaorg_dyd` @ `sv46.byethost46.org`  
+**Database (environment at time of the initial audit):** `iunaorg_dyd` @ `sv46.byethost46.org`  
 **Total Tables Audited:** 39  
 **Primary Candidates Analyzed:** 3  
-**Status:** Ready for architectural review
+**Status:** IMPLEMENTED + VERIFIED (updated 2026-03-01)

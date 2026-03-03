@@ -1,14 +1,19 @@
 # Integration Plan: Central Hub ↔ Session Manager
 
-**Version:** 2.1  
+**Version:** 2.2  
 **Status:** Active (As-is aligned)  
-**Date:** 2026-02-27
+**Date:** 2026-03-01
 
 ---
 
 ## 1. Objective
 
-Define the integration boundaries and requirements for `leadmaster-central-hub` to consume WhatsApp functionality from `session-manager` via HTTP.
+Define the integration boundaries and requirements between `leadmaster-central-hub` and `session-manager` for WhatsApp operations.
+
+This document covers two directions:
+
+1) Central Hub → Session Manager (send/status/qr/connect)
+2) Session Manager → Central Hub (Phase 3 bridge: listener + persistence with JWT)
 
 **Scope:** HTTP client setup and responsibility definition only.  
 **Out of scope:** Business logic, retries, queues, scheduling, deployment.
@@ -35,6 +40,23 @@ Define the integration boundaries and requirements for `leadmaster-central-hub` 
 
 ---
 
+## 2.2 Central Hub Endpoints Consumed by Session Manager (IMPLEMENTED + VERIFIED)
+
+### Auth (JWT)
+
+| Endpoint | Method | Purpose | Notes |
+|----------|--------|---------|-------|
+| `/api/auth/login` | POST | Obtain JWT for internal listener calls | Body: `username/password` (alias `usuario/password`) |
+
+### Listener (persistence)
+
+| Endpoint | Method | Purpose | Auth |
+|----------|--------|---------|------|
+| `/api/listener/incoming-message` | POST | Persist inbound message events (IN) | `Authorization: Bearer <jwt>` |
+| `/api/listener/outgoing-message` | POST | Persist outbound message events (OUT) | `Authorization: Bearer <jwt>` |
+
+---
+
 ## 3. HTTP Client Requirements
 
 ### 3.1 Configuration
@@ -42,6 +64,18 @@ Define the integration boundaries and requirements for `leadmaster-central-hub` 
 **Environment Variable:**
 ```bash
 SESSION_MANAGER_BASE_URL=http://localhost:3001
+```
+
+**Environment Variables (Phase 3 bridge in session-manager):**
+
+```bash
+CENTRAL_HUB_BASE_URL=http://localhost:3012
+CENTRAL_HUB_USER=<user>
+CENTRAL_HUB_PASS=<pass>
+
+# Opcionales
+INTERNAL_LISTENER_TOKEN=<token>
+CENTRAL_HUB_CLIENTE_ID=51
 ```
 
 **Validation:**
@@ -56,6 +90,14 @@ SESSION_MANAGER_BASE_URL=http://localhost:3001
 Content-Type: application/json
 ```
 
+**Headers (Session Manager → Central Hub listener):**
+
+```http
+Authorization: Bearer <jwt>       # OBLIGATORIO
+X-Internal-Token: <token>         # OPCIONAL (si existe INTERNAL_LISTENER_TOKEN)
+Content-Type: application/json
+```
+
 **Identity rule (as-is):**
 
 - `session-manager` es **single-admin** (no `instance_id`).
@@ -66,6 +108,12 @@ Content-Type: application/json
 - Connection timeout: `5s`
 - Read timeout: `30s` (WhatsApp operations can be slow)
 - No automatic retries at HTTP client level
+
+**JWT behavior (as-is, implemented):**
+
+- Session Manager obtiene JWT via `POST /api/auth/login` usando `CENTRAL_HUB_USER/CENTRAL_HUB_PASS`.
+- Cache en memoria con TTL de ~20 min.
+- Si un POST al listener devuelve `401`, Session Manager limpia el token y hace re-login 1 vez.
 
 ### 3.3 Error Handling
 
@@ -89,8 +137,11 @@ Content-Type: application/json
 ### 4.1 Central Hub Responsibilities
 
 **MUST:**
-- Resolve and authorize an `instance_id` for the authenticated context
-- Call session-manager using canonical instance-based routes
+- Consume session-manager endpoints as-is (`/send`, `/status`, `/qr`, `/connect`, `/disconnect`)
+- Expose `POST /api/auth/login` and issue JWT for internal calls
+- Protect listener endpoints with `Authorization: Bearer <jwt>`
+- Validate and persist `cliente_id` (multi-tenant)
+- Persist WhatsApp events into `ll_whatsapp_messages`
 - Handle HTTP errors gracefully
 - Return meaningful errors to API consumers
 - Log all session-manager interactions
@@ -106,17 +157,19 @@ Content-Type: application/json
 ### 4.2 Session Manager Responsibilities
 
 **MUST:**
-- Maintain WhatsApp session per `instance_id`
+- Maintain WhatsApp session (single-admin)
 - Respond to HTTP requests synchronously
 - Return session state accurately
 - Handle one message send at a time
+
+- Capture WhatsApp events (IN/OUT) and emit them to Central Hub listener endpoints for persistence
 
 **MUST NOT:**
 - Access central-hub database
 - Store business logic (campaigns, leads, etc.)
 - Make decisions about when/what to send
 - Call external services (IA, webhooks, etc.)
-- Listen to or process incoming WhatsApp messages (listener service)
+- Process business logic for incoming messages (Central Hub owns listener + persistence)
 
 ---
 
@@ -129,7 +182,6 @@ Client Request
     ↓
 Central Hub API
     ├─ Authenticate user
-    ├─ Resolve instance_id
     ├─ Validate payload
     ↓
 HTTP POST to Session Manager
@@ -190,6 +242,39 @@ GET `/status` from Session Manager
 
 ---
 
+### 5.4 Phase 3 Bridge Flow (Session Manager → Central Hub Listener)
+
+This flow persists WhatsApp events (IN/OUT) in Central Hub.
+
+```
+WhatsApp Web (wwebjs events)
+    ↓
+Session Manager
+    ├─ POST /api/auth/login (Central Hub) → obtain JWT
+    ├─ Cache token (TTL ~20 min)
+    ↓
+HTTP POST to Central Hub listener (with Authorization Bearer)
+        POST /api/listener/incoming-message
+        POST /api/listener/outgoing-message
+    {
+        "cliente_id": 51,
+        "from": "...",
+        "to": "..." (OUT only),
+        "message": "...",
+        "timestamp": "..."
+    }
+    ↓
+Central Hub
+    └─ Persist in MySQL: ll_whatsapp_messages
+```
+
+**Error behavior (as-is):**
+
+- If listener returns `401`, Session Manager clears cached JWT and retries login once.
+- If POST fails, Session Manager logs HTTP status and response body.
+
+---
+
 ## 6. Configuration Summary
 
 ### Environment Variables
@@ -232,7 +317,7 @@ GET `/status` from Session Manager
 ❌ Automatic retries  
 ❌ Rate limiting  
 ❌ Campaign scheduling  
-❌ Incoming message handling  
+❌ Incoming message business logic (beyond persistence)  
 ❌ AI processing  
 ❌ Database access from session-manager  
 ❌ PM2 configuration changes  

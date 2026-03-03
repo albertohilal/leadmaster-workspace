@@ -269,34 +269,118 @@ El contrato por `instance_id` (rutas tipo `/api/session-manager/sessions/{instan
 
 Responsable de:
 
-* Procesar mensajes entrantes
-* Persistir mensajes
-* Llamar a IA o marcar pausas
+* Ingerir eventos WhatsApp (IN/OUT) desde `session-manager`
+* Persistir mensajes en MySQL (tabla unificada)
+* (Opcional) Disparar procesos internos (IA/pausas) según reglas de central-hub
 
-### 5.1 POST /incoming-message (PLANNED)
+### 5.1 POST /api/listener/incoming-message (IMPLEMENTED + VERIFIED)
 
 **Descripción**
-Endpoint interno planificado (no implementado/consumido por el `session-manager` actual).
+Endpoint interno de ingesta de mensajes entrantes (IN) para persistencia idempotente.
+
+**Auth / Headers**
+
+```http
+Authorization: Bearer <jwt>     # OBLIGATORIO
+X-Internal-Token: <token>       # OPCIONAL (si existe INTERNAL_LISTENER_TOKEN)
+Content-Type: application/json
+```
 
 **Request**
 
 ```json
 {
+  "cliente_id": 51,
   "from": "5491199988877",
   "message": "Hola, necesito info",
   "timestamp": "2026-01-01T12:30:00Z"
 }
 ```
 
-**Response 200**
+**Validación mínima**
+
+- `cliente_id` es obligatorio (multi-tenant) y se persiste.
+
+**Response 200 (éxito)**
 
 ```json
 {
-  "ok": true
+  "success": true
 }
 ```
 
+**Errores esperables**
+
+- `400` → payload inválido
+- `401` → token ausente/invalidado (`{"success":false,"message":"Token no proporcionado"}`)
+- `403` → prohibido (si se usa guard adicional)
+
 ---
+
+### 5.2 POST /api/listener/outgoing-message (IMPLEMENTED + VERIFIED)
+
+**Descripción**
+Endpoint interno de ingesta de mensajes salientes (OUT) para persistencia idempotente.
+
+**Auth / Headers**
+
+```http
+Authorization: Bearer <jwt>     # OBLIGATORIO
+X-Internal-Token: <token>       # OPCIONAL (si existe INTERNAL_LISTENER_TOKEN)
+Content-Type: application/json
+```
+
+**Request**
+
+```json
+{
+  "cliente_id": 51,
+  "from": "5491112345678",
+  "to": "5491199988877",
+  "message": "Perfecto, te paso info",
+  "timestamp": "2026-01-01T12:31:00Z"
+}
+```
+
+**Validación mínima**
+
+- `cliente_id` es obligatorio (multi-tenant) y se persiste.
+
+**Response 200 (éxito)**
+
+```json
+{
+  "success": true
+}
+```
+
+**Errores esperables**
+
+- `400` → payload inválido
+- `401` → token ausente/invalidado (`{"success":false,"message":"Token no proporcionado"}`)
+- `403` → prohibido (si se usa guard adicional)
+
+---
+
+### 5.3 Persistencia (IMPLEMENTED + VERIFIED)
+
+Destino de persistencia:
+
+- **DB:** `iunaorg_dyd`
+- **Tabla:** `ll_whatsapp_messages`
+
+Campos mínimos observables (as-is):
+
+- `id`
+- `cliente_id`
+- `direction` (`IN` / `OUT`)
+- `wa_from` / `wa_to`
+- `message`
+- `ts_wa`
+- `message_hash`
+- `raw_json`
+
+**Nota de idempotencia:** el sistema deduplica por `message_hash` (a nivel DB con UNIQUE si aplica, o a nivel aplicación). Para el contrato, `message_hash` se considera un detalle interno: no se envía desde el productor.
 
 ## 6. Servicio: massive-sender
 
@@ -359,6 +443,40 @@ Nota: La resolución de `instance_id` (opaco) aparece en documentación/planific
 
 ---
 
+### 7.2 POST /api/auth/login (IMPLEMENTED + VERIFIED)
+
+**Descripción**
+Login HTTP para obtener JWT usado por endpoints internos (p.ej. listener).
+
+**Request body (canónico)**
+
+```json
+{ "username": "<user>", "password": "<pass>" }
+```
+
+**Alias aceptado (compatibilidad)**
+
+```json
+{ "usuario": "<user>", "password": "<pass>" }
+```
+
+**Response 200 (éxito)**
+
+```json
+{
+  "success": true,
+  "token": "<jwt>",
+  "user": {
+    "id": 123,
+    "cliente_id": 51,
+    "usuario": "<user>",
+    "tipo": "<tipo>"
+  }
+}
+```
+
+---
+
 ## 8. Errores estándar
 
 Formato común:
@@ -393,7 +511,7 @@ Códigos sugeridos:
 Con estos contratos definidos:
 
 1. Implementar `session-manager` multicliente
-2. Implementar listener desacoplado
+2. Mantener listener desacoplado (Phase 3) y su contrato verificado
 3. Agregar cola real (BullMQ / Redis)
 
 ---

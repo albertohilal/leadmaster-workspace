@@ -27,11 +27,15 @@ const CENTRAL_HUB_CLIENTE_ID = Number(
   process.env.CENTRAL_HUB_CLIENTE_ID || process.env.CLIENTE_ID || 1
 );
 
+// Cache simple en memoria (re-login si expira o si el listener responde 401)
+const CENTRAL_HUB_TOKEN_TTL_MS = 20 * 60 * 1000; // 20 min
+
 if (INTERNAL_LISTENER_TOKEN) {
   console.log('[WWEBJS->HUB] Using internal token header: enabled');
 }
 
 let centralHubToken = null;
+let centralHubTokenExpiresAt = 0;
 let centralHubLoginPromise = null;
 
 let centralHubBridgeDisabledLogged = false;
@@ -106,14 +110,22 @@ async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 8000) {
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const resp = await fetch(url, {
-      ...options,
-      signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(options.headers || {})
-      }
-    });
+    let resp;
+    try {
+      resp = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(options.headers || {})
+        }
+      });
+    } catch (err) {
+      const method = options?.method || 'GET';
+      const name = err?.name || 'Error';
+      const message = err?.message || String(err);
+      throw new Error(`Fetch failed: ${method} ${url} :: ${name} ${message}`);
+    }
 
     const text = await resp.text().catch(() => '');
     let json = null;
@@ -127,10 +139,27 @@ async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 8000) {
   }
 }
 
+function clearCentralHubToken() {
+  centralHubToken = null;
+  centralHubTokenExpiresAt = 0;
+}
+
+function hasValidCentralHubToken() {
+  return Boolean(centralHubToken && Date.now() < centralHubTokenExpiresAt);
+}
+
+async function centralHubGetToken() {
+  if (hasValidCentralHubToken()) return centralHubToken;
+  clearCentralHubToken();
+  return centralHubLogin();
+}
+
 async function centralHubLogin() {
   if (!isCentralHubConfigured()) {
     throw new Error('CENTRAL_HUB_BASE_URL/CENTRAL_HUB_USER/CENTRAL_HUB_PASS missing');
   }
+
+  if (hasValidCentralHubToken()) return centralHubToken;
 
   if (centralHubLoginPromise) return centralHubLoginPromise;
 
@@ -140,21 +169,33 @@ async function centralHubLogin() {
       loginUrl,
       {
         method: 'POST',
-        body: JSON.stringify({ usuario: CENTRAL_HUB_USER, password: CENTRAL_HUB_PASS })
+        // Payload canon confirmado por Central Hub
+        body: JSON.stringify({ username: CENTRAL_HUB_USER, password: CENTRAL_HUB_PASS })
       },
       8000
     );
 
     if (!resp.ok) {
-      throw new Error(`Central Hub login failed: HTTP ${resp.status} ${resp.statusText} :: ${text}`);
+      console.error(
+        `[WWEBJS->HUB] Central Hub login failed: HTTP ${resp.status} ${resp.statusText} :: ${text}`
+      );
+      throw new Error(`Central Hub login failed: HTTP ${resp.status} ${resp.statusText}`);
+    }
+
+    if (json && json.success === false) {
+      console.error(`[WWEBJS->HUB] Central Hub login rejected :: ${text}`);
+      throw new Error('Central Hub login rejected');
     }
 
     const token = json?.token;
     if (!token) {
-      throw new Error(`Central Hub login response missing token :: ${text}`);
+      console.error(`[WWEBJS->HUB] Central Hub login response missing token :: ${text}`);
+      throw new Error('Central Hub login response missing token');
     }
 
     centralHubToken = token;
+    centralHubTokenExpiresAt = Date.now() + CENTRAL_HUB_TOKEN_TTL_MS;
+    console.log('[WWEBJS->HUB] Central Hub login OK');
     return token;
   })();
 
@@ -181,7 +222,7 @@ async function postToCentralHubListener({ telefono, texto, esHumano }) {
   };
 
   const postOnce = async () => {
-    const token = centralHubToken || (await centralHubLogin());
+    const token = await centralHubGetToken();
     const url = `${CENTRAL_HUB_BASE_URL}/api/listener/test-message`;
     return fetchJsonWithTimeout(
       url,
@@ -201,7 +242,7 @@ async function postToCentralHubListener({ telefono, texto, esHumano }) {
 
     if (resp.status === 401) {
       // Token expirado/invalidado: relogin 1 vez
-      centralHubToken = null;
+      clearCentralHubToken();
       ({ resp, text } = await postOnce());
     }
 
@@ -234,7 +275,7 @@ async function postToCentralHubIncomingMessage({ from, message, timestamp }) {
   };
 
   const postOnce = async () => {
-    const token = centralHubToken || (await centralHubLogin());
+    const token = await centralHubGetToken();
     const url = `${CENTRAL_HUB_BASE_URL}/api/listener/incoming-message`;
     return fetchJsonWithTimeout(
       url,
@@ -254,7 +295,7 @@ async function postToCentralHubIncomingMessage({ from, message, timestamp }) {
     let { resp, text } = await postOnce();
 
     if (resp.status === 401) {
-      centralHubToken = null;
+      clearCentralHubToken();
       ({ resp, text } = await postOnce());
     }
 
@@ -290,7 +331,7 @@ async function postToCentralHubOutgoingMessage({ from, to, message, timestamp })
   };
 
   const postOnce = async () => {
-    const token = centralHubToken || (await centralHubLogin());
+    const token = await centralHubGetToken();
     const url = `${CENTRAL_HUB_BASE_URL}/api/listener/outgoing-message`;
     return fetchJsonWithTimeout(
       url,
@@ -310,7 +351,7 @@ async function postToCentralHubOutgoingMessage({ from, to, message, timestamp })
     let { resp, text } = await postOnce();
 
     if (resp.status === 401) {
-      centralHubToken = null;
+      clearCentralHubToken();
       ({ resp, text } = await postOnce());
     }
 

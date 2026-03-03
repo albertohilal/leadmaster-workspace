@@ -1,6 +1,21 @@
 # Phase 4 - WhatsApp Session Lifecycle
+(File name kept as PHASE-3-PLAN.md for historical compatibility)
 
-> Nota: el nombre del archivo se mantiene por compatibilidad documental. En la estructura estratégica oficial (ver `PROJECT_STATUS.md`), WhatsApp lifecycle corresponde a Phase 4.
+## STATUS / CONTEXT
+
+Phase 3 (Consolidation) = CLOSED (listener + persistence + bridge + dedicated number + QR canon).
+
+Reporte canónico de cierre:
+- [docs/05-REPORTES/2026-03/CONSOLIDACION_WHATSAPP_PHASE_3_2026-03-01.md](../05-REPORTES/2026-03/CONSOLIDACION_WHATSAPP_PHASE_3_2026-03-01.md)
+
+QR canon:
+- UI: https://desarrolloydisenioweb.com.ar/whatsapp
+- API: session-manager `GET /qr`
+- fallback: session-manager `/qr.html`
+
+Dedicated Number: CONFIRMED (YES)
+
+> Nota (compatibilidad documental): el nombre del archivo se mantiene como `PHASE-3-PLAN.md` por compatibilidad histórica. En la estructura estratégica oficial (ver `PROJECT_STATUS.md`), WhatsApp Session Lifecycle corresponde a Phase 4.
 
 ## Status: 🟡 PARTIALLY IMPLEMENTED (Backend foundations)
 
