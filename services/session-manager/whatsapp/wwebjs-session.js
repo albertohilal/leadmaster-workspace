@@ -16,10 +16,437 @@ let qrAttempts = 0;
 let qrTimestamp = null; // ISO del último QR recibido
 
 /* =======================================================
+   CENTRAL HUB BRIDGE (Listener persistence)
+======================================================= */
+
+const CENTRAL_HUB_BASE_URL = String(process.env.CENTRAL_HUB_BASE_URL || '').replace(/\/+$/, '');
+const CENTRAL_HUB_USER = process.env.CENTRAL_HUB_USER;
+const CENTRAL_HUB_PASS = process.env.CENTRAL_HUB_PASS;
+const INTERNAL_LISTENER_TOKEN = process.env.INTERNAL_LISTENER_TOKEN;
+const CENTRAL_HUB_CLIENTE_ID = Number(
+  process.env.CENTRAL_HUB_CLIENTE_ID || process.env.CLIENTE_ID || 1
+);
+
+// Cache simple en memoria (re-login si expira o si el listener responde 401)
+const CENTRAL_HUB_TOKEN_TTL_MS = 20 * 60 * 1000; // 20 min
+
+if (INTERNAL_LISTENER_TOKEN) {
+  console.log('[WWEBJS->HUB] Using internal token header: enabled');
+}
+
+let centralHubToken = null;
+let centralHubTokenExpiresAt = 0;
+let centralHubLoginPromise = null;
+
+let centralHubBridgeDisabledLogged = false;
+
+function logCentralHubBridgeDisabledOnce() {
+  if (centralHubBridgeDisabledLogged) return;
+  centralHubBridgeDisabledLogged = true;
+  console.error('[WWEBJS->HUB] Central Hub bridge disabled: missing env');
+}
+
+function normalizePhone(raw) {
+  if (!raw) return null;
+  const value = String(raw).trim();
+
+  // Ignorar grupos
+  if (value.endsWith('@g.us')) return null;
+
+  // Normalizar IDs WhatsApp
+  const withoutSuffix = value
+    .replace(/@c\.us$/i, '')
+    .replace(/@s\.whatsapp\.net$/i, '');
+
+  const digits = withoutSuffix.replace(/\D+/g, '');
+  return digits || null;
+}
+
+function normalizeDigits(raw) {
+  if (!raw) return null;
+  const value = String(raw).trim();
+
+  // Ignorar grupos
+  if (value.endsWith('@g.us')) return null;
+
+  const withoutSuffix = value
+    .replace(/@c\.us$/i, '')
+    .replace(/@g\.us$/i, '')
+    .replace(/@s\.whatsapp\.net$/i, '');
+
+  const digits = withoutSuffix.replace(/\D+/g, '');
+  return digits || null;
+}
+
+async function resolvePhoneFromMsg(msg, waClient) {
+  try {
+    if (msg && typeof msg.getContact === 'function') {
+      const contact = await msg.getContact();
+      const contactNumber = normalizeDigits(contact?.number);
+      if (contactNumber) return contactNumber;
+
+      const contactUser = normalizeDigits(contact?.id?.user);
+      if (contactUser) return contactUser;
+
+      const byWidUser = normalizeDigits(contact?.wid?.user);
+      if (byWidUser) return byWidUser;
+    }
+  } catch (_) {
+    // ignore and fallback
+  }
+
+  const fromFallback = normalizeDigits(msg?.from);
+  if (fromFallback) return fromFallback;
+
+  return null;
+}
+
+function isCentralHubConfigured() {
+  return Boolean(CENTRAL_HUB_BASE_URL && CENTRAL_HUB_USER && CENTRAL_HUB_PASS);
+}
+
+async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 8000) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    let resp;
+    try {
+      resp = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(options.headers || {})
+        }
+      });
+    } catch (err) {
+      const method = options?.method || 'GET';
+      const name = err?.name || 'Error';
+      const message = err?.message || String(err);
+      throw new Error(`Fetch failed: ${method} ${url} :: ${name} ${message}`);
+    }
+
+    const text = await resp.text().catch(() => '');
+    let json = null;
+    try {
+      json = text ? JSON.parse(text) : null;
+    } catch (_) {}
+
+    return { resp, text, json };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function clearCentralHubToken() {
+  centralHubToken = null;
+  centralHubTokenExpiresAt = 0;
+}
+
+function hasValidCentralHubToken() {
+  return Boolean(centralHubToken && Date.now() < centralHubTokenExpiresAt);
+}
+
+async function centralHubGetToken() {
+  if (hasValidCentralHubToken()) return centralHubToken;
+  clearCentralHubToken();
+  return centralHubLogin();
+}
+
+async function centralHubLogin() {
+  if (!isCentralHubConfigured()) {
+    throw new Error('CENTRAL_HUB_BASE_URL/CENTRAL_HUB_USER/CENTRAL_HUB_PASS missing');
+  }
+
+  if (hasValidCentralHubToken()) return centralHubToken;
+
+  if (centralHubLoginPromise) return centralHubLoginPromise;
+
+  centralHubLoginPromise = (async () => {
+    const loginUrl = `${CENTRAL_HUB_BASE_URL}/api/auth/login`;
+    const { resp, json, text } = await fetchJsonWithTimeout(
+      loginUrl,
+      {
+        method: 'POST',
+        // Payload canon confirmado por Central Hub
+        body: JSON.stringify({ username: CENTRAL_HUB_USER, password: CENTRAL_HUB_PASS })
+      },
+      8000
+    );
+
+    if (!resp.ok) {
+      console.error(
+        `[WWEBJS->HUB] Central Hub login failed: HTTP ${resp.status} ${resp.statusText} :: ${text}`
+      );
+      throw new Error(`Central Hub login failed: HTTP ${resp.status} ${resp.statusText}`);
+    }
+
+    if (json && json.success === false) {
+      console.error(`[WWEBJS->HUB] Central Hub login rejected :: ${text}`);
+      throw new Error('Central Hub login rejected');
+    }
+
+    const token = json?.token;
+    if (!token) {
+      console.error(`[WWEBJS->HUB] Central Hub login response missing token :: ${text}`);
+      throw new Error('Central Hub login response missing token');
+    }
+
+    centralHubToken = token;
+    centralHubTokenExpiresAt = Date.now() + CENTRAL_HUB_TOKEN_TTL_MS;
+    console.log('[WWEBJS->HUB] Central Hub login OK');
+    return token;
+  })();
+
+  try {
+    return await centralHubLoginPromise;
+  } finally {
+    centralHubLoginPromise = null;
+  }
+}
+
+async function postToCentralHubListener({ telefono, texto, esHumano }) {
+  if (!isCentralHubConfigured()) {
+    logCentralHubBridgeDisabledOnce();
+    return false;
+  }
+
+  if (!telefono || !texto) return false;
+
+  const payload = {
+    cliente_id: CENTRAL_HUB_CLIENTE_ID,
+    telefono,
+    texto,
+    esHumano: Boolean(esHumano)
+  };
+
+  const postOnce = async () => {
+    const token = await centralHubGetToken();
+    const url = `${CENTRAL_HUB_BASE_URL}/api/listener/test-message`;
+    return fetchJsonWithTimeout(
+      url,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      },
+      8000
+    );
+  };
+
+  try {
+    let { resp, text } = await postOnce();
+
+    if (resp.status === 401) {
+      // Token expirado/invalidado: relogin 1 vez
+      clearCentralHubToken();
+      ({ resp, text } = await postOnce());
+    }
+
+    if (!resp.ok) {
+      console.error(`[WWEBJS->HUB] Listener POST failed: HTTP ${resp.status} ${resp.statusText} :: ${text}`);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error('[WWEBJS->HUB] Failed to post to listener:', err?.message || err);
+    return false;
+  }
+}
+
+// Contrato formal: POST /incoming-message (persistencia)
+async function postToCentralHubIncomingMessage({ from, message, timestamp }) {
+  if (!isCentralHubConfigured()) {
+    logCentralHubBridgeDisabledOnce();
+    return false;
+  }
+
+  if (!from || !message || !timestamp) return false;
+
+  const payload = {
+    cliente_id: CENTRAL_HUB_CLIENTE_ID,
+    from,
+    message,
+    timestamp
+  };
+
+  const postOnce = async () => {
+    const token = await centralHubGetToken();
+    const url = `${CENTRAL_HUB_BASE_URL}/api/listener/incoming-message`;
+    return fetchJsonWithTimeout(
+      url,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          ...(INTERNAL_LISTENER_TOKEN ? { 'X-Internal-Token': INTERNAL_LISTENER_TOKEN } : {})
+        },
+        body: JSON.stringify(payload)
+      },
+      8000
+    );
+  };
+
+  try {
+    let { resp, text } = await postOnce();
+
+    if (resp.status === 401) {
+      clearCentralHubToken();
+      ({ resp, text } = await postOnce());
+    }
+
+    if (!resp.ok) {
+      console.error(
+        `[WWEBJS->HUB] incoming-message POST failed: HTTP ${resp.status} ${resp.statusText} :: ${text}`
+      );
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error('[WWEBJS->HUB] Failed to post incoming-message:', err?.message || err);
+    return false;
+  }
+}
+
+// Bonus: persistencia de mensajes salientes (OUT)
+async function postToCentralHubOutgoingMessage({ from, to, message, timestamp }) {
+  if (!isCentralHubConfigured()) {
+    logCentralHubBridgeDisabledOnce();
+    return false;
+  }
+
+  if (!from || !to || !message || !timestamp) return false;
+
+  const payload = {
+    cliente_id: CENTRAL_HUB_CLIENTE_ID,
+    from,
+    to,
+    message,
+    timestamp
+  };
+
+  const postOnce = async () => {
+    const token = await centralHubGetToken();
+    const url = `${CENTRAL_HUB_BASE_URL}/api/listener/outgoing-message`;
+    return fetchJsonWithTimeout(
+      url,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          ...(INTERNAL_LISTENER_TOKEN ? { 'X-Internal-Token': INTERNAL_LISTENER_TOKEN } : {})
+        },
+        body: JSON.stringify(payload)
+      },
+      8000
+    );
+  };
+
+  try {
+    let { resp, text } = await postOnce();
+
+    if (resp.status === 401) {
+      clearCentralHubToken();
+      ({ resp, text } = await postOnce());
+    }
+
+    if (!resp.ok) {
+      console.error(
+        `[WWEBJS->HUB] outgoing-message POST failed: HTTP ${resp.status} ${resp.statusText} :: ${text}`
+      );
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error('[WWEBJS->HUB] Failed to post outgoing-message:', err?.message || err);
+    return false;
+  }
+}
+
+/* =======================================================
    EVENT HANDLERS
 ======================================================= */
 
 function attachEventHandlers(waClient) {
+  // Inbound: mensajes recibidos desde prospectos
+  waClient.on('message', async (msg) => {
+    try {
+      if (!msg || msg.fromMe) return;
+
+      const telefono = await resolvePhoneFromMsg(msg, waClient);
+      if (!telefono) return;
+
+      if (telefono && telefono.length > 16) {
+        console.warn('[WWEBJS] Suspicious phone detected', telefono);
+      }
+
+      const texto = typeof msg.body === 'string' ? msg.body.trim() : '';
+      if (!texto) return;
+
+      const ok = await postToCentralHubListener({ telefono, texto, esHumano: false });
+      if (ok) {
+        console.log(`[WWEBJS->HUB] inbound saved telefono=${telefono}`);
+      }
+
+      // Persistencia formal (idempotente por hash)
+      const tsIso = Number.isFinite(msg.timestamp)
+        ? new Date(msg.timestamp * 1000).toISOString()
+        : new Date().toISOString();
+
+      await postToCentralHubIncomingMessage({
+        from: telefono,
+        message: texto,
+        timestamp: tsIso
+      });
+    } catch (err) {
+      console.error('[WWEBJS->HUB] inbound handler error:', err?.message || err);
+    }
+  });
+
+  // Outbound: mensajes enviados desde la UI (WhatsApp Web). Se consideran humanos (pausa IA)
+  waClient.on('message_create', async (msg) => {
+    try {
+      if (!msg || !msg.fromMe) return;
+
+      const telefono = normalizePhone(msg.to);
+      if (!telefono) return;
+
+      const texto = typeof msg.body === 'string' ? msg.body.trim() : '';
+      if (!texto) return;
+
+      const ok = await postToCentralHubListener({ telefono, texto, esHumano: true });
+      if (ok) {
+        console.log(`[WWEBJS->HUB] outbound saved (human) telefono=${telefono}`);
+      }
+
+      // Persistencia formal OUT (idempotente por hash)
+      let fromPhone = normalizePhone(msg.from);
+      if (!fromPhone) {
+        fromPhone = normalizePhone(waClient?.info?.wid?.user);
+      }
+      if (fromPhone) {
+        const tsIso = Number.isFinite(msg.timestamp)
+          ? new Date(msg.timestamp * 1000).toISOString()
+          : new Date().toISOString();
+
+        await postToCentralHubOutgoingMessage({
+          from: fromPhone,
+          to: telefono,
+          message: texto,
+          timestamp: tsIso
+        });
+      }
+    } catch (err) {
+      console.error('[WWEBJS->HUB] outbound handler error:', err?.message || err);
+    }
+  });
+
   waClient.on('qr', async (qr) => {
     // Estado y métricas SIEMPRE se actualizan aunque falle conversión
     sessionStatus = 'QR_REQUIRED';
