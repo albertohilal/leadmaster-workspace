@@ -96,3 +96,7 @@ _internal/
 /package.json
 /package-lock.json
 
+# Allow SQL migrations under central-hub
+!services/central-hub/migrations/
+!services/central-hub/migrations/*.sql
+

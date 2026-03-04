@@ -1,21 +1,34 @@
 /**
- * Servicio para gestión de envíos manuales de WhatsApp
- * Implementa flujo de 2 fases: prepare → confirm
+ * Servicio para gestión de envíos (WhatsApp) + clasificación post-envío.
+ *
+ * - Flujo manual en 2 fases: prepare → confirm
+ * - OPS-POST-ENVIO-01: clasificación post-envío auditable
  */
 
 import apiService from './api';
 
-export const enviosService = {
+function assertEnvioId(envioId) {
+  const n = Number(envioId);
+  if (!Number.isFinite(n) || n <= 0) {
+    throw new Error(`envioId inválido: ${envioId}`);
+  }
+  return n;
+}
+
+const enviosService = {
   /**
-   * TAREA 2: Preparar envío manual
-   * Obtiene los datos necesarios antes de abrir WhatsApp
-   * 
-   * @param {number} envioId - ID del envío en ll_envios_whatsapp
-   * @returns {Promise<Object>} Datos del envío (telefono, mensaje personalizado, etc.)
+   * Preparar envío manual:
+   * Obtiene los datos necesarios antes de abrir WhatsApp.
+   *
+   * GET /sender/envios/:envioId/manual/prepare
+   *
+   * @param {number|string} envioId
+   * @returns {Promise<Object>} { success, data: { envio_id, telefono, mensaje_final, ... } }
    */
   async prepareManual(envioId) {
+    const id = assertEnvioId(envioId);
     try {
-      const response = await apiService.get(`/sender/envios/${envioId}/manual/prepare`);
+      const response = await apiService.get(`/sender/envios/${id}/manual/prepare`);
       return response.data;
     } catch (error) {
       console.error('Error al preparar envío manual:', error);
@@ -24,18 +37,47 @@ export const enviosService = {
   },
 
   /**
-   * TAREA 3: Confirmar envío manual
-   * Marca el envío como 'enviado' después de confirmación del operador
-   * 
-   * @param {number} envioId - ID del envío en ll_envios_whatsapp
-   * @returns {Promise<Object>} Confirmación del cambio de estado
+   * Confirmar envío manual:
+   * Marca el envío como 'enviado' después de confirmación del operador.
+   *
+   * POST /sender/envios/:envioId/manual/confirm
+   *
+   * @param {number|string} envioId
+   * @returns {Promise<Object>} { success, data, message }
    */
   async confirmManual(envioId) {
+    const id = assertEnvioId(envioId);
     try {
-      const response = await apiService.post(`/sender/envios/${envioId}/manual/confirm`);
+      const response = await apiService.post(`/sender/envios/${id}/manual/confirm`);
       return response.data;
     } catch (error) {
       console.error('Error al confirmar envío manual:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * OPS-POST-ENVIO-01: Registrar clasificación post-envío (auditable).
+   *
+   * POST /sender/envios/:envioId/post-envio-clasificar
+   *
+   * @param {number|string} envioId
+   * @param {Object} payload { post_envio_estado, accion_siguiente, detalle? }
+   * @param {Object} [options]
+   * @param {boolean} [options.historial=false] si true, solicita historial completo (?historial=true)
+   * @returns {Promise<Object>} { success, data: {...}, historial?: [...] }
+   */
+  async clasificarPostEnvio(envioId, payload, options = {}) {
+    const id = assertEnvioId(envioId);
+    try {
+      const qs = options.historial ? '?historial=true' : '';
+      const response = await apiService.post(
+        `/sender/envios/${id}/post-envio-clasificar${qs}`,
+        payload
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error al clasificar post-envío:', error);
       throw error;
     }
   }

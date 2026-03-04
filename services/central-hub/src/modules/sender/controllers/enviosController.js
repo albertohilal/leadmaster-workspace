@@ -2,6 +2,33 @@ const pool = require('../../../config/db');
 const { cambiarEstado } = require('../services/estadoService');
 const { renderizarMensaje, normalizarTelefono } = require('../services/mensajeService');
 
+// OPS-POST-ENVÍO-01 (ENUMs exactos)
+const POST_ENVIO_ESTADOS = new Set([
+  'CONTACTO_VALIDO_SIN_INTERES',
+  'INTERESADO_PARA_DERIVAR_A_HABY',
+  'PENDIENTE_SIN_RESPUESTA',
+  'NUMERO_INEXISTENTE',
+  'NUMERO_CAMBIO_DUEÑO',
+  'TERCERO_NO_RESPONSABLE',
+  'ATENDIO_MENOR_DE_EDAD',
+  'NO_ENTREGADO_ERROR_ENVIO'
+]);
+
+const POST_ENVIO_ACCIONES = new Set([
+  'DERIVAR_HABY',
+  'FOLLOWUP_1',
+  'CERRAR',
+  'INVALIDAR_TELEFONO',
+  'REINTENTO_TECNICO',
+  'NO_CONTACTAR'
+]);
+
+function parseId(raw) {
+  const n = Number.parseInt(String(raw), 10);
+  if (!Number.isInteger(n) || n <= 0) return null;
+  return n;
+}
+
 // Controlador para status de envíos
 exports.status = (req, res) => {
   res.json({ status: 'envios ok' });
@@ -17,41 +44,28 @@ exports.list = (req, res) => {
 
 /**
  * TAREA 2: Preparar envío manual de WhatsApp
- * GET /api/envios/:id/manual/prepare
- * 
- * Obtiene los datos necesarios para el envío manual:
- * - Valida que el envío exista y esté en estado 'pendiente'
- * - Renderiza el mensaje de la campaña con variables personalizadas
- * - Normaliza el teléfono a formato E.164 (solo números)
- * - Retorna los datos para que el frontend abra WhatsApp Web
- * 
- * TAREA 6: Seguridad e idempotencia
- * - Valida pertenencia al cliente (multi-tenancy)
- * - Solo permite preparar envíos en estado 'pendiente'
+ * GET /api/sender/envios/:id/manual/prepare
+ *
+ * - Valida envío y pertenencia al cliente (multi-tenancy)
+ * - Solo permite estado 'pendiente'
+ * - Normaliza teléfono
+ * - Renderiza mensaje final (variables)
  */
 exports.prepareManual = async (req, res) => {
   try {
-    const { id: envioId } = req.params;
+    const envioId = parseId(req.params?.id);
     const clienteId = req.user?.cliente_id;
 
-    // TAREA 6: Validación de autenticación estricta
     if (!clienteId) {
-      return res.status(401).json({
-        success: false,
-        message: 'Usuario no autenticado'
-      });
+      return res.status(401).json({ success: false, message: 'Usuario no autenticado' });
     }
 
-    // Validar que envioId sea un número válido
-    if (!envioId || isNaN(parseInt(envioId))) {
-      return res.status(400).json({
-        success: false,
-        message: 'ID de envío inválido'
-      });
+    if (!envioId) {
+      return res.status(400).json({ success: false, message: 'ID de envío inválido' });
     }
 
-    // Obtener envío con datos de campaña (verificando pertenencia al cliente)
-    const [envios] = await pool.execute(`
+    const [envios] = await pool.execute(
+      `
       SELECT 
         env.id,
         env.campania_id,
@@ -64,7 +78,9 @@ exports.prepareManual = async (req, res) => {
       FROM ll_envios_whatsapp env
       INNER JOIN ll_campanias_whatsapp camp ON env.campania_id = camp.id
       WHERE env.id = ? AND camp.cliente_id = ?
-    `, [envioId, clienteId]);
+      `,
+      [envioId, clienteId]
+    );
 
     if (envios.length === 0) {
       return res.status(404).json({
@@ -75,7 +91,6 @@ exports.prepareManual = async (req, res) => {
 
     const envio = envios[0];
 
-    // Validar que el estado sea 'pendiente'
     if (envio.estado !== 'pendiente') {
       return res.status(400).json({
         success: false,
@@ -84,30 +99,20 @@ exports.prepareManual = async (req, res) => {
       });
     }
 
-    // Normalizar teléfono a formato E.164 (solo números, sin +)
     const telefonoNormalizado = normalizarTelefono(envio.telefono_wapp);
-
     if (!telefonoNormalizado) {
-      return res.status(400).json({
-        success: false,
-        message: 'Teléfono inválido o vacío'
-      });
+      return res.status(400).json({ success: false, message: 'Teléfono inválido o vacío' });
     }
 
-    // Renderizar mensaje reemplazando variables (usar servicio compartido)
     const mensajePersonalizado = renderizarMensaje(envio.mensaje_final, {
       nombre_destino: envio.nombre_destino
     });
 
-    if (!mensajePersonalizado) {
-      return res.status(400).json({
-        success: false,
-        message: 'Mensaje de campaña vacío'
-      });
+    if (!mensajePersonalizado || String(mensajePersonalizado).trim() === '') {
+      return res.status(400).json({ success: false, message: 'Mensaje de campaña vacío' });
     }
 
-    // Retornar datos preparados para el frontend
-    res.json({
+    return res.json({
       success: true,
       data: {
         envio_id: envio.id,
@@ -118,63 +123,41 @@ exports.prepareManual = async (req, res) => {
         mensaje_final: mensajePersonalizado
       }
     });
-
   } catch (error) {
     console.error('Error en prepareManual:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error interno del servidor'
-    });
+    return res.status(500).json({ success: false, message: 'Error interno del servidor' });
   }
 };
 
 /**
  * TAREA 3: Confirmar envío manual de WhatsApp
- * POST /api/envios/:id/manual/confirm
- * 
- * Marca el envío como 'enviado' después de que el operador 
- * confirma explícitamente que envió el mensaje:
- * - Valida que el envío exista y pertenezca al cliente
- * - Valida que el estado sea 'pendiente'
- * - Cambia estado a 'enviado' usando cambiarEstado()
- * - Registra en historial con origen='manual' y usuario_id
- * - Cumple con política de estados y auditoría completa
- * 
- * TAREA 6: Seguridad e idempotencia
- * - Validación estricta de permisos (multi-tenancy)
- * - Idempotencia: solo permite confirmar si estado='pendiente'
- * - La máquina de estados previene doble confirmación
- * - Usa transacciones para evitar condiciones de carrera
+ * POST /api/sender/envios/:id/manual/confirm
+ *
+ * - Multi-tenant
+ * - Idempotente: si ya está 'enviado' retorna success
+ * - Usa transacción para evitar condiciones de carrera
  */
 exports.confirmManual = async (req, res) => {
   let connection = null;
-  
+
   try {
-    const { id: envioId } = req.params;
+    const envioId = parseId(req.params?.id);
     const clienteId = req.user?.cliente_id;
-    const usuarioId = req.user?.id; // ID del usuario para auditoría
+    const usuarioId = req.user?.id;
 
-    // TAREA 6: Validación de autenticación estricta
-    if (!clienteId || !usuarioId) {
-      return res.status(401).json({
-        success: false,
-        message: 'Usuario no autenticado'
-      });
+    if (!clienteId || usuarioId === undefined || usuarioId === null) {
+      return res.status(401).json({ success: false, message: 'Usuario no autenticado' });
     }
 
-    // Validar que envioId sea un número válido
-    if (!envioId || isNaN(parseInt(envioId))) {
-      return res.status(400).json({
-        success: false,
-        message: 'ID de envío inválido'
-      });
+    if (!envioId) {
+      return res.status(400).json({ success: false, message: 'ID de envío inválido' });
     }
 
-    // Obtener conexión para transacción
     connection = await pool.getConnection();
+    await connection.beginTransaction();
 
-    // Verificar que el envío existe y pertenece al cliente
-    const [envios] = await connection.execute(`
+    const [envios] = await connection.execute(
+      `
       SELECT 
         env.id,
         env.campania_id,
@@ -186,9 +169,15 @@ exports.confirmManual = async (req, res) => {
       FROM ll_envios_whatsapp env
       INNER JOIN ll_campanias_whatsapp camp ON env.campania_id = camp.id
       WHERE env.id = ? AND camp.cliente_id = ?
-    `, [envioId, clienteId]);
+      FOR UPDATE
+      `,
+      [envioId, clienteId]
+    );
 
     if (envios.length === 0) {
+      await connection.rollback();
+      connection.release();
+      connection = null;
       return res.status(404).json({
         success: false,
         message: 'Envío no encontrado o no tienes permisos para acceder'
@@ -197,22 +186,21 @@ exports.confirmManual = async (req, res) => {
 
     const envio = envios[0];
 
-    // TAREA 6: Validación de estado (idempotencia)
     if (envio.estado !== 'pendiente') {
-      // Si ya está enviado, retornar éxito (idempotente)
       if (envio.estado === 'enviado') {
+        await connection.commit();
+        connection.release();
+        connection = null;
         return res.status(200).json({
           success: true,
           message: 'El envío ya fue confirmado previamente',
-          data: {
-            envio_id: envioId,
-            estado_actual: 'enviado',
-            es_idempotente: true
-          }
+          data: { envio_id: envioId, estado_actual: 'enviado', es_idempotente: true }
         });
       }
-      
-      // Para otros estados (error), rechazar
+
+      await connection.rollback();
+      connection.release();
+      connection = null;
       return res.status(400).json({
         success: false,
         message: `No se puede confirmar el envío. Estado actual: ${envio.estado}`,
@@ -220,16 +208,13 @@ exports.confirmManual = async (req, res) => {
       });
     }
 
-    // Generar message_id interno para envío manual
     const messageId = `MANUAL-${envioId}-${Date.now()}`;
 
-    // Actualizar message_id en la base de datos (usando conexión transaccional)
     await connection.execute(
       `UPDATE ll_envios_whatsapp SET message_id = ? WHERE id = ?`,
       [messageId, envioId]
     );
 
-    // Cambiar estado usando el servicio oficial (con transacción y auditoría)
     await cambiarEstado(
       { connection },
       envioId,
@@ -239,13 +224,13 @@ exports.confirmManual = async (req, res) => {
       { usuarioId }
     );
 
-    // Liberar conexión
+    await connection.commit();
     connection.release();
     connection = null;
 
     console.log(`[ConfirmManual] Envío ${envioId} marcado como enviado por usuario ${usuarioId}`);
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Envío confirmado correctamente',
       data: {
@@ -256,16 +241,14 @@ exports.confirmManual = async (req, res) => {
         nombre_destino: envio.nombre_destino
       }
     });
-
   } catch (error) {
-    // Liberar conexión si hay error
     if (connection) {
+      try { await connection.rollback(); } catch (_) {}
       connection.release();
     }
 
     console.error('Error en confirmManual:', error);
-    
-    // Mensaje específico si es error de transición de estado
+
     if (error.message && error.message.includes('Transición no permitida')) {
       return res.status(400).json({
         success: false,
@@ -274,57 +257,33 @@ exports.confirmManual = async (req, res) => {
       });
     }
 
-    res.status(500).json({
-      success: false,
-      message: 'Error interno del servidor'
-    });
+    return res.status(500).json({ success: false, message: 'Error interno del servidor' });
   }
 };
 
 /**
- * TAREA: Reintentar envío con error (Política v1.2.0)
- * POST /api/envios/:id/reintentar
- * 
- * Permite reintentar un envío en estado 'error':
- * - Valida que el envío exista y pertenezca al cliente
- * - Valida que el estado actual sea 'error'
- * - Requiere justificación >= 10 caracteres (no genérica)
- * - Cambia estado a 'pendiente' usando cambiarEstado()
- * - Registra en historial con origen='manual', usuario_id y justificación
- * - Cumple con política: error→pendiente solo manual con auditoría
- * 
- * Seguridad:
- * - Validación estricta de permisos (multi-tenancy)
- * - Requiere usuarioId para auditoría obligatoria
- * - Usa transacciones para evitar condiciones de carrera
- * - Validación de justificación en estadoService (segunda capa)
+ * Reintentar envío con error (Política v1.2.0)
+ * POST /api/sender/envios/:id/reintentar
+ *
+ * error -> pendiente (solo manual, con auditoría)
  */
 exports.reintentar = async (req, res) => {
   let connection = null;
-  
+
   try {
-    const { id: envioId } = req.params;
-    const { justificacion } = req.body;
+    const envioId = parseId(req.params?.id);
+    const { justificacion } = req.body || {};
     const clienteId = req.user?.cliente_id;
     const usuarioId = req.user?.id;
 
-    // Validación de autenticación
-    if (!clienteId || !usuarioId) {
-      return res.status(401).json({
-        success: false,
-        message: 'Usuario no autenticado'
-      });
+    if (!clienteId || usuarioId === undefined || usuarioId === null) {
+      return res.status(401).json({ success: false, message: 'Usuario no autenticado' });
     }
 
-    // Validar que envioId sea un número válido
-    if (!envioId || isNaN(parseInt(envioId))) {
-      return res.status(400).json({
-        success: false,
-        message: 'ID de envío inválido'
-      });
+    if (!envioId) {
+      return res.status(400).json({ success: false, message: 'ID de envío inválido' });
     }
 
-    // Validar justificación (primera capa - controlador)
     if (!justificacion || typeof justificacion !== 'string' || justificacion.trim().length < 10) {
       return res.status(400).json({
         success: false,
@@ -332,11 +291,11 @@ exports.reintentar = async (req, res) => {
       });
     }
 
-    // Obtener conexión para transacción
     connection = await pool.getConnection();
+    await connection.beginTransaction();
 
-    // Verificar que el envío existe y pertenece al cliente
-    const [envios] = await connection.execute(`
+    const [envios] = await connection.execute(
+      `
       SELECT 
         env.id,
         env.campania_id,
@@ -349,9 +308,15 @@ exports.reintentar = async (req, res) => {
       FROM ll_envios_whatsapp env
       INNER JOIN ll_campanias_whatsapp camp ON env.campania_id = camp.id
       WHERE env.id = ? AND camp.cliente_id = ?
-    `, [envioId, clienteId]);
+      FOR UPDATE
+      `,
+      [envioId, clienteId]
+    );
 
     if (envios.length === 0) {
+      await connection.rollback();
+      connection.release();
+      connection = null;
       return res.status(404).json({
         success: false,
         message: 'Envío no encontrado o no tienes permisos para acceder'
@@ -360,8 +325,10 @@ exports.reintentar = async (req, res) => {
 
     const envio = envios[0];
 
-    // Validar que el estado sea 'error'
     if (envio.estado !== 'error') {
+      await connection.rollback();
+      connection.release();
+      connection = null;
       return res.status(400).json({
         success: false,
         message: `Solo se pueden reintentar envíos en estado 'error'. Estado actual: ${envio.estado}`,
@@ -369,8 +336,6 @@ exports.reintentar = async (req, res) => {
       });
     }
 
-    // Cambiar estado usando el servicio oficial
-    // (estadoService validará origen='manual', usuarioId y justificación - segunda capa)
     await cambiarEstado(
       { connection },
       envioId,
@@ -380,7 +345,7 @@ exports.reintentar = async (req, res) => {
       { usuarioId }
     );
 
-    // Liberar conexión
+    await connection.commit();
     connection.release();
     connection = null;
 
@@ -389,7 +354,7 @@ exports.reintentar = async (req, res) => {
       `Justificación: "${justificacion.trim()}"`
     );
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Envío marcado para reintento',
       data: {
@@ -402,16 +367,14 @@ exports.reintentar = async (req, res) => {
         justificacion: justificacion.trim()
       }
     });
-
   } catch (error) {
-    // Liberar conexión si hay error
     if (connection) {
+      try { await connection.rollback(); } catch (_) {}
       connection.release();
     }
 
     console.error('Error en reintentar:', error);
-    
-    // Mensajes específicos según tipo de error
+
     if (error.message && error.message.includes('Transición no permitida')) {
       return res.status(400).json({
         success: false,
@@ -425,16 +388,128 @@ exports.reintentar = async (req, res) => {
       error.message.includes('justificación') ||
       error.message.includes('genérica')
     )) {
-      return res.status(400).json({
-        success: false,
-        message: error.message
-      });
+      return res.status(400).json({ success: false, message: error.message });
     }
 
-    res.status(500).json({
-      success: false,
-      message: 'Error interno del servidor'
-    });
+    return res.status(500).json({ success: false, message: 'Error interno del servidor' });
   }
 };
 
+/**
+ * OPS-POST-ENVÍO-01: Clasificar post-envío (depuradora)
+ * POST /api/sender/envios/:id/post-envio-clasificar
+ *
+ * Body: { post_envio_estado, accion_siguiente, detalle? }
+ *
+ * Reglas:
+ * - Multi-tenant: el envío debe pertenecer al cliente autenticado
+ * - Historial: inserta un registro (no sobreescribe)
+ * - Sensible: ATENDIO_MENOR_DE_EDAD => accion_siguiente debe ser NO_CONTACTAR
+ *
+ * Query:
+ * - historial=true => retorna historial completo (desc)
+ */
+exports.clasificarPostEnvio = async (req, res) => {
+  try {
+    const envioId = parseId(req.params?.id);
+    const clienteId = req.user?.cliente_id;
+    const usuarioId = req.user?.id;
+    const tipoUsuario = req.user?.tipo;
+
+    if (!clienteId || usuarioId === undefined || usuarioId === null) {
+      return res.status(401).json({ success: false, message: 'Usuario no autenticado' });
+    }
+
+    if (!envioId) {
+      return res.status(400).json({ success: false, message: 'ID de envío inválido' });
+    }
+
+    const { post_envio_estado, accion_siguiente, detalle } = req.body || {};
+
+    if (!post_envio_estado || typeof post_envio_estado !== 'string' || !POST_ENVIO_ESTADOS.has(post_envio_estado)) {
+      return res.status(400).json({ success: false, message: 'post_envio_estado inválido' });
+    }
+
+    if (!accion_siguiente || typeof accion_siguiente !== 'string' || !POST_ENVIO_ACCIONES.has(accion_siguiente)) {
+      return res.status(400).json({ success: false, message: 'accion_siguiente inválida' });
+    }
+
+    if (post_envio_estado === 'ATENDIO_MENOR_DE_EDAD' && accion_siguiente !== 'NO_CONTACTAR') {
+      return res.status(400).json({
+        success: false,
+        message: 'Para ATENDIO_MENOR_DE_EDAD la accion_siguiente debe ser NO_CONTACTAR'
+      });
+    }
+
+    let detalleFinal = null;
+    if (typeof detalle === 'string' && detalle.trim().length > 0) {
+      detalleFinal = detalle.trim().slice(0, 255);
+    }
+
+    // Validar pertenencia del envío al cliente (multi-tenant)
+    const [envios] = await pool.execute(
+      `
+      SELECT env.id
+      FROM ll_envios_whatsapp env
+      INNER JOIN ll_campanias_whatsapp camp ON env.campania_id = camp.id
+      WHERE env.id = ? AND camp.cliente_id = ?
+      `,
+      [envioId, clienteId]
+    );
+
+    if (envios.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Envío no encontrado o no tienes permisos para acceder'
+      });
+    }
+
+    const clasificadoPor =
+      tipoUsuario && String(tipoUsuario).trim() !== ''
+        ? `${String(tipoUsuario).trim()}:${usuarioId}`
+        : String(usuarioId);
+
+    const [insertResult] = await pool.execute(
+      `
+      INSERT INTO ll_post_envio_clasificaciones
+        (envio_id, cliente_id, post_envio_estado, accion_siguiente, detalle, clasificado_por)
+      VALUES
+        (?, ?, ?, ?, ?, ?)
+      `,
+      [envioId, clienteId, post_envio_estado, accion_siguiente, detalleFinal, clasificadoPor]
+    );
+
+    const insertId = insertResult?.insertId;
+
+    const [rows] = await pool.execute(
+      `
+      SELECT id, envio_id, cliente_id, post_envio_estado, accion_siguiente, detalle, clasificado_por, created_at
+      FROM ll_post_envio_clasificaciones
+      WHERE id = ?
+      `,
+      [insertId]
+    );
+
+    const data = rows?.[0] || null;
+
+    const wantsHistorial = String(req.query?.historial || '').toLowerCase() === 'true';
+    if (wantsHistorial) {
+      const [historial] = await pool.execute(
+        `
+        SELECT id, envio_id, cliente_id, post_envio_estado, accion_siguiente, detalle, clasificado_por, created_at
+        FROM ll_post_envio_clasificaciones
+        WHERE envio_id = ? AND cliente_id = ?
+        ORDER BY created_at DESC, id DESC
+        `,
+        [envioId, clienteId]
+      );
+
+      return res.status(201).json({ success: true, data, historial });
+    }
+
+    return res.status(201).json({ success: true, data });
+  } catch (error) {
+    console.error('Error en clasificarPostEnvio:', error);
+    return res.status(500).json({ success: false, message: 'Error interno del servidor' });
+  }
+};

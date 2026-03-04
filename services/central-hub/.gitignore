@@ -94,3 +94,7 @@ AUXILIAR/
 **/secrets/
 **/*.key
 **/*.pem
+
+# Allow SQL migrations in this service
+!migrations/
+!migrations/*.sql
