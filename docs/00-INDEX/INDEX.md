@@ -2,8 +2,8 @@
 
 **LeadMaster Workspace — Central Documentation Hub**
 
-**Last Updated:** 2026-02-21  
-**Version:** 2.1  
+**Last Updated:** 2026-03-04  
+**Version:** 2.2  
 **Official Rules:** [DOCUMENTATION_RULES.md](DOCUMENTATION_RULES.md)
 
 ---
@@ -64,7 +64,10 @@ _Diagnostic reports, implementation reports, and technical analyses_
 
 **Structure:** `05-REPORTES/YYYY-MM/REPORT_NAME_YYYY-MM-DD.md`
 
+**Exceptions:** `05-REPORTES/UX/` — UX workstream reports (non-dated, iterative)
+
 - [2026-02/](../05-REPORTES/2026-02/) — February 2026 reports
+- [UX/UX-01-PROSPECTOS-CERO-SCROLL-HORIZONTAL-STICKY-FILTROS.md](../05-REPORTES/UX/UX-01-PROSPECTOS-CERO-SCROLL-HORIZONTAL-STICKY-FILTROS.md) — UX-01 — Prospectos: Cero Scroll Horizontal + Sticky Filters + Layout Operador
 
 ---
 
