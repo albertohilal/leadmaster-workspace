@@ -28,7 +28,7 @@ app.get('/health', (req, res) => {
   res.json({
     status: 'healthy',
     service: 'central-hub',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
@@ -38,9 +38,9 @@ app.get('/health', (req, res) => {
 
 /**
  * ARQUITECTURA DE RUTAS:
- * 
+ *
  * Frontend → /api/* → Nginx → Express /api/*
- * 
+ *
  * Nginx pasa /api/* tal cual a Express (NO elimina el prefijo)
  */
 
@@ -95,14 +95,14 @@ const qrCodeProxy = require('./routes/qrCodeProxy');
 app.use('/qr-code', qrCodeProxy);
 
 /* =========================
-   404 Handler para API
+   404 Handler SOLO para API
 ========================= */
 
-app.use('/api/*', (req, res) => {
+app.use('/api', (req, res) => {
   res.status(404).json({
     error: 'Not Found',
     message: `Endpoint ${req.originalUrl} no existe`,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
@@ -110,7 +110,31 @@ app.use('/api/*', (req, res) => {
    Frontend (SIEMPRE AL FINAL)
 ========================= */
 
-app.use(express.static(path.join(__dirname, '../frontend/dist')));
+const frontendDistPath = path.join(__dirname, '../frontend/dist');
+
+// estáticos (assets) desde dist
+app.use(express.static(frontendDistPath, {
+  index: false, // importante: no fuerces index por static; lo maneja el fallback
+}));
+
+// SPA fallback (NAVEGACIÓN): cualquier GET/HEAD que NO sea /api devuelve index.html
+// Condición extra: solo responder HTML (evita romper requests tipo fetch/json)
+app.use((req, res, next) => {
+  if (req.path === '/api' || req.path.startsWith('/api/')) return next();
+  if (req.path.startsWith('/assets/')) return next();
+
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+
+  const acceptHeader = req.get('Accept') || '';
+  const acceptsHtml =
+    acceptHeader.includes('text/html') ||
+    acceptHeader.includes('application/xhtml+xml') ||
+    acceptHeader.includes('*/*');
+
+  if (!acceptsHtml) return next();
+
+  return res.sendFile(path.join(frontendDistPath, 'index.html'));
+});
 
 /* =========================
    Server
