@@ -2,8 +2,8 @@
 
 **LeadMaster Workspace — Central Documentation Hub**
 
-**Last Updated:** 2026-03-04  
-**Version:** 2.2  
+**Last Updated:** 2026-03-06  
+**Version:** 2.3  
 **Official Rules:** [DOCUMENTATION_RULES.md](DOCUMENTATION_RULES.md)
 
 ---
@@ -78,8 +78,10 @@ _Diagnostic reports, implementation reports, and technical analyses_
 _Phase documentation, milestones, and roadmaps_
 
 - [PHASE-2-COMPLETED.md](../06-FASES/PHASE-2-COMPLETED.md)
-- [PHASE-3-PLAN.md](../06-FASES/PHASE-3-PLAN.md)
-- [PHASE-4-COMMERCIAL-INTELLIGENCE.md](../06-FASES/PHASE-4-COMMERCIAL-INTELLIGENCE.md)
+- [PHASE-3-PROSPECT-QUALITY.md](../06-FASES/PHASE-3-PROSPECT-QUALITY.md)
+- [PHASE-4-WHATSAPP-SESSION-LIFECYCLE-AUTOMATION.md](../06-FASES/PHASE-4-WHATSAPP-SESSION-LIFECYCLE-AUTOMATION.md)
+- [PHASE-5-COMMERCIAL-INTELLIGENCE.md](../06-FASES/PHASE-5-COMMERCIAL-INTELLIGENCE.md)
+- [AI-LISTENER-EVOLUTION-PLAN.md](../06-FASES/AI-LISTENER-EVOLUTION-PLAN.md) — Experimental (non-numbered)
 
 ---
 
