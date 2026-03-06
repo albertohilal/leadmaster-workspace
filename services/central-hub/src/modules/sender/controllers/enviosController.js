@@ -262,6 +262,132 @@ exports.confirmManual = async (req, res) => {
 };
 
 /**
+ * TAREA 3b: Marcar error en envío manual de WhatsApp
+ * POST /api/sender/envios/:id/manual/error
+ *
+ * - Multi-tenant
+ * - Idempotente: si ya está 'error' retorna success
+ * - Solo permite transición desde 'pendiente'
+ * - NO crea registros en ll_post_envio_clasificaciones
+ */
+exports.markManualError = async (req, res) => {
+  let connection = null;
+
+  try {
+    const envioId = parseId(req.params?.id);
+    const clienteId = req.user?.cliente_id;
+    const usuarioId = req.user?.id;
+
+    if (!clienteId || usuarioId === undefined || usuarioId === null) {
+      return res.status(401).json({ success: false, message: 'Usuario no autenticado' });
+    }
+
+    if (!envioId) {
+      return res.status(400).json({ success: false, message: 'ID de envío inválido' });
+    }
+
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    const [envios] = await connection.execute(
+      `
+      SELECT 
+        env.id,
+        env.campania_id,
+        env.estado,
+        camp.cliente_id,
+        camp.nombre as campania_nombre,
+        env.telefono_wapp,
+        env.nombre_destino
+      FROM ll_envios_whatsapp env
+      INNER JOIN ll_campanias_whatsapp camp ON env.campania_id = camp.id
+      WHERE env.id = ? AND camp.cliente_id = ?
+      FOR UPDATE
+      `,
+      [envioId, clienteId]
+    );
+
+    if (envios.length === 0) {
+      await connection.rollback();
+      connection.release();
+      connection = null;
+      return res.status(404).json({
+        success: false,
+        message: 'Envío no encontrado o no tienes permisos para acceder'
+      });
+    }
+
+    const envio = envios[0];
+
+    if (envio.estado !== 'pendiente') {
+      if (envio.estado === 'error') {
+        await connection.commit();
+        connection.release();
+        connection = null;
+        return res.status(200).json({
+          success: true,
+          message: 'El envío ya estaba marcado como error',
+          data: { envio_id: envioId, estado_actual: 'error', es_idempotente: true }
+        });
+      }
+
+      await connection.rollback();
+      connection.release();
+      connection = null;
+      return res.status(400).json({
+        success: false,
+        message: `No se puede marcar error. Estado actual: ${envio.estado}`,
+        estado_actual: envio.estado
+      });
+    }
+
+    await cambiarEstado(
+      { connection },
+      envioId,
+      'error',
+      'manual',
+      `Envío manual marcado como error por operador (campaña: ${envio.campania_nombre})`,
+      { usuarioId }
+    );
+
+    await connection.commit();
+    connection.release();
+    connection = null;
+
+    console.log(`[MarkManualError] Envío ${envioId} marcado como error por usuario ${usuarioId}`);
+
+    return res.json({
+      success: true,
+      message: 'Envío marcado como error',
+      data: {
+        envio_id: envioId,
+        estado_nuevo: 'error',
+        campania_id: envio.campania_id,
+        telefono: envio.telefono_wapp,
+        nombre_destino: envio.nombre_destino
+      }
+    });
+  } catch (error) {
+    if (connection) {
+      try { await connection.rollback(); } catch (_) {}
+      connection.release();
+    }
+
+    console.error('Error en markManualError:', error);
+
+    if (error.message && error.message.includes('Transición no permitida')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Transición de estado no permitida',
+        error: error.message
+      });
+    }
+
+    return res.status(500).json({ success: false, message: 'Error interno del servidor' });
+  }
+};
+
+/**
  * Reintentar envío con error (Política v1.2.0)
  * POST /api/sender/envios/:id/reintentar
  *

@@ -6,13 +6,23 @@ function parseIntId(raw) {
   return n;
 }
 
+function normalizeCarteraOrigen(raw) {
+  if (raw === undefined || raw === null) return null;
+  const s = String(raw).trim();
+  if (!s) return null;
+
+  const upper = s.toUpperCase();
+  if (upper === 'ALL' || upper === 'TODOS' || upper === 'TODO') return null;
+  return upper;
+}
+
 const prospectosController = {
   /**
    * Filtrar prospectos de una campaña
    *
    * MODELO DE NEGOCIO:
    * - Los prospectos base pertenecen al cliente (ll_lugares_clientes -> llxbx_societe)
-   * - Se agrupa por phone_mobile para garantizar 1 fila = 1 número único
+   * - Dedupe por phone_mobile: 1 teléfono = 1 fila, usando fila canónica MAX(rowid) por phone_mobile (sin mezclar campos)
    * - El estado por campaña se obtiene desde ll_envios_whatsapp (LEFT JOIN por telefono_wapp)
    * - Una campaña define el cliente_id
    * - Regla: 1 campaña + 1 teléfono = 1 envío máximo
@@ -40,45 +50,92 @@ const prospectosController = {
         });
       }
 
+      const carteraOrigen = normalizeCarteraOrigen(req.query?.cartera_origen);
+      const allowedCarteraOrigen = new Set([
+        'CARTERA_PROPIA',
+        'CAPTADO_LEADMASTER',
+        'IMPORT_MANUAL',
+        'REFERIDO'
+      ]);
+
+      if (carteraOrigen && !allowedCarteraOrigen.has(carteraOrigen)) {
+        return res.status(400).json({
+          success: false,
+          error: `cartera_origen inválido. Valores permitidos: ${Array.from(allowedCarteraOrigen).join(', ')}`
+        });
+      }
+
       // Multi-tenant: la campaña debe pertenecer al cliente autenticado
       // (si no, se filtra por cliente y devuelve 0 filas => 404 semántico no aplica; 200 con data=[] está bien)
-      const sql = `
+      let sql = `
         SELECT
-          MIN(s.rowid) AS prospecto_id,
-          MAX(s.nom) AS nombre,
+          s.rowid AS prospecto_id,
+          s.nom AS nombre,
           s.phone_mobile AS telefono_wapp,
-          COUNT(*) AS total_sucursales,
-          MAX(s.address) AS direccion,
-          MAX(s.client) AS societe_client,
-          MAX(s.fournisseur) AS societe_fournisseur,
+          suc.total_sucursales AS total_sucursales,
+          s.address AS direccion,
+          s.client AS societe_client,
+          s.fournisseur AS societe_fournisseur,
           CASE
-            WHEN MAX(s.fournisseur) = 1 THEN 'Proveedor'
-            WHEN MAX(s.client) = 1 THEN 'Cliente'
-            WHEN MAX(s.client) = 2 THEN 'Prospecto'
-            WHEN MAX(s.client) = 3 THEN 'Proveedor'
+            WHEN s.fournisseur = 1 THEN 'Proveedor'
+            WHEN s.client = 1 THEN 'Cliente'
+            WHEN s.client = 2 THEN 'Prospecto'
+            WHEN s.client = 3 THEN 'Proveedor'
             ELSE 'Otro'
           END AS tipo_societe,
-          MAX(env.estado) AS estado_campania,
-          MAX(env.id) AS envio_id,
-          MAX(env.fecha_envio) AS fecha_envio
+          env.estado AS estado_campania,
+          env.id AS envio_id,
+          env.fecha_envio AS fecha_envio
         FROM ll_campanias_whatsapp c
-        JOIN ll_lugares_clientes lc
-          ON lc.cliente_id = c.cliente_id
+        JOIN (
+          SELECT
+            s0.phone_mobile,
+            MAX(s0.rowid) AS rowid_canon
+          FROM ll_lugares_clientes lc0
+          JOIN llxbx_societe s0
+            ON s0.rowid = lc0.societe_id
+          WHERE lc0.cliente_id = ?
+            AND s0.entity = 1
+            AND s0.phone_mobile IS NOT NULL
+            AND s0.phone_mobile <> ''
+          GROUP BY s0.phone_mobile
+        ) canon
         JOIN llxbx_societe s
-          ON s.rowid = lc.societe_id
+          ON s.rowid = canon.rowid_canon
+        JOIN (
+          SELECT
+            s2.phone_mobile,
+            COUNT(*) AS total_sucursales
+          FROM ll_lugares_clientes lc2
+          JOIN llxbx_societe s2
+            ON s2.rowid = lc2.societe_id
+          WHERE lc2.cliente_id = ?
+            AND s2.entity = 1
+            AND s2.phone_mobile IS NOT NULL
+            AND s2.phone_mobile <> ''
+          GROUP BY s2.phone_mobile
+        ) suc
+          ON suc.phone_mobile = canon.phone_mobile
+        LEFT JOIN ll_societe_extended se
+          ON se.societe_id = s.rowid
         LEFT JOIN ll_envios_whatsapp env
           ON env.campania_id = c.id
          AND env.telefono_wapp = s.phone_mobile
         WHERE c.id = ?
           AND c.cliente_id = ?
-          AND s.entity = 1
-          AND s.phone_mobile IS NOT NULL
-          AND s.phone_mobile <> ''
-        GROUP BY s.phone_mobile
+      `;
+
+      const params = [clienteId, clienteId, campaniaId, clienteId];
+      if (carteraOrigen) {
+        sql += ` AND se.cartera_origen = ?`;
+        params.push(carteraOrigen);
+      }
+
+      sql += `
         ORDER BY nombre ASC
       `;
 
-      const [rows] = await db.execute(sql, [campaniaId, clienteId]);
+      const [rows] = await db.execute(sql, params);
 
       console.log(`✅ [prospectos] campania_id=${campaniaId} cliente_id=${clienteId} => ${rows.length} filas`);
 

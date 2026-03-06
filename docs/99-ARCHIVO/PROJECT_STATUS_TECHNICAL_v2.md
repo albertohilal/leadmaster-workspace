@@ -5,6 +5,12 @@
 **Environment:** Production (Contabo VPS)  
 **Domain:** https://desarrolloydisenioweb.com.ar
 
+> Archived historical document.
+> Preserved as a snapshot of the project narrative as of 2026-02-21.
+> Superseded by current constitutional/project-status documentation under `docs/01-CONSTITUCIONAL/`.
+>
+> Note on links: visible link labels keep the historical filenames; link targets may point to renamed/moved files for navigability.
+
 ---
 
 ## Current Status Summary
@@ -17,7 +23,7 @@
 ### ✅ Phase 2: Infraestructura + Auth + SPA + Proxy
 **Status:** COMPLETED & VALIDATED IN PRODUCTION  
 **Completion:** January 2, 2026  
-**Documentation:** [`docs/PHASE-2-COMPLETED.md`](PHASE-2-COMPLETED.md)
+**Documentation:** [`docs/PHASE-2-COMPLETED.md`](../06-FASES/PHASE-2-COMPLETED.md)
 
 **Achievements:**
 - ✅ Nginx + Cloudflare Origin Certificate SSL/TLS
@@ -38,7 +44,7 @@
 **Status:** PLANNED (Documentation Ready)  
 **Planned Start:** Immediate  
 **Estimated Duration:** 3-4 days  
-**Documentation:** [`docs/PHASE-4-COMMERCIAL-INTELLIGENCE.md`](PHASE-4-COMMERCIAL-INTELLIGENCE.md) (extracted scoring components)
+**Documentation:** [`docs/PHASE-4-COMMERCIAL-INTELLIGENCE.md`](../06-FASES/PHASE-5-COMMERCIAL-INTELLIGENCE-LEGACY-DRAFT.md) (extracted scoring components)
 
 **Business Context:**  
 LeadMaster is a **prospect generation service**, not (yet) a SaaS automation platform. This phase focuses on improving **service quality and deliverability**—the core value proposition for clients.
@@ -73,7 +79,7 @@ Prospect quality directly affects service results and client satisfaction. Autom
 ### 📋 Phase 4: WhatsApp Session Lifecycle Automation
 **Status:** PLANNED (Not Started)  
 **Planned Start:** After Phase 3  
-**Documentation:** [`docs/PHASE-3-PLAN.md`](PHASE-3-PLAN.md)
+**Documentation:** [`docs/PHASE-3-PLAN.md`](../06-FASES/PHASE-4-WHATSAPP-SESSION-LIFECYCLE-AUTOMATION.md)
 
 **Business Context:**  
 Session management improves operational efficiency but is NOT the current business bottleneck. Manual QR reconnection is acceptable while validating service model.
@@ -97,7 +103,7 @@ Session management improves operational efficiency but is NOT the current busine
 ### 📊 Phase 5: Advanced Commercial Intelligence (Future)
 **Status:** DEFERRED (Post-Validation)  
 **Planned Start:** After service model validated with 5-10 clients  
-**Documentation:** [`docs/PHASE-4-COMMERCIAL-INTELLIGENCE.md`](PHASE-4-COMMERCIAL-INTELLIGENCE.md) (full specification)
+**Documentation:** [`docs/PHASE-4-COMMERCIAL-INTELLIGENCE.md`](../06-FASES/PHASE-5-COMMERCIAL-INTELLIGENCE-LEGACY-DRAFT.md) (full specification)
 
 **Scope:** Advanced scoring, predictive modeling, data-driven optimization.
 
@@ -175,6 +181,8 @@ M services/central-hub/src/integrations/sessionManager/sessionManagerClient.js
 - ✅ `docs/SSL-Cloudflare-Setup.md` - SSL setup guide
 - ✅ `docs/Checklist-Post-SSL.md` - SSL validation checklist
 - ✅ `README.md` - Updated with infrastructure info
+
+**Archived reference note:** Some phase documents were later moved/renamed under `docs/06-FASES/`. The labels above reflect the historical filenames used when this document was written.
 
 **Note:** Phase 3 extracts scoring components from PHASE-4 doc, Phase 5 defers advanced features.
 

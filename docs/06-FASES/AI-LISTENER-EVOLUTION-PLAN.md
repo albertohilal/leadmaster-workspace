@@ -1,210 +1,69 @@
-Perfecto.
-Vamos a hacer foco real.
+# Experimental Track — AI Listener Evolution Plan (Non-Numbered)
 
-Te propongo una **versión simplificada, estratégica y alineada con tu momento actual**.
-Sin expansión innecesaria.
-Sin sobre-ingeniería.
-Solo lo que corresponde ahora.
+## Status: 🧪 ACTIVE (Experimental)
 
-Podés reemplazar el documento actual por esto.
+**Location:** `docs/06-FASES/AI-LISTENER-EVOLUTION-PLAN.md`  
+**Date:** 2026-02-24  
+**Phase numbering policy:** This document is intentionally **non-numbered**. It does not redefine Phase 1–5.
 
 ---
 
-# AI-LISTENER-EVOLUTION-PLAN.md
+## Objective
 
-**Ubicación:** `docs/06-FASES/AI-LISTENER-EVOLUTION-PLAN.md`
-**Estado:** Activo – Fase Experimental
-**Fecha:** 2026-02-24
+Explore a minimal, controlled approach to classify inbound WhatsApp responses (e.g., “wrong person / recycled number”) without contaminating deterministic workflow.
 
 ---
 
-# 1. Contexto Actual
+## Scope
 
-LeadMaster opera hoy con:
+In scope:
+- A closed-category classification taxonomy for inbound text
+- Manual-first operational validation (low volume, high review)
+- Clear guardrails: classification only, no autonomous actions
 
-* Máquina de estados determinística estable (`pendiente`, `enviado`, `error`)
-* Envíos limitados manualmente
-* Listener básico sin clasificación automática
-* Corrección de datos realizada manualmente
-
-Se detectó un caso de **reciclado de número telefónico**:
-
-* Número válido técnicamente
-* Pero perteneciente a otra persona
-* Corrección realizada manualmente tras investigación
-
-Este evento revela una necesidad futura, pero **no justifica expandar la arquitectura ahora**.
+Out of scope:
+- Any generative system that executes actions
+- Any system that modifies core state machines based on probabilistic output
+- Introducing new global phase numbering (no “Phase 6”)
 
 ---
 
-# 2. Problema Detectado
+## Deliverables
 
-El sistema no puede detectar automáticamente:
+1) **Classification taxonomy (v1)**
+- Closed labels that are operationally actionable (without automation).
 
-* "No soy esa persona"
-* "Se equivocaron de número"
-* Reclamos por identidad incorrecta
+2) **Operational validation protocol**
+- How classifications are reviewed, corrected, and measured.
 
-Actualmente:
-
-* La detección es manual
-* No hay clasificación estructurada
-* No hay registro formal de incidente
+3) **Risk controls**
+- Explicit rules preventing the classifier from mutating deterministic states.
 
 ---
 
-# 3. Riesgo Principal
+## Proposed Taxonomy (v1)
 
-La incorporación de IA puede generar:
+Input: inbound message text  
+Output: one label from the following closed set:
 
-* Complejidad arquitectónica infinita
-* Contaminación de la máquina de estados
-* Acoplamiento indebido entre listener y lógica comercial
-* Automatización prematura
-
-**Regla estratégica:**
-
-> La IA no debe gobernar el sistema. Solo clasificar.
-
----
-
-# 4. Principio Arquitectónico Firme
-
-Separación estricta:
-
-### Capa determinística (actual)
-
-* Sender
-* Listener
-* Estados
-* Base de datos
-* Transacciones
-
-### Capa generativa (futura)
-
-* Servicio aislado
-* Solo clasifica texto
-* Devuelve categoría cerrada
-* No ejecuta acciones
-* No modifica BD
+- `INTERES`
+- `NO_INTERES`
+- `RECICLADO`
+- `CONSULTA_GENERAL`
+- `AGRESIVO`
+- `INDETERMINADO`
 
 ---
 
-# 5. Fase Actual (Activa)
+## Dependencies
 
-Duración: próximos días
-
-### Operativa
-
-* Máximo 5 envíos por día
-* Observación manual de respuestas
-* Correcciones manuales en `llxbx_societe`
-* Registrar informalmente incidentes
-
-### Objetivo
-
-Validar comportamiento real del canal antes de automatizar.
-
-No se implementa:
-
-* Clasificación automática
-* Acciones automáticas
-* Nuevas tablas
-* Sistema de aprobación
+- ✅ Phase 2 — Infrastructure + Auth + SPA + Proxy (Closed)
+- 🚧 Phase 3 — Prospect Quality (Active): classification must not bypass quality gates
+- 📋 Phase 4 — WhatsApp Session Lifecycle Automation (Planned): improves visibility/operations but is not a prerequisite for classification experiments
 
 ---
 
-# 6. Fase Futuro Cercano (Cuando el canal esté estable)
+## Governance Notes
 
-Implementar módulo aislado:
-
-```
-/services/ai-listener-classifier
-```
-
-Contrato simple:
-
-Input:
-
-```
-mensaje
-```
-
-Output:
-
-```
-INTERES
-NO_INTERES
-RECICLADO
-CONSULTA_GENERAL
-AGRESIVO
-INDETERMINADO
-```
-
-Nada más.
-
-La acción posterior seguirá siendo determinística.
-
----
-
-# 7. Condición para Escalar Envíos
-
-No se aumenta volumen si no se cumplen:
-
-* Canal estable
-* Respuestas clasificables con claridad
-* Tasa baja de incidentes críticos
-* Confianza operativa
-
-Escalado máximo permitido sin IA:
-→ 5 envíos/día
-
-Escalado posterior será progresivo y validado.
-
----
-
-# 8. Límite de Complejidad Permitido
-
-Este proyecto NO es:
-
-* Un CRM conversacional completo
-* Un bot autónomo
-* Un sistema de negociación automática
-
-Es:
-
-> Un motor de generación y validación de prospectos B2B.
-
-La IA debe mantenerse como herramienta auxiliar.
-
----
-
-# 9. Decisión Estratégica
-
-Ahora:
-
-* Foco en estabilidad.
-* Foco en control.
-* Foco en aprendizaje manual.
-
-Luego:
-
-* Clasificador mínimo.
-* Automatización limitada.
-* Escalado gradual.
-
----
-
-Documento deliberadamente acotado.
-Cualquier expansión requiere revisión arquitectónica.
-
----
-
-Esto está alineado con tu momento real.
-
-Si querés, ahora podemos:
-
-* Ajustar tono más técnico
-* O dejarlo así y cerrar fase por hoy
-
-Decime.
+- Architectural principle: deterministic workflow remains the source of truth; AI output is advisory/classification-only.
+- Service-level implementation details must live under `services/<service>/docs/`.
