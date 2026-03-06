@@ -57,6 +57,26 @@ const enviosService = {
   },
 
   /**
+   * Marcar envío manual con error:
+   * Marca el envío como 'error' cuando el operador detecta un inconveniente.
+   *
+   * POST /sender/envios/:envioId/manual/error
+   *
+   * @param {number|string} envioId
+   * @returns {Promise<Object>} { success, data, message }
+   */
+  async markManualError(envioId) {
+    const id = assertEnvioId(envioId);
+    try {
+      const response = await apiService.post(`/sender/envios/${id}/manual/error`);
+      return response.data;
+    } catch (error) {
+      console.error('Error al marcar envío manual con error:', error);
+      throw error;
+    }
+  },
+
+  /**
    * OPS-POST-ENVIO-01: Registrar clasificación post-envío (auditable).
    *
    * POST /sender/envios/:envioId/post-envio-clasificar

@@ -266,6 +266,36 @@ const GestionDestinatariosPage = () => {
     }
   };
 
+  /**
+   * FASE 3b: Marcar estado 'error' en el backend
+   * (no registra detalle aquí; se usa "Clasificar post-envío" para eso)
+   */
+  const marcarEstadoError = async () => {
+    const envioId = datosEnvioPreparado?.envio_id || prospectoSeleccionado?.envio_id;
+    if (!envioId) return;
+
+    setLoadingEnvio(true);
+    try {
+      const response = await enviosService.markManualError(envioId);
+
+      if (response?.success) {
+        alert('⚠️ Envío marcado como error');
+        setMostrarModalWhatsApp(false);
+        setDatosEnvioPreparado(null);
+        setProspectoSeleccionado(null);
+        setWhatsappAbierto(false);
+        cargarProspectos();
+      } else {
+        alert('No se pudo marcar el envío como error');
+      }
+    } catch (error) {
+      console.error('Error al marcar error:', error);
+      alert('Error al marcar error: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setLoadingEnvio(false);
+    }
+  };
+
   const cancelarEnvio = () => {
     setMostrarModalWhatsApp(false);
     setProspectoSeleccionado(null);
@@ -346,6 +376,7 @@ const GestionDestinatariosPage = () => {
       if (resp?.success) {
         alert('✅ Clasificación guardada');
         cerrarModalClasificar();
+        cargarProspectos();
       } else {
         alert('No se pudo guardar la clasificación');
       }
@@ -639,13 +670,13 @@ const GestionDestinatariosPage = () => {
               {!whatsappAbierto ? (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                   <p className="text-xs text-blue-800">
-                    ℹ️ Presiona "Abrir WhatsApp" para abrir una ventana con el mensaje. Luego confirma el envío cuando hayas enviado el mensaje.
+                    ℹ️ Presiona "Abrir WhatsApp" para abrir una ventana con el mensaje. Luego confirma el envío cuando hayas enviado el mensaje (o marca error si hubo un inconveniente).
                   </p>
                 </div>
               ) : (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                   <p className="text-xs text-green-800">
-                    ✅ WhatsApp abierto. Envía el mensaje y luego presiona "Confirmar Envío" para actualizar el estado.
+                    ✅ WhatsApp abierto. Envía el mensaje y luego presiona "Confirmar Envío" para actualizar el estado (o "Marcar Error" si no se pudo enviar).
                   </p>
                 </div>
               )}
@@ -657,6 +688,14 @@ const GestionDestinatariosPage = () => {
                 className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Cancelar
+              </button>
+
+              <button
+                onClick={marcarEstadoError}
+                disabled={loadingEnvio || !datosEnvioPreparado}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-300"
+              >
+                {loadingEnvio ? 'Marcando...' : 'Marcar Error'}
               </button>
 
               {!whatsappAbierto ? (

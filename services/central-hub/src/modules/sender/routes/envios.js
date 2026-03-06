@@ -14,6 +14,9 @@ router.get('/:id/manual/prepare', enviosController.prepareManual);
 // TAREA 3: Confirmar envío manual (operador confirma envío realizado)
 router.post('/:id/manual/confirm', enviosController.confirmManual);
 
+// TAREA 3b: Marcar error en envío manual (operador marca envío con error)
+router.post('/:id/manual/error', enviosController.markManualError);
+
 // OPS-POST-ENVÍO-01: Clasificación post-envío (auditable)
 router.post('/:id/post-envio-clasificar', enviosController.clasificarPostEnvio);
 
