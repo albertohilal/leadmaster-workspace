@@ -6,6 +6,16 @@ function parseIntId(raw) {
   return n;
 }
 
+function normalizeCarteraOrigen(raw) {
+  if (raw === undefined || raw === null) return null;
+  const s = String(raw).trim();
+  if (!s) return null;
+
+  const upper = s.toUpperCase();
+  if (upper === 'ALL' || upper === 'TODOS' || upper === 'TODO') return null;
+  return upper;
+}
+
 const prospectosController = {
   /**
    * Filtrar prospectos de una campaña
@@ -40,9 +50,24 @@ const prospectosController = {
         });
       }
 
+      const carteraOrigen = normalizeCarteraOrigen(req.query?.cartera_origen);
+      const allowedCarteraOrigen = new Set([
+        'CARTERA_PROPIA',
+        'CAPTADO_LEADMASTER',
+        'IMPORT_MANUAL',
+        'REFERIDO'
+      ]);
+
+      if (carteraOrigen && !allowedCarteraOrigen.has(carteraOrigen)) {
+        return res.status(400).json({
+          success: false,
+          error: `cartera_origen inválido. Valores permitidos: ${Array.from(allowedCarteraOrigen).join(', ')}`
+        });
+      }
+
       // Multi-tenant: la campaña debe pertenecer al cliente autenticado
       // (si no, se filtra por cliente y devuelve 0 filas => 404 semántico no aplica; 200 con data=[] está bien)
-      const sql = `
+      let sql = `
         SELECT
           MIN(s.rowid) AS prospecto_id,
           MAX(s.nom) AS nombre,
@@ -66,6 +91,8 @@ const prospectosController = {
           ON lc.cliente_id = c.cliente_id
         JOIN llxbx_societe s
           ON s.rowid = lc.societe_id
+        LEFT JOIN ll_societe_extended se
+          ON se.societe_id = s.rowid
         LEFT JOIN ll_envios_whatsapp env
           ON env.campania_id = c.id
          AND env.telefono_wapp = s.phone_mobile
@@ -74,11 +101,20 @@ const prospectosController = {
           AND s.entity = 1
           AND s.phone_mobile IS NOT NULL
           AND s.phone_mobile <> ''
+      `;
+
+      const params = [campaniaId, clienteId];
+      if (carteraOrigen) {
+        sql += ` AND se.cartera_origen = ?`;
+        params.push(carteraOrigen);
+      }
+
+      sql += `
         GROUP BY s.phone_mobile
         ORDER BY nombre ASC
       `;
 
-      const [rows] = await db.execute(sql, [campaniaId, clienteId]);
+      const [rows] = await db.execute(sql, params);
 
       console.log(`✅ [prospectos] campania_id=${campaniaId} cliente_id=${clienteId} => ${rows.length} filas`);
 
