@@ -5,7 +5,7 @@ const { renderizarMensaje, normalizarTelefono } = require('../services/mensajeSe
 // OPS-POST-ENVÍO-01 (ENUMs exactos)
 const POST_ENVIO_ESTADOS = new Set([
   'CONTACTO_VALIDO_SIN_INTERES',
-  'INTERESADO_PARA_DERIVAR_A_HABY',
+  'PARA_DERIVAR',
   'PENDIENTE_SIN_RESPUESTA',
   'NUMERO_INEXISTENTE',
   'NUMERO_CAMBIO_DUEÑO',
@@ -15,7 +15,7 @@ const POST_ENVIO_ESTADOS = new Set([
 ]);
 
 const POST_ENVIO_ACCIONES = new Set([
-  'DERIVAR_HABY',
+  'DERIVAR',
   'FOLLOWUP_1',
   'CERRAR',
   'INVALIDAR_TELEFONO',

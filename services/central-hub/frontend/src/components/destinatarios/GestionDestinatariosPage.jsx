@@ -357,7 +357,7 @@ const GestionDestinatariosPage = () => {
 
   const POST_ENVIO_ESTADOS = [
     { value: 'CONTACTO_VALIDO_SIN_INTERES', label: 'Contacto válido sin interés' },
-    { value: 'INTERESADO_PARA_DERIVAR_A_HABY', label: 'Interesado para derivar a Haby' },
+    { value: 'PARA_DERIVAR', label: 'Para derivar' },
     { value: 'PENDIENTE_SIN_RESPUESTA', label: 'Pendiente sin respuesta' },
     { value: 'NUMERO_INEXISTENTE', label: 'Número inexistente' },
     { value: 'NUMERO_CAMBIO_DUEÑO', label: 'Número cambió de dueño' },
@@ -367,7 +367,7 @@ const GestionDestinatariosPage = () => {
   ];
 
   const POST_ENVIO_ACCIONES = [
-    { value: 'DERIVAR_HABY', label: 'Derivar a Haby' },
+    { value: 'DERIVAR', label: 'Derivar' },
     { value: 'FOLLOWUP_1', label: 'Follow-up 1' },
     { value: 'CERRAR', label: 'Cerrar' },
     { value: 'INVALIDAR_TELEFONO', label: 'Invalidar teléfono' },
