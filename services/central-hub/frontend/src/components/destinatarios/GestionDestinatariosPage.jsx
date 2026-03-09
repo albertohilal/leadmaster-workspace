@@ -6,6 +6,45 @@ import campanasService from '../../services/campanas';
 import destinatariosService from '../../services/destinatarios';
 import enviosService from '../../services/envios';
 
+const CARTERA_ORIGEN_UI_OPTIONS = [
+  { value: 'todos', label: 'Todos' },
+  { value: 'CAPTADO_LEADMASTER', label: 'CAPTADO_LEADMASTER' },
+  { value: 'IMPORTADO_CLIENTE', label: 'IMPORTADO_CLIENTE' },
+  { value: 'EXISTENTE_CLIENTE', label: 'EXISTENTE_CLIENTE' },
+  { value: 'OTRO', label: 'OTRO' }
+];
+
+// Valores reales en datos/BD (ll_societe_extended.cartera_origen)
+const CARTERA_ORIGEN_UI_TO_DATA = {
+  CAPTADO_LEADMASTER: ['CAPTADO_LEADMASTER'],
+  IMPORTADO_CLIENTE: ['IMPORT_MANUAL'],
+  EXISTENTE_CLIENTE: ['CARTERA_PROPIA']
+};
+
+function normalizeCarteraOrigenValue(raw) {
+  if (raw === undefined || raw === null) return null;
+  const s = String(raw).trim();
+  if (!s) return null;
+  return s.toUpperCase();
+}
+
+function matchesCarteraOrigenFilter(prospecto, carteraOrigenFiltro) {
+  if (!carteraOrigenFiltro || carteraOrigenFiltro === 'todos') return true;
+
+  const cartera = normalizeCarteraOrigenValue(
+    prospecto?.cartera_origen ?? prospecto?.carteraOrigen
+  );
+
+  if (carteraOrigenFiltro === 'OTRO') {
+    return cartera === null || cartera === 'OTRO' || cartera === 'REFERIDO';
+  }
+
+  const allowed = CARTERA_ORIGEN_UI_TO_DATA[carteraOrigenFiltro];
+  if (!Array.isArray(allowed)) return false;
+
+  return cartera !== null && allowed.includes(cartera);
+}
+
 const GestionDestinatariosPage = () => {
   const navigate = useNavigate();
 
@@ -18,6 +57,7 @@ const GestionDestinatariosPage = () => {
 
   const [estadoFiltro, setEstadoFiltro] = useState('todos');
   const [tipoSocieteFiltro, setTipoSocieteFiltro] = useState('todos');
+  const [carteraOrigenFiltro, setCarteraOrigenFiltro] = useState('todos');
   const [q, setQ] = useState('');
 
   // Estados para envío manual (flujo 2 fases)
@@ -75,6 +115,7 @@ const GestionDestinatariosPage = () => {
       setSeleccionados([]);
       setEstadoFiltro('todos');
       setTipoSocieteFiltro('todos');
+      setCarteraOrigenFiltro('todos');
       setQ('');
     } catch (err) {
       console.error('Error cargando prospectos:', err);
@@ -95,6 +136,10 @@ const GestionDestinatariosPage = () => {
       filtrados = filtrados.filter(p => (p.tipo_societe || 'Otro') === tipoSocieteFiltro);
     }
 
+    if (carteraOrigenFiltro !== 'todos') {
+      filtrados = filtrados.filter(p => matchesCarteraOrigenFilter(p, carteraOrigenFiltro));
+    }
+
     const query = q.trim().toLowerCase();
     if (query) {
       filtrados = filtrados.filter(p => {
@@ -110,7 +155,7 @@ const GestionDestinatariosPage = () => {
     }
 
     return filtrados;
-  }, [prospectos, estadoFiltro, tipoSocieteFiltro, q]);
+  }, [prospectos, estadoFiltro, tipoSocieteFiltro, carteraOrigenFiltro, q]);
 
   const toggleSeleccion = (prospecto) => {
     setSeleccionados(prev => {
@@ -121,17 +166,19 @@ const GestionDestinatariosPage = () => {
   };
 
   const seleccionarTodos = () => {
-    const todosSeleccionados = prospectosFiltrados.length > 0 && prospectosFiltrados.every(p =>
-      seleccionados.find(s => s.prospecto_id === p.prospecto_id)
-    );
+    const todosSeleccionados =
+      prospectosFiltrados.length > 0 &&
+      prospectosFiltrados.every(p =>
+        seleccionados.find(s => s.prospecto_id === p.prospecto_id)
+      );
 
     if (todosSeleccionados) {
       setSeleccionados(prev =>
         prev.filter(s => !prospectosFiltrados.find(p => p.prospecto_id === s.prospecto_id))
       );
     } else {
-      const nuevos = prospectosFiltrados.filter(p =>
-        !seleccionados.find(s => s.prospecto_id === p.prospecto_id)
+      const nuevos = prospectosFiltrados.filter(
+        p => !seleccionados.find(s => s.prospecto_id === p.prospecto_id)
       );
       setSeleccionados(prev => [...prev, ...nuevos]);
     }
@@ -167,11 +214,16 @@ const GestionDestinatariosPage = () => {
 
   const traducirEstado = (estado) => {
     switch (estado) {
-      case 'sin_envio': return 'No incluido';
-      case 'pendiente': return 'Pendiente';
-      case 'enviado': return 'Enviado';
-      case 'error': return 'Error';
-      default: return estado;
+      case 'sin_envio':
+        return 'No incluido';
+      case 'pendiente':
+        return 'Pendiente';
+      case 'enviado':
+        return 'Enviado';
+      case 'error':
+        return 'Error';
+      default:
+        return estado;
     }
   };
 
@@ -397,7 +449,6 @@ const GestionDestinatariosPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col overflow-x-hidden">
-      {/* Header */}
       <div className="bg-white border-b px-6 py-4 flex justify-between items-center">
         <div className="flex items-center space-x-4">
           <button
@@ -415,10 +466,8 @@ const GestionDestinatariosPage = () => {
         </div>
       </div>
 
-      {/* Contenido */}
       <div className="flex-1 p-4 md:p-6 overflow-hidden">
         <div className="bg-white rounded-lg shadow h-full overflow-y-auto overflow-x-hidden">
-          {/* Barra Sticky */}
           <div className="sticky top-0 z-20 bg-white border-b px-6 py-4">
             <div className="flex flex-wrap items-end gap-3">
               <div className="min-w-[240px] flex-1">
@@ -481,6 +530,23 @@ const GestionDestinatariosPage = () => {
                 </select>
               </div>
 
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700">
+                  Cartera Origen
+                </label>
+                <select
+                  value={carteraOrigenFiltro}
+                  onChange={(e) => setCarteraOrigenFiltro(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                >
+                  {CARTERA_ORIGEN_UI_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="min-w-[220px] flex-1">
                 <label className="block text-sm font-medium mb-1 text-gray-700">
                   Búsqueda
@@ -517,7 +583,6 @@ const GestionDestinatariosPage = () => {
             )}
           </div>
 
-          {/* Tabla */}
           <table className="w-full table-fixed">
             <thead className="bg-gray-50 text-xs uppercase text-gray-500">
               <tr>
@@ -554,7 +619,6 @@ const GestionDestinatariosPage = () => {
                       className={`hover:bg-gray-50 cursor-pointer ${seleccionado ? 'bg-blue-50' : ''}`}
                       onClick={() => toggleSeleccion(p)}
                     >
-                      {/* Empresa (con checkbox integrado) */}
                       <td className="px-6 py-5 min-w-0">
                         <div className="flex items-start gap-3 min-w-0">
                           <input
@@ -574,19 +638,16 @@ const GestionDestinatariosPage = () => {
                         </div>
                       </td>
 
-                      {/* Estado */}
                       <td className="px-6 py-5">
                         <span className={`px-2 py-1 text-xs rounded-full ${badgeEstado(p.estado_campania)}`}>
                           {traducirEstado(p.estado_campania)}
                         </span>
                       </td>
 
-                      {/* Teléfono */}
                       <td className="px-6 py-5 text-sm text-gray-700 break-words">
                         {p.telefono_wapp || '-'}
                       </td>
 
-                      {/* Dirección (clamp 2 líneas) */}
                       <td className="px-6 py-5 min-w-0">
                         <div
                           className="text-sm text-gray-700"
@@ -597,7 +658,6 @@ const GestionDestinatariosPage = () => {
                         </div>
                       </td>
 
-                      {/* Acciones */}
                       <td className="px-6 py-5">
                         <div className="flex flex-wrap gap-2">
                           {p.estado_campania === 'pendiente' && p.telefono_wapp && (
@@ -635,7 +695,6 @@ const GestionDestinatariosPage = () => {
         </div>
       </div>
 
-      {/* Modal de WhatsApp */}
       {mostrarModalWhatsApp && prospectoSeleccionado && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
@@ -670,13 +729,16 @@ const GestionDestinatariosPage = () => {
               {!whatsappAbierto ? (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                   <p className="text-xs text-blue-800">
-                    ℹ️ Presiona "Abrir WhatsApp" para abrir una ventana con el mensaje. Luego confirma el envío cuando hayas enviado el mensaje (o marca error si hubo un inconveniente).
+                    ℹ️ Presiona "Abrir WhatsApp" para abrir una ventana con el mensaje. Luego
+                    confirma el envío cuando hayas enviado el mensaje (o marca error si hubo un
+                    inconveniente).
                   </p>
                 </div>
               ) : (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                   <p className="text-xs text-green-800">
-                    ✅ WhatsApp abierto. Envía el mensaje y luego presiona "Confirmar Envío" para actualizar el estado (o "Marcar Error" si no se pudo enviar).
+                    ✅ WhatsApp abierto. Envía el mensaje y luego presiona "Confirmar Envío" para
+                    actualizar el estado (o "Marcar Error" si no se pudo enviar).
                   </p>
                 </div>
               )}
@@ -721,7 +783,6 @@ const GestionDestinatariosPage = () => {
         </div>
       )}
 
-      {/* Modal Clasificación Post-Envío */}
       {mostrarModalClasificar && prospectoClasificar && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4">
@@ -744,7 +805,9 @@ const GestionDestinatariosPage = () => {
                 >
                   <option value="">Seleccionar...</option>
                   {POST_ENVIO_ESTADOS.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -755,13 +818,17 @@ const GestionDestinatariosPage = () => {
                 </label>
                 <select
                   value={clasificacion.accion_siguiente}
-                  onChange={(e) => setClasificacion(prev => ({ ...prev, accion_siguiente: e.target.value }))}
+                  onChange={(e) =>
+                    setClasificacion(prev => ({ ...prev, accion_siguiente: e.target.value }))
+                  }
                   disabled={clasificacion.post_envio_estado === 'ATENDIO_MENOR_DE_EDAD'}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:bg-gray-100"
                 >
                   <option value="">Seleccionar...</option>
                   {POST_ENVIO_ACCIONES.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
                   ))}
                 </select>
 
@@ -785,7 +852,9 @@ const GestionDestinatariosPage = () => {
                 </label>
                 <input
                   value={clasificacion.detalle}
-                  onChange={(e) => setClasificacion(prev => ({ ...prev, detalle: e.target.value }))}
+                  onChange={(e) =>
+                    setClasificacion(prev => ({ ...prev, detalle: e.target.value }))
+                  }
                   placeholder="Detalle breve (máx 255)"
                   maxLength={255}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"

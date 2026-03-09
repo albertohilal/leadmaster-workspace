@@ -51,6 +51,8 @@ const prospectosController = {
       }
 
       const carteraOrigen = normalizeCarteraOrigen(req.query?.cartera_origen);
+      // Valores reales esperados en BD (ll_societe_extended.cartera_origen):
+      // CARTERA_PROPIA | CAPTADO_LEADMASTER | IMPORT_MANUAL | REFERIDO
       const allowedCarteraOrigen = new Set([
         'CARTERA_PROPIA',
         'CAPTADO_LEADMASTER',
@@ -83,6 +85,7 @@ const prospectosController = {
             WHEN s.client = 3 THEN 'Proveedor'
             ELSE 'Otro'
           END AS tipo_societe,
+          se.cartera_origen AS cartera_origen,
           env.estado AS estado_campania,
           env.id AS envio_id,
           env.fecha_envio AS fecha_envio
@@ -258,7 +261,6 @@ const prospectosController = {
         });
       }
 
-      // Opción segura multi-tenant: validar que la campaña pertenece al cliente en el mismo query.
       const [stats] = await db.execute(
         `
         SELECT 
