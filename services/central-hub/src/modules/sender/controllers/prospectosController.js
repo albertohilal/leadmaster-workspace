@@ -86,9 +86,15 @@ const prospectosController = {
             ELSE 'Otro'
           END AS tipo_societe,
           se.cartera_origen AS cartera_origen,
-          env.estado AS estado_campania,
+          COALESCE(env.estado, 'sin_envio') AS estado_campania,
           env.id AS envio_id,
-          env.fecha_envio AS fecha_envio
+          env.fecha_envio AS fecha_envio,
+          pe.post_envio_estado AS post_envio_estado,
+          pe.accion_siguiente AS accion_siguiente,
+          pe.detalle AS detalle,
+          pe.clasificado_por AS clasificado_por,
+          pe.created_at AS post_envio_created_at,
+          pe.id AS post_envio_id
         FROM ll_campanias_whatsapp c
         JOIN (
           SELECT
@@ -125,11 +131,23 @@ const prospectosController = {
           ON env.campania_id = c.id
          /* Usamos lugar_id para vincular el envío al prospecto aunque haya cambiado el phone_mobile histórico. */
          AND env.lugar_id = s.rowid
+        LEFT JOIN (
+          SELECT p1.*
+          FROM ll_post_envio_clasificaciones p1
+          INNER JOIN (
+            SELECT envio_id, MAX(id) AS max_id
+            FROM ll_post_envio_clasificaciones
+            WHERE cliente_id = ?
+            GROUP BY envio_id
+          ) pmax
+            ON pmax.max_id = p1.id
+        ) pe
+          ON pe.envio_id = env.id
         WHERE c.id = ?
           AND c.cliente_id = ?
       `;
 
-      const params = [clienteId, clienteId, campaniaId, clienteId];
+      const params = [clienteId, clienteId, clienteId, campaniaId, clienteId];
       if (carteraOrigen) {
         sql += ` AND se.cartera_origen = ?`;
         params.push(carteraOrigen);

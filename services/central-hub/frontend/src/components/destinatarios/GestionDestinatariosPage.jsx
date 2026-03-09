@@ -129,7 +129,7 @@ const GestionDestinatariosPage = () => {
     let filtrados = [...prospectos];
 
     if (estadoFiltro !== 'todos') {
-      filtrados = filtrados.filter(p => p.estado_campania === estadoFiltro);
+      filtrados = filtrados.filter(p => estadoPrincipal(p) === estadoFiltro);
     }
 
     if (tipoSocieteFiltro !== 'todos') {
@@ -222,6 +222,22 @@ const GestionDestinatariosPage = () => {
         return 'Enviado';
       case 'error':
         return 'Error';
+      case 'CONTACTO_VALIDO_SIN_INTERES':
+        return 'Contacto válido sin interés';
+      case 'PARA_DERIVAR':
+        return 'Para derivar';
+      case 'PENDIENTE_SIN_RESPUESTA':
+        return 'Pendiente sin respuesta';
+      case 'NUMERO_INEXISTENTE':
+        return 'Número inexistente';
+      case 'NUMERO_CAMBIO_DUEÑO':
+        return 'Número cambió de dueño';
+      case 'TERCERO_NO_RESPONSABLE':
+        return 'Tercero no responsable';
+      case 'ATENDIO_MENOR_DE_EDAD':
+        return 'Atendió menor de edad';
+      case 'NO_ENTREGADO_ERROR_ENVIO':
+        return 'No entregado / error de envío';
       default:
         return estado;
     }
@@ -239,6 +255,10 @@ const GestionDestinatariosPage = () => {
         return 'bg-gray-100 text-gray-800';
     }
   };
+
+  function estadoPrincipal(prospecto) {
+    return prospecto?.post_envio_estado || prospecto?.estado_campania || 'sin_envio';
+  }
 
   /**
    * FASE 1: Preparar envío manual
@@ -381,7 +401,11 @@ const GestionDestinatariosPage = () => {
       return;
     }
     setProspectoClasificar(prospecto);
-    setClasificacion({ post_envio_estado: '', accion_siguiente: '', detalle: '' });
+    setClasificacion({
+      post_envio_estado: prospecto?.post_envio_estado || '',
+      accion_siguiente: prospecto?.accion_siguiente || '',
+      detalle: prospecto?.detalle || ''
+    });
     setMostrarModalClasificar(true);
   };
 
@@ -506,10 +530,17 @@ const GestionDestinatariosPage = () => {
                   className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
                 >
                   <option value="todos">Todos</option>
-                  <option value="sin_envio">No incluido</option>
-                  <option value="pendiente">Pendiente</option>
-                  <option value="enviado">Enviado</option>
-                  <option value="error">Error</option>
+                  {[
+                    'sin_envio',
+                    'pendiente',
+                    'enviado',
+                    'error',
+                    ...POST_ENVIO_ESTADOS.map(opt => opt.value)
+                  ].map(value => (
+                    <option key={value} value={value}>
+                      {traducirEstado(value)}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -612,6 +643,7 @@ const GestionDestinatariosPage = () => {
               ) : (
                 prospectosFiltrados.map(p => {
                   const seleccionado = seleccionados.find(s => s.prospecto_id === p.prospecto_id);
+                  const estado = estadoPrincipal(p);
 
                   return (
                     <tr
@@ -639,8 +671,8 @@ const GestionDestinatariosPage = () => {
                       </td>
 
                       <td className="px-6 py-5">
-                        <span className={`px-2 py-1 text-xs rounded-full ${badgeEstado(p.estado_campania)}`}>
-                          {traducirEstado(p.estado_campania)}
+                        <span className={`px-2 py-1 text-xs rounded-full ${badgeEstado(estado)}`}>
+                          {traducirEstado(estado)}
                         </span>
                       </td>
 
@@ -791,6 +823,36 @@ const GestionDestinatariosPage = () => {
               <p className="text-sm text-gray-600 mt-1">
                 {prospectoClasificar.nombre} — envío #{prospectoClasificar.envio_id}
               </p>
+
+              {prospectoClasificar.post_envio_id && (
+                <div className="mt-3 text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-1">
+                  <div className="font-medium text-gray-800">Última clasificación guardada</div>
+                  <div>
+                    <span className="font-medium">Estado:</span>{' '}
+                    {traducirEstado(prospectoClasificar.post_envio_estado || 'sin_envio')}
+                  </div>
+                  <div>
+                    <span className="font-medium">Acción:</span>{' '}
+                    {prospectoClasificar.accion_siguiente || '-'}
+                  </div>
+                  <div>
+                    <span className="font-medium">Detalle:</span>{' '}
+                    {prospectoClasificar.detalle || '-'}
+                  </div>
+                  {prospectoClasificar.clasificado_por && (
+                    <div>
+                      <span className="font-medium">Clasificado por:</span>{' '}
+                      {prospectoClasificar.clasificado_por}
+                    </div>
+                  )}
+                  {prospectoClasificar.post_envio_created_at && (
+                    <div>
+                      <span className="font-medium">Fecha:</span>{' '}
+                      {new Date(prospectoClasificar.post_envio_created_at).toLocaleString()}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="px-6 py-4 space-y-4">
