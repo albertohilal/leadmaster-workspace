@@ -23,7 +23,7 @@ const prospectosController = {
    * MODELO DE NEGOCIO:
    * - Los prospectos base pertenecen al cliente (ll_lugares_clientes -> llxbx_societe)
    * - Dedupe por phone_mobile: 1 teléfono = 1 fila, usando fila canónica MAX(rowid) por phone_mobile (sin mezclar campos)
-   * - El estado por campaña se obtiene desde ll_envios_whatsapp (LEFT JOIN por telefono_wapp)
+  * - El estado por campaña se obtiene desde ll_envios_whatsapp (LEFT JOIN por lugar_id)
    * - Una campaña define el cliente_id
    * - Regla: 1 campaña + 1 teléfono = 1 envío máximo
    *
@@ -123,7 +123,8 @@ const prospectosController = {
           ON se.societe_id = s.rowid
         LEFT JOIN ll_envios_whatsapp env
           ON env.campania_id = c.id
-         AND env.telefono_wapp = s.phone_mobile
+         /* Usamos lugar_id para vincular el envío al prospecto aunque haya cambiado el phone_mobile histórico. */
+         AND env.lugar_id = s.rowid
         WHERE c.id = ?
           AND c.cliente_id = ?
       `;
