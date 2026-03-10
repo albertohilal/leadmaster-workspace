@@ -4,7 +4,7 @@ Sistema de gestión de leads con integración WhatsApp, autenticación JWT y arq
 
 **Estado actual:** ✅ Phase 2 Completed - Producción operativa  
 **Dominio:** https://desarrolloydisenioweb.com.ar  
-**Documentación:** [`docs/PROJECT-STATUS.md`](docs/PROJECT-STATUS.md)
+**Documentación:** [`docs/01-CONSTITUCIONAL/PROJECT_STATUS.md`](docs/01-CONSTITUCIONAL/PROJECT_STATUS.md)
 
 ---
 
@@ -36,15 +36,22 @@ Sistema de gestión de leads con integración WhatsApp, autenticación JWT y arq
 - Frontend React + Vite desplegado
 - Backend modular activado
 
-**Documentación completa:** [`docs/PHASE-2-COMPLETED.md`](docs/PHASE-2-COMPLETED.md)
+**Documentación completa:** [`docs/06-FASES/PHASE-2-COMPLETED.md`](docs/06-FASES/PHASE-2-COMPLETED.md)
 
-### 📋 Phase 3: WhatsApp Session Lifecycle (PLANNED)
+### 🚧 Phase 3: Prospect Quality (ACTIVE)
+- Contactability scoring
+- Validation gates
+- Sender protections
+
+**Planificación:** [`docs/06-FASES/PHASE-3-PROSPECT-QUALITY.md`](docs/06-FASES/PHASE-3-PROSPECT-QUALITY.md)
+
+### 📋 Phase 4: WhatsApp Session Lifecycle (PLANNED)
 - WhatsApp connection flow (QR generation)
 - Session persistence
 - Real-time status updates
 - Frontend integration
 
-**Planificación:** [`docs/PHASE-3-PLAN.md`](docs/PHASE-3-PLAN.md)
+**Planificación:** [`docs/06-FASES/PHASE-4-WHATSAPP-SESSION-LIFECYCLE-AUTOMATION.md`](docs/06-FASES/PHASE-4-WHATSAPP-SESSION-LIFECYCLE-AUTOMATION.md)
 
 ---
 
@@ -93,9 +100,17 @@ curl http://localhost:3012/auth/login
 - **Metodología VPS-First:** [`DEV_WORKFLOW_VPS.md`](DEV_WORKFLOW_VPS.md) - **⭐ Lectura obligatoria**
 
 ### 📊 Estado y Planificación
-- **Estado del proyecto:** [`docs/PROJECT-STATUS.md`](docs/PROJECT-STATUS.md)
-- **Phase 2 completada:** [`docs/PHASE-2-COMPLETED.md`](docs/PHASE-2-COMPLETED.md)
-- **Phase 3 planificada:** [`docs/PHASE-3-PLAN.md`](docs/PHASE-3-PLAN.md)
+- **Estado del proyecto:** [`docs/01-CONSTITUCIONAL/PROJECT_STATUS.md`](docs/01-CONSTITUCIONAL/PROJECT_STATUS.md)
+- **Phase 2 completada:** [`docs/06-FASES/PHASE-2-COMPLETED.md`](docs/06-FASES/PHASE-2-COMPLETED.md)
+- **Phase 3 (Prospect Quality):** [`docs/06-FASES/PHASE-3-PROSPECT-QUALITY.md`](docs/06-FASES/PHASE-3-PROSPECT-QUALITY.md)
+- **Phase 4 (WhatsApp Session Lifecycle):** [`docs/06-FASES/PHASE-4-WHATSAPP-SESSION-LIFECYCLE-AUTOMATION.md`](docs/06-FASES/PHASE-4-WHATSAPP-SESSION-LIFECYCLE-AUTOMATION.md)
+
+### ✉️ Canal Email (Documentación fundacional)
+- **ADR-001 (aprobado):** [`docs/01-CONSTITUCIONAL/ADR-001-CANAL-EMAIL-PROSPECCION-OPERADO-POR-LEADMASTER.md`](docs/01-CONSTITUCIONAL/ADR-001-CANAL-EMAIL-PROSPECCION-OPERADO-POR-LEADMASTER.md)
+- **Phase 4B (aprobada):** [`docs/06-FASES/PHASE-4B-EMAIL-PROSPECTING-PLAN.md`](docs/06-FASES/PHASE-4B-EMAIL-PROSPECTING-PLAN.md)
+- **Arquitectura del canal:** [`docs/04-INTEGRACION/ARQUITECTURA-CANAL-EMAIL.md`](docs/04-INTEGRACION/ARQUITECTURA-CANAL-EMAIL.md)
+- **Requisitos mínimos:** [`docs/05-REPORTES/OPS/REQUISITOS-MINIMOS-CANAL-EMAIL.md`](docs/05-REPORTES/OPS/REQUISITOS-MINIMOS-CANAL-EMAIL.md)
+- **Contrato HTTP Mailer:** [`docs/07-CONTRATOS/Contratos-HTTP-Mailer.md`](docs/07-CONTRATOS/Contratos-HTTP-Mailer.md)
 
 ### 🔒 Infraestructura y Seguridad
 - **Setup SSL:** [`docs/SSL-Cloudflare-Setup.md`](docs/SSL-Cloudflare-Setup.md)
@@ -143,4 +158,4 @@ curl http://localhost:3012/auth/login
 
 **Lead Developer:** Alberto Hilal  
 **Repository:** albertohilal/leadmaster-workspace  
-**Last Updated:** 2026-02-09
+**Last Updated:** 2026-03-10

@@ -26,6 +26,9 @@ _Documents that define project identity, business model, and decision history_
 - [DECISION_LOG.md](../01-CONSTITUCIONAL/DECISION_LOG.md)
 - [PR_INSTRUCTIONS.md](../01-CONSTITUCIONAL/PR_INSTRUCTIONS.md)
 
+**ADRs:**
+- [ADR-001 — Canal Email de Prospección Operado por LeadMaster](../01-CONSTITUCIONAL/ADR-001-CANAL-EMAIL-PROSPECCION-OPERADO-POR-LEADMASTER.md)
+
 **Versioned (Official Authority):**
 - [PROJECT_STATUS.md v3.0](../01-CONSTITUCIONAL/PROJECT_STATUS.md) — Strategic and operational state
 - [ARCHITECTURE_STATE_2026_02.md](../01-CONSTITUCIONAL/ARCHITECTURE_STATE_2026_02.md) — WhatsApp contract (as-is + planned freeze)
@@ -55,6 +58,7 @@ _Integration guides between services and external systems_
 
 - [Integration-CentralHub-SessionManager.md](../04-INTEGRACION/Integration-CentralHub-SessionManager.md)
 - [INFORME-FINAL-INTEGRACION-SESSION-MANAGER.md](../04-INTEGRACION/INFORME-FINAL-INTEGRACION-SESSION-MANAGER.md)
+- [ARQUITECTURA-CANAL-EMAIL.md](../04-INTEGRACION/ARQUITECTURA-CANAL-EMAIL.md) — Arquitectura funcional del canal email
 
 ---
 
@@ -70,6 +74,7 @@ _Diagnostic reports, implementation reports, and technical analyses_
 - [2026-02/](../05-REPORTES/2026-02/) — February 2026 reports
 - [OPS/OPS-POST-ENVIO-01-CLASIFICACION-DEPURADORA.md](../05-REPORTES/OPS/OPS-POST-ENVIO-01-CLASIFICACION-DEPURADORA.md) — OPS-POST-ENVIO-01 — Clasificación Post-Envío (Depuradora)
 - [UX/UX-01-PROSPECTOS-CERO-SCROLL-HORIZONTAL-STICKY-FILTROS.md](../05-REPORTES/UX/UX-01-PROSPECTOS-CERO-SCROLL-HORIZONTAL-STICKY-FILTROS.md) — UX-01 — Prospectos: Cero Scroll Horizontal + Sticky Filters + Layout Operador
+- [OPS/REQUISITOS-MINIMOS-CANAL-EMAIL.md](../05-REPORTES/OPS/REQUISITOS-MINIMOS-CANAL-EMAIL.md) — Requisitos mínimos para activar el canal email
 
 ---
 
@@ -80,6 +85,7 @@ _Phase documentation, milestones, and roadmaps_
 - [PHASE-2-COMPLETED.md](../06-FASES/PHASE-2-COMPLETED.md)
 - [PHASE-3-PROSPECT-QUALITY.md](../06-FASES/PHASE-3-PROSPECT-QUALITY.md)
 - [PHASE-4-WHATSAPP-SESSION-LIFECYCLE-AUTOMATION.md](../06-FASES/PHASE-4-WHATSAPP-SESSION-LIFECYCLE-AUTOMATION.md)
+- [PHASE-4B-EMAIL-PROSPECTING-PLAN.md](../06-FASES/PHASE-4B-EMAIL-PROSPECTING-PLAN.md) — Email Prospecting Channel (documentación fundacional)
 - [PHASE-5-COMMERCIAL-INTELLIGENCE.md](../06-FASES/PHASE-5-COMMERCIAL-INTELLIGENCE.md)
 - [AI-LISTENER-EVOLUTION-PLAN.md](../06-FASES/AI-LISTENER-EVOLUTION-PLAN.md) — Experimental (non-numbered)
 
@@ -90,6 +96,7 @@ _Phase documentation, milestones, and roadmaps_
 _HTTP contracts, interface definitions, and formal agreements_
 
 - [Contratos-HTTP-LeadMaster-Workspace.md](../07-CONTRATOS/Contratos-HTTP-LeadMaster-Workspace.md)
+- [Contratos-HTTP-Mailer.md](../07-CONTRATOS/Contratos-HTTP-Mailer.md) — Contrato HTTP/JSON `central-hub` ↔ `mailer`
 
 ---
 

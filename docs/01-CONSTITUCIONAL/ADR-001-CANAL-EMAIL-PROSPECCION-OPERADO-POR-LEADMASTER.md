@@ -3,6 +3,8 @@
 **Status:** APPROVED  
 **Date:** 2026-03-10  
 **Owner:** Alberto Hilal  
+**Approved by:** Alberto Hilal  
+**Approved on:** 2026-03-10  
 **Scope:** LeadMaster Workspace / Central Hub / Nuevo canal de prospección por email
 
 ---
@@ -196,18 +198,20 @@ Dirección recomendada:
 
 Este ADR habilita y ordena la creación de los siguientes documentos:
 
-- `PHASE-4B-EMAIL-PROSPECTING-PLAN.md`
-- `ARQUITECTURA-CANAL-EMAIL.md`
-- `Contratos-HTTP-Mailer.md`
-- `REQUISITOS-MINIMOS-CANAL-EMAIL.md`
+- `docs/06-FASES/PHASE-4B-EMAIL-PROSPECTING-PLAN.md`
+- `docs/04-INTEGRACION/ARQUITECTURA-CANAL-EMAIL.md`
+- `docs/07-CONTRATOS/Contratos-HTTP-Mailer.md`
+- `docs/05-REPORTES/OPS/REQUISITOS-MINIMOS-CANAL-EMAIL.md`
 
 ---
 
 ## 9. Estado de aprobación
 
-**Estado actual:** PROPOSED
+**Estado actual:** APPROVED  
+**Approved by:** Alberto Hilal  
+**Approved on:** 2026-03-10
 
-Pasa a **APPROVED** cuando Alberto Hilal confirme:
+Confirmación (criterios aprobados):
 
 - que LeadMaster controla el primer contacto por email
 - que la base operativa no se entrega cruda por defecto al cliente
