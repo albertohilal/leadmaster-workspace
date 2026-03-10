@@ -1,13 +1,11 @@
-
-## 4) `docs/05-REPORTES/OPS/REQUISITOS-MINIMOS-CANAL-EMAIL.md`
-
-```md
 # Requisitos Mínimos para Activar el Canal Email
 
 **Version:** 1.0  
 **Status:** APPROVED  
 **Date:** 2026-03-10  
 **Owner:** Alberto Hilal  
+**Approved by:** Alberto Hilal  
+**Approved on:** 2026-03-10  
 **Scope:** Clientes que deseen utilizar el canal email dentro de LeadMaster
 
 ---
@@ -324,8 +322,8 @@ Las condiciones de entrada forman parte del método, no son un accesorio burocr�
 ## 13. Estado
 
 **Status actual:** APPROVED  
-**Approved by:** Alberto Hilal
+**Approved by:** Alberto Hilal  
+**Approved on:** 2026-03-10
 
 Una vez aprobado, este documento podrá usarse como base para evaluar clientes como Conrad y futuros casos de activación del canal email.
-````
 

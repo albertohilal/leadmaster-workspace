@@ -1,13 +1,11 @@
-
-## 3) `docs/04-INTEGRACION/ARQUITECTURA-CANAL-EMAIL.md`
-
-````md
 # Arquitectura del Canal Email — LeadMaster
 
 **Version:** 1.0  
 **Status:** APPROVED  
 **Date:** 2026-03-10  
 **Owner:** Alberto Hilal  
+**Approved by:** Alberto Hilal  
+**Approved on:** 2026-03-10  
 **Depends on:** ADR-001 / Phase 4B — Email Prospecting Channel
 
 ---
@@ -141,7 +139,7 @@ desarrolloydisenio-api
  Clasificación / derivación
         ↓
      Cliente final
-````
+```
 
 ---
 
@@ -447,12 +445,9 @@ Sin romper el principio central:
 
 ## 17. Estado
 
-**Status actual:** APPROVED
-**Approved by:** Alberto Hilal
+**Status actual:** APPROVED  
+**Approved by:** Alberto Hilal  
+**Approved on:** 2026-03-10
 
 Este documento define arquitectura funcional e integración conceptual.
 No reemplaza contratos HTTP ni especificaciones técnicas detalladas.
-
-````
-
----

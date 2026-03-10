@@ -1,16 +1,11 @@
-Perfecto. Voy con el quinto documento.
-
----
-
-## 5) `docs/07-CONTRATOS/Contratos-HTTP-Mailer.md`
-
-````md
 # Contratos HTTP — Mailer — LeadMaster Workspace
 
 **Version:** 1.0  
-**Status:** DRAFT  
+**Status:** APPROVED  
 **Date:** 2026-03-10  
 **Owner:** Alberto Hilal  
+**Approved by:** Alberto Hilal  
+**Approved on:** 2026-03-10  
 **Scope:** Contrato HTTP/JSON entre `central-hub` y `mailer`
 
 ---
@@ -99,7 +94,7 @@ Permitir verificación de disponibilidad básica del servicio.
 ### Request
 ```http
 GET /health
-````
+```
 
 ### Response 200
 
@@ -493,26 +488,9 @@ En particular:
 
 ## 18. Estado
 
-**Status actual:** DRAFT
-**Approval required:** Alberto Hilal
+**Status actual:** APPROVED  
+**Approved by:** Alberto Hilal  
+**Approved on:** 2026-03-10
 
 Este documento fija el contrato inicial entre `central-hub` y `mailer`.
 La implementación futura debe respetar este contrato o proponer formalmente su evolución.
-
-```
-
----
-
-Con esto ya quedó armado el paquete base de documentación del canal email:
-
-1. `docs/01-CONSTITUCIONAL/ADR-001-CANAL-EMAIL-PROSPECCION-OPERADO-POR-LEADMASTER.md`
-2. `docs/06-FASES/PHASE-4B-EMAIL-PROSPECTING-PLAN.md`
-3. `docs/04-INTEGRACION/ARQUITECTURA-CANAL-EMAIL.md`
-4. `docs/05-REPORTES/OPS/REQUISITOS-MINIMOS-CANAL-EMAIL.md`
-5. `docs/07-CONTRATOS/Contratos-HTTP-Mailer.md`
-
-Ahora sí, en el próximo paso, hacemos el repaso general y te propongo exactamente qué cambiar para dejar:
-- cuáles pasan a `APPROVED`
-- qué referencias cruzadas agregar
-- y qué prompt darle a Copilot para crear todos los archivos en el repo.
-```

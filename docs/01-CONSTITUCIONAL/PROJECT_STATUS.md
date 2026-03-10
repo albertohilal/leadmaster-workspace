@@ -1,7 +1,7 @@
 # LeadMaster — Official Project Status
 
 **Version:** 3.0  
-**Last Updated:** 2026-02-21  
+**Last Updated:** 2026-03-10  
 **Environment:** Production (Contabo VPS)  
 **Strategic Model:** Service-first (Prospect Generation)  
 **Classification:** Constitutional Document  
@@ -84,6 +84,19 @@ Scope:
 - WebSocket status updates
 
 This phase improves internal efficiency but does not change core value.
+
+---
+
+## Phase 4B — Email Prospecting Channel (Foundational Documentation)
+Formal definition of the email prospecting channel (operation model, architecture, requirements, and mailer HTTP contract).  
+Status: ✅ Approved (documentation package)
+
+Documents:
+- `docs/01-CONSTITUCIONAL/ADR-001-CANAL-EMAIL-PROSPECCION-OPERADO-POR-LEADMASTER.md`
+- `docs/06-FASES/PHASE-4B-EMAIL-PROSPECTING-PLAN.md`
+- `docs/04-INTEGRACION/ARQUITECTURA-CANAL-EMAIL.md`
+- `docs/05-REPORTES/OPS/REQUISITOS-MINIMOS-CANAL-EMAIL.md`
+- `docs/07-CONTRATOS/Contratos-HTTP-Mailer.md`
 
 ---
 

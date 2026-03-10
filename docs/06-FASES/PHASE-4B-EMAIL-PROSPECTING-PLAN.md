@@ -3,6 +3,8 @@
 **Status:** APPROVED  
 **Date:** 2026-03-10  
 **Owner:** Alberto Hilal  
+**Approved by:** Alberto Hilal  
+**Approved on:** 2026-03-10  
 **Workspace:** LeadMaster  
 **Depends on:** Phase 2 completed / Phase 3 planned / Contratos HTTP multi-cliente / ADR-001
 
@@ -272,13 +274,13 @@ Para activar el canal email con un cliente, deben cumplirse condiciones mínimas
 ## 13. Entregables documentales de la fase
 
 ### Documentos núcleo
-- `ADR-001-CANAL-EMAIL-PROSPECCION-OPERADO-POR-LEADMASTER.md`
-- `PHASE-4B-EMAIL-PROSPECTING-PLAN.md`
+- `docs/01-CONSTITUCIONAL/ADR-001-CANAL-EMAIL-PROSPECCION-OPERADO-POR-LEADMASTER.md`
+- `docs/06-FASES/PHASE-4B-EMAIL-PROSPECTING-PLAN.md`
 
 ### Documentos siguientes
-- `ARQUITECTURA-CANAL-EMAIL.md`
-- `Contratos-HTTP-Mailer.md`
-- `REQUISITOS-MINIMOS-CANAL-EMAIL.md`
+- `docs/04-INTEGRACION/ARQUITECTURA-CANAL-EMAIL.md`
+- `docs/07-CONTRATOS/Contratos-HTTP-Mailer.md`
+- `docs/05-REPORTES/OPS/REQUISITOS-MINIMOS-CANAL-EMAIL.md`
 
 ---
 
@@ -298,8 +300,8 @@ La fase se considera correctamente establecida cuando:
 
 ## 15. Próximos pasos recomendados
 
-1. Aprobar ADR-001
-2. Aprobar este plan de fase
+1. (Completado) ADR-001 aprobado
+2. (Completado) Plan Phase 4B aprobado
 3. Redactar `ARQUITECTURA-CANAL-EMAIL.md`
 4. Redactar `Contratos-HTTP-Mailer.md`
 5. Redactar `REQUISITOS-MINIMOS-CANAL-EMAIL.md`
@@ -318,8 +320,3 @@ Su función es dejar correctamente fijados:
 - la protección del activo de LeadMaster
 - la relación con el cliente
 - la transición hacia arquitectura multicanal
-
----
-
-**Status:** DRAFT  
-**Approval required:** Alberto Hilal
