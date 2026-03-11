@@ -5,7 +5,8 @@ Servicio técnico standalone para entrega de email dentro de LeadMaster Workspac
 ## Requisitos
 
 - Node.js (CommonJS)
-- SMTP relay externo (configurado por variables de entorno)
+- MySQL (para resolver SMTP por cliente)
+- SMTP relay externo (resuelto por cliente desde DB; fallback opcional por variables de entorno)
 
 ## Configuración
 
@@ -14,10 +15,34 @@ Crear un `.env` a partir de `.env.example`.
 Variables:
 
 - `MAILER_PORT`
+- `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
+
+Multi-tenant (principal):
+
+- El servicio resuelve credenciales SMTP por `cliente_id` desde MySQL, tabla `ll_clientes_email_config` (`is_active=1`).
+
+Fallback opcional (NO recomendado como camino principal):
+
+- `SMTP_FALLBACK_ENABLED=true` habilita el envío usando SMTP global por `.env` cuando no exista config activa en DB.
+- Si `SMTP_FALLBACK_ENABLED=false` y no hay config activa, el envío falla con error controlado.
+
+Variables SMTP globales (solo si se habilita fallback):
+
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`
 - `SMTP_USER`, `SMTP_PASS`
 - `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME`
+- `SMTP_FALLBACK_ENABLED`
 - `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
+
+## SMTP resolution order
+
+Regla conceptual (para evitar ambigüedades):
+
+1. Buscar configuración SMTP activa del cliente en MySQL (`ll_clientes_email_config`) por `cliente_id` (`is_active=1`).
+2. Si existe config activa, **usar esa configuración** (este es el camino normal de operación).
+3. Si no existe config activa:
+  - si `SMTP_FALLBACK_ENABLED=false` (valor por defecto), **cortar el flujo**, auditar `FAILED` y responder `CLIENT_EMAIL_CONFIG_NOT_FOUND`.
+  - si `SMTP_FALLBACK_ENABLED=true`, usar SMTP global del `.env` como **fallback técnico**.
 
 ## Ejecutar
 
@@ -66,7 +91,7 @@ Errores tipificados (ejemplos):
 Este servicio:
 
 - valida payload técnico
-- entrega correo vía SMTP relay
+- entrega correo vía SMTP relay (multi-tenant por cliente)
 - audita envíos en MySQL (`ll_envios_email`)
 - devuelve resultado técnico
 
