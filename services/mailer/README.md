@@ -17,6 +17,7 @@ Variables:
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`
 - `SMTP_USER`, `SMTP_PASS`
 - `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME`
+- `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
 
 ## Ejecutar
 
@@ -66,11 +67,11 @@ Este servicio:
 
 - valida payload técnico
 - entrega correo vía SMTP relay
+- audita envíos en MySQL (`ll_envios_email`)
 - devuelve resultado técnico
 
 No incluye:
 
-- base de datos
 - lógica comercial
 - campañas
 - - integración con `central-hub`
