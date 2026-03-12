@@ -2,7 +2,7 @@
 
 **LeadMaster Workspace — Central Documentation Hub**
 
-**Last Updated:** 2026-03-06  
+**Last Updated:** 2026-03-11  
 **Version:** 2.3  
 **Official Rules:** [DOCUMENTATION_RULES.md](DOCUMENTATION_RULES.md)
 
@@ -68,10 +68,12 @@ _Diagnostic reports, implementation reports, and technical analyses_
 
 **Structure:** `05-REPORTES/YYYY-MM/REPORT_NAME_YYYY-MM-DD.md`
 
-**Exceptions:** `05-REPORTES/UX/` — UX workstream reports (non-dated, iterative)
+**Exceptions:** `05-REPORTES/UX/` — UX workstream reports (non-dated, iterative)  
 **Exceptions:** `05-REPORTES/OPS/` — OPS workstream reports (non-dated, iterative)
 
 - [2026-02/](../05-REPORTES/2026-02/) — February 2026 reports
+- [2026-03/](../05-REPORTES/2026-03/) — March 2026 reports
+- [2026-03/REPORTE-VALIDACION-SMTP-MAILER-2026-03-11.md](../05-REPORTES/2026-03/REPORTE-VALIDACION-SMTP-MAILER-2026-03-11.md) — Validación SMTP de `leadmaster-mailer` (`/health` + `/send`)
 - [OPS/OPS-POST-ENVIO-01-CLASIFICACION-DEPURADORA.md](../05-REPORTES/OPS/OPS-POST-ENVIO-01-CLASIFICACION-DEPURADORA.md) — OPS-POST-ENVIO-01 — Clasificación Post-Envío (Depuradora)
 - [UX/UX-01-PROSPECTOS-CERO-SCROLL-HORIZONTAL-STICKY-FILTROS.md](../05-REPORTES/UX/UX-01-PROSPECTOS-CERO-SCROLL-HORIZONTAL-STICKY-FILTROS.md) — UX-01 — Prospectos: Cero Scroll Horizontal + Sticky Filters + Layout Operador
 - [OPS/REQUISITOS-MINIMOS-CANAL-EMAIL.md](../05-REPORTES/OPS/REQUISITOS-MINIMOS-CANAL-EMAIL.md) — Requisitos mínimos para activar el canal email
