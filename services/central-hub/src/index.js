@@ -90,6 +90,9 @@ app.use('/api/sync-contacts', require('./modules/sync-contacts/routes'));
 // Email (integración con leadmaster-mailer)
 app.use('/api/email', require('./modules/email/routes'));
 
+// Mailer (orquestador HTTP a leadmaster-mailer) - sin /api por contrato
+app.use('/mailer', require('./modules/mailer/routes'));
+
 /* =====================================================
    QR Code Read-Only Proxy (sin /api por compatibilidad)
 ===================================================== */
