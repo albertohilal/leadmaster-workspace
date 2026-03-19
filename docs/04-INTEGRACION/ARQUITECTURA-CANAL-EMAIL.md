@@ -1,453 +1,363 @@
 # Arquitectura del Canal Email — LeadMaster
 
-**Version:** 1.0  
-**Status:** APPROVED  
-**Date:** 2026-03-10  
+**Version:** 2.0  
+**Status:** IMPLEMENTED  
+**Date:** 2026-03-15  
 **Owner:** Alberto Hilal  
-**Approved by:** Alberto Hilal  
-**Approved on:** 2026-03-10  
-**Depends on:** ADR-001 / Phase 4B — Email Prospecting Channel
+**Depends on:** ADR-001 / Phase 4B / End-to-End Email 2026-03-15
 
 ---
 
 ## 1. Objetivo
 
-Definir la arquitectura funcional del canal email dentro de LeadMaster, preservando la lógica central del sistema:
+Alinear la arquitectura documental del canal Email con el estado real actual del sistema, luego del cierre de la integración end-to-end en modo prueba.
 
-1. detectar leads
-2. abrir contacto
-3. clasificar interés
-4. derivar solo cuando exista señal suficiente de interés
+Este documento deja asentado:
 
-Este documento define arquitectura de integración, responsabilidades y límites operativos.
+- cuál es el propósito real del canal Email dentro de LeadMaster
+- qué componentes existen hoy en producción técnica de prueba
+- cómo fluye actualmente el envío end-to-end
+- dónde están las fronteras de responsabilidad entre UI, gateway, mailer y datos
+- cuál es la limitación dominante del canal en el estado actual
 
-No define todavía implementación final de proveedor, UI definitiva ni detalle exhaustivo de base de datos.
+El objetivo no es describir una arquitectura puramente conceptual ni presentar el canal como una operación comercial ya escalada. El punto exacto de esta arquitectura es el siguiente:
 
----
-
-## 2. Principio rector
-
-El canal email no se incorpora para “mandar correos” en abstracto, sino para operar un proceso de prospección controlado por LeadMaster.
-
-La regla general es:
-
-> LeadMaster genera o controla la base operativa inicial, opera el primer contacto y deriva al cliente únicamente los leads con interés validado.
+- el canal Email está técnicamente operativo en modo prueba
+- la escala real del canal sigue limitada por disponibilidad y enriquecimiento de emails
 
 ---
 
-## 3. Alcance arquitectónico
+## 2. Alcance
 
-### Incluido
-- flujo funcional del canal email
-- relación entre base, landing, hub y mailer
-- límites entre LeadMaster y cliente final
-- responsabilidades por componente
-- definición conceptual de inbox, identidad y derivación
+Esta arquitectura documenta el estado operativo actual del canal Email dentro de `leadmaster-workspace`.
 
-### No incluido
-- proveedor definitivo de envío
-- tracking avanzado de aperturas/clicks
-- secuencias automatizadas complejas
-- implementación concreta de frontend
-- definición SQL final exhaustiva
+Incluye:
+
+- UI inicial de `central-hub` para selección común de prospectos y preparación de Email
+- gateway autenticado `POST /mailer/send` expuesto por `central-hub`
+- servicio standalone `leadmaster-mailer`
+- resolución SMTP por cliente desde `iunaorg_dyd.ll_clientes_email_config`
+- auditoría/persistencia en `ll_envios_email`
+- flujo validado con envío real en modo prueba
+
+No incluye:
+
+- dashboard comercial maduro de campañas Email
+- automatización masiva avanzada
+- enriquecimiento automático masivo de emails
+- explotación comercial a escala del canal
+- arquitectura final de crecimiento basada en cobertura completa de datos
+
+Documentos de referencia ya cerrados para este estado:
+
+- `docs/05-REPORTES/2026-03/REPORTE-INTEGRACION-END-TO-END-EMAIL-CENTRAL-HUB-MAILER-2026-03-15.md`
+- `docs/07-CONTRATOS/Contratos-HTTP-Central-Hub-Mailer-Gateway.md`
+- `docs/07-CONTRATOS/Contratos-HTTP-Mailer.md`
 
 ---
 
-## 4. Componentes principales
+## 3. Componentes de arquitectura
 
-### 4.1 `desarrolloydisenio-api`
-Responsable de obtención, enriquecimiento o segmentación de leads base.
+### 3.1 UI de `central-hub`
 
-Función en esta arquitectura:
-- generar materia prima de prospección
-- aportar segmentación inicial
-- alimentar el proceso comercial de LeadMaster
+La UI actual es la primera capa operativa del canal Email.
 
-### 4.2 `central-hub`
-Responsable de la lógica central de negocio y orquestación.
+Responsabilidades actuales:
 
-Función en esta arquitectura:
-- autenticar usuario
-- determinar `cliente_id`
-- validar payload
-- decidir flujos de negocio
-- registrar estados e interacciones
-- invocar al servicio mailer
-- aplicar reglas de derivación
+- permitir selección común de prospectos
+- mostrar disponibilidad por canal, incluyendo email
+- mantener filtros, tabla, checkboxes y conteos de selección
+- permitir preparación manual de un envío Email sobre la selección actual
+- enviar al gateway autenticado del hub únicamente los datos funcionales del envío
 
-### 4.3 `mailer`
-Servicio desacoplado para entrega técnica de email.
+Estado real:
 
-Función en esta arquitectura:
-- exponer interfaz HTTP/JSON
-- recibir requests de envío
-- enviar correo vía proveedor configurado
+- existe una UI inicial operativa
+- no es todavía un dashboard comercial completo
+- no es una herramienta de explotación masiva autónoma
+
+### 3.2 Gateway Email de `central-hub`
+
+`central-hub` expone la frontera autenticada del canal Email mediante:
+
+- `POST /mailer/send`
+
+Responsabilidades actuales:
+
+- autenticar por JWT
+- obtener `cliente_id` desde el usuario autenticado
+- validar el body funcional del request
+- ignorar `cliente_id` si fuera enviado por el caller
+- delegar el envío al standalone `leadmaster-mailer`
+
+Estado real:
+
+- la integración HTTP `central-hub` → `leadmaster-mailer` está implementada
+- el gateway ya fue validado con envío real
+
+### 3.3 Servicio standalone `leadmaster-mailer`
+
+Es el motor técnico real del envío.
+
+Endpoints actuales:
+
+- `GET /health`
+- `POST /send`
+
+Responsabilidades actuales:
+
+- recibir requests internos desde `central-hub`
+- validar payload técnico
+- resolver SMTP por `cliente_id`
+- ejecutar el envío real
 - devolver resultado técnico
-- tipificar errores de entrega
+- registrar auditoría/persistencia
 
-### 4.4 Landing / Activo web
-Activo digital que sostiene legitimidad y conversión del contacto.
+Estado real:
 
-Función en esta arquitectura:
-- validar identidad de marca
-- presentar propuesta
-- ampliar información
-- servir como destino del CTA
-- contribuir a la legitimidad del email
+- el standalone existe y está operativo
+- no es la frontera autenticada consumida por frontend
 
-### 4.5 Inbox operativo
-Casilla o configuración equivalente donde llegan respuestas iniciales.
+### 3.4 Base de configuración SMTP por cliente
 
-Función en esta arquitectura:
-- recibir respuestas del lead
-- permitir clasificación inicial
-- sostener el control del embudo por LeadMaster
+La resolución SMTP multi-tenant depende de la tabla:
 
-### 4.6 Cliente final
-Empresa o marca beneficiaria de los leads derivados.
+- `iunaorg_dyd.ll_clientes_email_config`
 
-Función en esta arquitectura:
-- definir oferta
-- aprobar identidad de marca
-- recibir leads derivados
-- intervenir comercialmente cuando corresponda
+Responsabilidad arquitectónica:
 
----
+- almacenar configuración SMTP activa por cliente
+- permitir que el mailer resuelva identidad técnica de envío por tenant
 
-## 5. Diagrama lógico de alto nivel
+Rol dentro de la arquitectura:
 
-```text
-desarrolloydisenio-api
-        ↓
-   Base de leads
-        ↓
-   LeadMaster / Central Hub
-        ├─ valida cliente_id
-        ├─ decide contacto
-        ├─ registra operación
-        ↓
-      Mailer
-        ↓
- Proveedor de envío
-        ↓
-      Prospecto
-        ↓
- Respuesta / señal de interés
-        ↓
- Inbox controlado por LeadMaster
-        ↓
- Clasificación / derivación
-        ↓
-     Cliente final
-```
+- desacoplar la operación comercial del detalle de infraestructura SMTP
+- permitir aislamiento multi-cliente a nivel de envío
+
+### 3.5 Auditoría/persistencia de envíos
+
+La auditoría técnica del canal se registra en:
+
+- `ll_envios_email`
+
+Responsabilidad arquitectónica:
+
+- persistir el intento de envío
+- registrar resultado técnico
+- dejar trazabilidad mínima de operación
+
+Rol dentro de la arquitectura:
+
+- garantizar evidencia operativa del canal
+- sostener análisis técnico y diagnóstico de fallas
 
 ---
 
-## 6. Flujo funcional
+## 4. Flujo end-to-end actual
 
-### 6.1 Captación
+El flujo operativo real del canal Email es el siguiente:
 
-LeadMaster obtiene o prepara la base de leads desde sus propias fuentes y procesos.
+1. el usuario autenticado entra a `central-hub`
+2. desde la UI filtra y selecciona prospectos en una selección común de destinatarios
+3. la UI identifica qué prospectos tienen email disponible y cuáles no
+4. el usuario abre la preparación de envío Email
+5. la UI prepara asunto, cuerpo y destinatarios válidos
+6. la UI invoca `POST /mailer/send` en `central-hub`
+7. `central-hub` valida JWT y resuelve `cliente_id` desde el usuario autenticado
+8. `central-hub` construye el request interno hacia `leadmaster-mailer`
+9. `leadmaster-mailer` recibe el payload técnico y valida el contrato standalone
+10. `leadmaster-mailer` resuelve SMTP por cliente usando `iunaorg_dyd.ll_clientes_email_config`
+11. el mailer registra auditoría `PENDING` en `ll_envios_email`
+12. el mailer ejecuta el envío SMTP real
+13. el mailer actualiza auditoría a `SENT` o `FAILED`
+14. la respuesta vuelve a `central-hub`
+15. `central-hub` responde a la UI con el resultado del envío
 
-### 6.2 Selección
+Conclusión del flujo:
 
-LeadMaster selecciona segmento, campaña o conjunto de prospectos a contactar.
-
-### 6.3 Envío inicial
-
-`central-hub` invoca al servicio `mailer` con contexto multi-tenant (`cliente_id`) y datos del envío.
-
-### 6.4 Entrega
-
-`mailer` utiliza proveedor externo o infraestructura configurada para entregar el email.
-
-### 6.5 Llegada del lead a la landing
-
-El lead puede:
-
-* ignorar
-* hacer click
-* responder por email
-* mostrar interés por otra vía
-
-### 6.6 Recepción
-
-Las respuestas iniciales deben caer en un inbox bajo control operativo de LeadMaster o en una modalidad equivalente que preserve ese control.
-
-### 6.7 Clasificación
-
-LeadMaster evalúa la respuesta y decide si el caso pasa a estado de interés suficiente.
-
-### 6.8 Derivación
-
-Solo en esta instancia se deriva el lead al cliente final.
+- la cadena UI → gateway → standalone → SMTP → auditoría quedó operativa
+- el cierre técnico de la fase quedó validado en modo prueba con envío real
 
 ---
 
-## 7. Separación crítica de conceptos
+## 5. Fronteras y responsabilidades
 
-Este canal obliga a diferenciar elementos que muchas veces se confunden.
+### 5.1 Diferencia entre gateway y standalone
 
-### 7.1 Identidad visible
+La separación entre gateway y standalone es central en esta arquitectura.
 
-Qué ve el prospecto.
+#### Gateway de `central-hub`
 
-Ejemplos:
+Función:
 
-* nombre de remitente
-* correo visible
-* firma
-* marca
-* dominio
+- frontera autenticada del sistema para el canal Email
 
-### 7.2 Infraestructura de envío
+Responsabilidades:
 
-Quién envía técnicamente el correo.
+- autenticar usuario
+- resolver `cliente_id` desde JWT
+- validar body funcional
+- controlar el contexto tenant
+- delegar al servicio técnico interno
 
-Ejemplos:
+#### Standalone `leadmaster-mailer`
 
-* SMTP externo
-* proveedor transaccional
-* API de envío
+Función:
 
-### 7.3 Inbox de respuesta
+- ejecutor técnico real del envío
 
-Dónde llega la respuesta real del prospecto.
+Responsabilidades:
 
-### 7.4 Propiedad de la base
+- recibir `cliente_id` como dato técnico interno
+- resolver SMTP por cliente
+- construir/transaccionar el envío
+- auditar el resultado técnico
 
-Quién controla la base operativa inicial y su enriquecimiento.
+Regla arquitectónica:
 
-### 7.5 Derivación
+- el frontend no debe llamar directamente al standalone
+- el frontend debe consumir el gateway autenticado de `central-hub`
 
-Cuándo el cliente toma el control del caso.
+### 5.2 UI
 
-Estas capas deben mantenerse separadas conceptualmente y también en la documentación.
+La UI actual no define infraestructura ni seguridad tenant.
 
----
+Su responsabilidad es:
 
-## 8. Responsabilidades por componente
+- habilitar operación humana controlada
+- preparar envíos sobre selección común
+- reflejar disponibilidad de datos por canal
 
-### 8.1 Central Hub
+### 5.3 Datos
 
-**MUST**
+La capa de datos cumple dos roles distintos:
 
-* validar `cliente_id`
-* validar payload funcional
-* aplicar reglas de negocio
-* decidir cuándo enviar
-* registrar resultado
-* mantener criterio de derivación
-* proteger consistencia multi-tenant
+- configuración SMTP por cliente
+- disponibilidad de emails en prospectos
 
-**MUST NOT**
+Estos roles no deben mezclarse.
 
-* enviar correo directamente desde lógica improvisada embebida
-* ceder por defecto el inbox bruto al cliente
-* mezclar reglas comerciales con detalles del proveedor técnico
+- la configuración SMTP ya sostiene el transporte
+- la disponibilidad de emails en prospectos determina la escalabilidad real del canal
 
 ---
 
-### 8.2 Mailer
+## 6. Datos y dependencias
 
-**MUST**
+El canal depende actualmente de dos familias principales de datos.
 
-* aceptar requests HTTP del hub
-* validar request técnico mínimo
-* enviar correo
-* retornar resultado técnico claro
-* tipificar errores
-* desacoplar proveedor del resto del sistema
+### 6.1 Datos de infraestructura SMTP
 
-**MUST NOT**
+Fuente principal:
 
-* decidir campañas
-* decidir a quién contactar
-* clasificar interés
-* acceder a la base comercial como dueño del proceso
-* reemplazar lógica del hub
+- `iunaorg_dyd.ll_clientes_email_config`
 
----
+Uso:
 
-### 8.3 Cliente final
+- resolver host, puerto, seguridad, credenciales e identidad de envío por `cliente_id`
 
-**MUST**
+### 6.2 Datos operativos de prospectos
 
-* definir oferta y marca
-* aprobar activos de campaña
-* responder cuando un lead es derivado
-* colaborar con requisitos técnicos mínimos si se usa su dominio
+Fuente funcional:
 
-**MUST NOT**
+- registros de prospectos disponibles para selección en `central-hub`
 
-* asumir control del inbox inicial por defecto
-* recibir la base bruta salvo acuerdo explícito
-* intervenir caóticamente en el flujo inicial de prospección
+Uso:
 
----
+- determinar si existe email operable por prospecto
+- habilitar o bloquear preparación real de envío
 
-## 9. Multi-tenant
+### 6.3 Dependencia de auditoría
 
-El canal email debe respetar el mismo principio multi-tenant ya adoptado en el workspace.
+Fuente de trazabilidad:
 
-### Reglas
+- `ll_envios_email`
 
-* todo flujo debe quedar asociado a `cliente_id`
-* toda identidad de envío debe poder resolverse por cliente
-* todo registro operativo debe quedar asociado a cliente
-* toda derivación debe estar aislada por cliente
+Uso:
 
-Esto evita contaminación entre cuentas y preserva el modelo SaaS / multi-cliente.
+- registrar estado técnico del envío
+- sostener observabilidad operativa mínima
+
+Lectura arquitectónica clave:
+
+- el transporte ya tiene soporte técnico
+- la escalabilidad del canal depende ahora de la calidad, cobertura y enriquecimiento del dato email
 
 ---
 
-## 10. Modelos de operación posibles
+## 7. Estado actual
 
-### Modelo A — Casilla genérica operada por LeadMaster
+Estado arquitectónico vigente:
 
-Ejemplo:
+- el servicio standalone `leadmaster-mailer` existe
+- el standalone expone `GET /health` y `POST /send`
+- `central-hub` integra mailer vía HTTP
+- `central-hub` expone el gateway autenticado `POST /mailer/send`
+- el gateway requiere JWT
+- `cliente_id` se resuelve desde el usuario autenticado
+- `leadmaster-mailer` resuelve SMTP por cliente desde `iunaorg_dyd.ll_clientes_email_config`
+- el flujo fue validado con envío real
+- existe una UI inicial para selección común de prospectos y preparación de envío Email
 
-* cuenta tipo Gmail o equivalente
-* control total por LeadMaster
+Conclusión de estado:
 
-**Uso recomendado:** MVP o validación inicial
-
----
-
-### Modelo B — Dominio del cliente + operación LeadMaster
-
-Ejemplo:
-
-* identidad visible del cliente
-* proveedor externo operado por LeadMaster
-* inbox bajo control operativo de LeadMaster
-
-**Uso recomendado:** modelo preferido
+- el canal Email está técnicamente operativo end-to-end en modo prueba
+- el canal no debe describirse todavía como operación comercial escalada
 
 ---
 
-### Modelo C — Dominio e inbox del cliente
+## 8. Limitaciones actuales
 
-Ejemplo:
+La limitación principal del canal ya no es el transporte.
 
-* todo queda en manos del cliente
+Limitaciones observadas:
 
-**Uso recomendado:** no preferido para el modelo base de LeadMaster, salvo acuerdos especiales
+- la base actual no dispone de cobertura operativa suficiente de emails para explotación masiva
+- no existe enriquecimiento automático masivo de emails
+- la UI implementada es inicial y manual
+- no existe todavía una capa madura de operación comercial de campañas
+- la escalabilidad del canal sigue frenada por disponibilidad y calidad del dato email
 
----
+Conclusión arquitectónica de limitación:
 
-## 11. Modelo arquitectónico preferido
-
-LeadMaster adopta como dirección preferida el siguiente modelo:
-
-* identidad coherente con la marca del cliente
-* landing específica
-* proveedor de envío externo
-* `central-hub` como orquestador
-* `mailer` como servicio desacoplado
-* inbox inicial bajo control de LeadMaster
-* derivación selectiva hacia el cliente
-
-Este modelo equilibra:
-
-* legitimidad comercial
-* control del embudo
-* protección de la base
-* escalabilidad futura
+- el cuello de botella actual es la disponibilidad/enriquecimiento de emails, no el envío
 
 ---
 
-## 12. Requisitos mínimos de integración
+## 9. Próxima evolución recomendada
 
-### 12.1 Contrato HTTP
+La siguiente evolución arquitectónica debe enfocarse en datos, no en transporte.
 
-Debe existir contrato documentado para `mailer`.
+Prioridades recomendadas:
 
-### 12.2 Endpoints mínimos
+1. diseñar estrategia de adquisición y enriquecimiento de emails
+2. definir pipeline de validación, normalización e higiene del dato email
+3. aumentar cobertura real de emails sobre la base operable de prospectos
+4. evolucionar la UI desde preparación manual a operación controlada más robusta
+5. recién después evaluar componentes comerciales más avanzados
 
-* `GET /health`
-* `POST /send`
+Regla de evolución:
 
-### 12.3 Contexto de cliente
-
-Todo request debe transportar `cliente_id`.
-
-### 12.4 Persistencia operativa
-
-Todo envío debe dejar traza operativa suficiente para auditoría y seguimiento.
+- no tiene sentido escalar la complejidad comercial del canal si todavía no existe suficiente densidad operativa de emails válidos
 
 ---
 
-## 13. Estados funcionales sugeridos
+## 10. Conclusión
 
-Estados mínimos del flujo:
+La arquitectura del canal Email ya no debe leerse como una intención conceptual futura. Debe leerse como una arquitectura implementada y validada en modo prueba.
 
-* `LEAD_DETECTADO`
-* `EMAIL_PENDIENTE`
-* `EMAIL_ENVIADO`
-* `RESPUESTA_RECIBIDA`
-* `INTERES_DETECTADO`
-* `DERIVADO_AL_CLIENTE`
-* `DESCARTADO`
+Hoy el sistema ya cuenta con:
 
-### Interpretación
+- UI inicial en `central-hub`
+- gateway autenticado en `central-hub`
+- servicio standalone `leadmaster-mailer`
+- resolución SMTP multi-tenant por cliente
+- auditoría/persistencia técnica de envíos
+- validación real del flujo end-to-end
 
-* `EMAIL_ENVIADO` no implica éxito comercial
-* `RESPUESTA_RECIBIDA` no implica interés suficiente
-* `INTERES_DETECTADO` habilita derivación
+El punto real de esta arquitectura es claro:
 
----
+- canal técnicamente operativo en modo prueba
+- pendiente de escala por datos
 
-## 14. Riesgos arquitectónicos
-
-### Riesgo 1 — Confundir identidad con control
-
-Usar el dominio del cliente no implica que el cliente deba ver todo el inbox.
-
-### Riesgo 2 — Resolver todo dentro de `sender`
-
-Eso mezclaría canal, negocio y proveedor técnico.
-
-### Riesgo 3 — Entregar demasiado temprano la base o el inbox
-
-Eso debilita el valor de LeadMaster.
-
-### Riesgo 4 — No exigir landing o identidad coherente
-
-Eso reduce legitimidad y deteriora resultados.
-
----
-
-## 15. Evolución futura esperada
-
-Esta arquitectura debe permitir evolución posterior hacia:
-
-* campañas más sofisticadas
-* tracking de interacción
-* analytics por canal
-* panel operativo de email
-* integración multicanal real (email + WhatsApp + otros)
-
-Sin romper el principio central:
-
-> LeadMaster controla la apertura y la clasificación inicial; el cliente recibe leads derivados.
-
----
-
-## 16. Documentos relacionados
-
-* `docs/01-CONSTITUCIONAL/ADR-001-CANAL-EMAIL-PROSPECCION-OPERADO-POR-LEADMASTER.md`
-* `docs/06-FASES/PHASE-4B-EMAIL-PROSPECTING-PLAN.md`
-* `docs/07-CONTRATOS/Contratos-HTTP-Mailer.md`
-* `docs/05-REPORTES/OPS/REQUISITOS-MINIMOS-CANAL-EMAIL.md`
-
----
-
-## 17. Estado
-
-**Status actual:** APPROVED  
-**Approved by:** Alberto Hilal  
-**Approved on:** 2026-03-10
-
-Este documento define arquitectura funcional e integración conceptual.
-No reemplaza contratos HTTP ni especificaciones técnicas detalladas.
+La siguiente etapa correcta no consiste en reinventar el transporte, sino en resolver la disponibilidad y el enriquecimiento de emails para que el canal pueda convertirse en una operación realmente explotable a escala.

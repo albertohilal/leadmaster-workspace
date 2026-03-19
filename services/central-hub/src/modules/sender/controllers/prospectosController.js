@@ -73,6 +73,7 @@ const prospectosController = {
         SELECT
           s.rowid AS prospecto_id,
           s.nom AS nombre,
+          s.email AS email,
           s.phone_mobile AS telefono_wapp,
           suc.total_sucursales AS total_sucursales,
           s.address AS direccion,
