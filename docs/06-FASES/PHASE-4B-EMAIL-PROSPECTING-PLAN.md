@@ -1,322 +1,242 @@
 # Phase 4B — Email Prospecting Channel
 
-**Status:** APPROVED  
-**Date:** 2026-03-10  
+**Status:** IN PROGRESS  
+**Date:** 2026-03-15  
 **Owner:** Alberto Hilal  
-**Approved by:** Alberto Hilal  
-**Approved on:** 2026-03-10  
 **Workspace:** LeadMaster  
-**Depends on:** Phase 2 completed / Phase 3 planned / Contratos HTTP multi-cliente / ADR-001
+**Depends on:** ADR-001 / Contratos HTTP Email / Arquitectura Canal Email / Cierre end-to-end 2026-03-15
 
 ---
 
-## 1. Objetivo
+## 1. Estado de la fase
 
-Incorporar formalmente un canal de prospección por email dentro de LeadMaster, manteniendo la lógica comercial central del sistema:
+La Phase 4B ya no debe leerse como una fase solamente fundacional o documental.
 
-1. detectar leads
-2. abrir contacto
-3. clasificar interés
-4. derivar solo leads con interés validado
+Estado real actual:
 
-El objetivo de esta etapa no es “mandar emails” en abstracto, sino construir un canal operativo de apertura comercial alineado con la propuesta de valor de LeadMaster.
+- la subfase técnica de transporte e integración quedó resuelta
+- el canal Email quedó operativo end-to-end en modo prueba
+- la fase completa no puede considerarse cerrada comercialmente
+- el principal pendiente ya no es el transporte, sino la capa de datos email
 
----
+Lectura correcta del estado:
 
-## 2. Justificación de la etapa
-
-Phase 3 del proyecto está centrada en **WhatsApp Session Lifecycle** y deja fuera de alcance el envío/recepción de mensajes y campañas. Las fases futuras ya contemplan el bloque “Message sending/receiving + Campaigns”, pero todavía sin separar el canal email de la lógica WhatsApp-first.
-
-La incorporación de clientes que requieren apertura comercial por correo obliga a abrir una etapa específica para documentar y construir este nuevo canal.
-
-Esta fase representa el pasaje de:
-
-- **LeadMaster como sistema principalmente orientado a WhatsApp**
-  
-a
-
-- **LeadMaster como plataforma multicanal de prospección y derivación**
+- fase técnicamente avanzada
+- cierre técnico parcial alcanzado
+- cierre funcional/comercial total aún pendiente
 
 ---
 
-## 3. Alcance
+## 2. Objetivo
 
-### Incluido en esta fase
-- definición funcional del canal email
-- modelo de operación LeadMaster-first
-- definición de ownership sobre base, inbox y derivación
-- definición del servicio `mailer`
-- contratos HTTP iniciales del canal email
-- integración conceptual con `central-hub`
-- requisitos mínimos para clientes que usen email
-- modelado de landing como parte del sistema
-- estados operativos básicos del lead por email
-- primer plan técnico de implementación
+Alinear el plan de la Phase 4B del canal Email con el estado real actual del proyecto, después de haber cerrado la integración end-to-end en modo prueba.
 
-### No incluido en esta fase
-- automatización avanzada de aperturas/clicks
-- scoring predictivo
-- enriquecimiento automático por IA
-- campañas masivas complejas con colas avanzadas
-- UI final de analytics completa
-- entregabilidad avanzada enterprise
-- secuencias multistep sofisticadas
-- integración con Meta, LinkedIn o CRM externos más allá del mínimo necesario
+Este documento deja explícito:
+
+- qué partes de la fase ya quedaron implementadas
+- qué partes permanecen pendientes
+- cuál fue el cierre efectivo de la subfase técnica
+- cuál es la próxima subfase lógica
+- por qué la fase no puede darse por totalmente terminada
+
+El objetivo de esta etapa sigue siendo consolidar el canal Email como una capacidad real de prospección dentro de LeadMaster, pero sin sobredimensionar su madurez comercial actual.
 
 ---
 
-## 4. Problema que resuelve
+## 3. Componentes ya implementados
 
-Sin esta fase, el proyecto corre el riesgo de resolver email de forma improvisada:
+Los siguientes componentes ya existen y forman parte del estado real de la fase:
 
-- como un parche dentro de `sender`
-- como una copia pobre del flujo WhatsApp
-- como un simple “mail marketing”
-- o como una cesión temprana del canal completo al cliente
+### 3.1 Servicio standalone `leadmaster-mailer`
 
-Esta fase ordena el problema antes de la implementación.
+Implementado en `services/mailer`.
 
----
+Capacidades actualmente disponibles:
 
-## 5. Modelo operativo adoptado
-
-### 5.1 Base de leads
-La base de leads utilizada para prospección inicial es obtenida y/o procesada por LeadMaster, principalmente mediante `desarrolloydisenio-api`.
-
-### 5.2 Primer contacto
-LeadMaster opera el primer contacto por email.
-
-### 5.3 Recepción
-Las respuestas iniciales se reciben en un inbox bajo control operativo de LeadMaster o en una configuración equivalente que preserve ese control.
-
-### 5.4 Clasificación
-LeadMaster clasifica las respuestas e identifica señales de interés.
-
-### 5.5 Derivación
-Solo se derivan al cliente los leads o conversaciones que alcanzan estado de interés suficiente.
-
----
-
-## 6. Principios de diseño
-
-1. **Email no es una copia exacta de WhatsApp.**
-2. **La decisión de derivación pertenece al negocio, no al canal.**
-3. **La base operativa inicial no se entrega cruda por defecto al cliente.**
-4. **Identidad de marca e inbox son conceptos distintos.**
-5. **Landing e identidad de envío son componentes funcionales del sistema.**
-6. **Todo flujo debe respetar multi-tenant con `cliente_id`.**
-7. **El código futuro debe seguir contratos documentados, no redefinirlos a conveniencia.**
-
----
-
-## 7. Arquitectura objetivo (alto nivel)
-
-### 7.1 Componentes
-- `desarrolloydisenio-api` → obtención / segmentación de leads
-- `central-hub` → autenticación, contexto de cliente, orquestación
-- `mailer` → entrega de correo e interfaz HTTP del canal email
-- landing / sitio / subdominio de campaña
-- dashboard / vista operativa futura
-
-### 7.2 Patrón de integración
-Se replica el patrón ya usado con `session-manager`:
-
-- servicio desacoplado
-- contratos HTTP/JSON
-- `cliente_id` obligatorio
-- límites claros de responsabilidad
-- hub como orquestador
-
-### 7.3 Separación de responsabilidades
-**Central Hub**
-- autentica
-- resuelve `req.cliente_id`
-- valida payload
-- registra interacción
-- decide flujos de negocio
-- llama al servicio mailer
-
-**Mailer**
-- valida request técnico
-- envía correo
-- devuelve resultado de entrega
-- tipifica errores técnicos
-
-**Cliente final**
-- recibe leads derivados
-- no opera necesariamente el inbox inicial
-
----
-
-## 8. Requisitos funcionales
-
-### 8.1 Envío mínimo
-El sistema debe permitir enviar un email individual de prospección asociado a un `cliente_id`.
-
-### 8.2 Identidad de envío
-Cada cliente debe poder tener al menos una identidad de envío definida:
-
-- nombre visible
-- dirección remitente
-- reply-to
-- firma básica
-
-### 8.3 Registro operativo
-Cada envío debe quedar registrado con al menos:
-
-- `cliente_id`
-- destinatario
-- asunto
-- fecha/hora
-- estado
-- error técnico si aplica
-
-### 8.4 Recepción y clasificación
-El sistema debe poder asociar una respuesta inicial a un lead/contacto y moverlo a un estado comercial.
-
-### 8.5 Derivación
-Debe existir un criterio explícito para marcar un lead como derivable.
-
----
-
-## 9. Estados sugeridos del flujo email
-
-Estados mínimos propuestos:
-
-- `LEAD_DETECTADO`
-- `EMAIL_PENDIENTE`
-- `EMAIL_ENVIADO`
-- `RESPUESTA_RECIBIDA`
-- `INTERES_DETECTADO`
-- `DERIVADO_AL_CLIENTE`
-- `DESCARTADO`
-
-### Regla clave
-`EMAIL_ENVIADO` no implica interés  
-`RESPUESTA_RECIBIDA` no implica derivación  
-`INTERES_DETECTADO` habilita evaluación de derivación
-
----
-
-## 10. Requisitos técnicos mínimos
-
-### 10.1 Contrato
-Nuevo documento de contrato:
-- `docs/07-CONTRATOS/Contratos-HTTP-Mailer.md`
-
-### 10.2 Servicio mailer
-Nueva unidad técnica sugerida:
-- `services/mailer`
-
-### 10.3 Endpoints mínimos
 - `GET /health`
 - `POST /send`
+- validación de payload técnico
+- resolución SMTP por cliente
+- fallback SMTP opcional
+- auditoría/persistencia de envíos
 
-Posibles futuros:
-- `POST /incoming-email`
-- `GET /message-status/:id`
+### 3.2 Gateway autenticado de `central-hub`
 
-### 10.4 Multi-tenant
-Todo request debe incluir `cliente_id`.
+Implementado en `central-hub`.
 
-### 10.5 Persistencia
-Debe existir tabla o estructura equivalente para registrar envíos email.
+Capacidades actualmente disponibles:
 
----
+- endpoint `POST /mailer/send`
+- autenticación JWT obligatoria
+- resolución de `cliente_id` desde el usuario autenticado
+- delegación HTTP hacia `leadmaster-mailer`
+- control tenant en frontera autenticada
 
-## 11. Requisitos comerciales mínimos para clientes
+### 3.3 UI inicial de Email en `central-hub`
 
-Para activar el canal email con un cliente, deben cumplirse condiciones mínimas:
+Implementada sobre la pantalla real de selección de prospectos.
 
-### Marca / oferta
-- oferta inicial definida
-- segmento claro
-- propuesta coherente
+Capacidades actualmente disponibles:
 
-### Infraestructura
-- identidad de envío definida
-- acceso técnico a DNS o coordinación con técnico del cliente, si aplica
-- landing disponible o a desarrollar
+- selección común de prospectos
+- visualización de disponibilidad de email
+- preparación inicial de envío Email
+- envío manual en modo prueba sobre selección actual
 
-### Operación
-- aceptación del modelo de derivación selectiva
-- aceptación de que LeadMaster opera el primer contacto
-- aceptación de que el cliente no recibe automáticamente la base bruta
+### 3.4 Base de configuración SMTP por cliente
 
----
+Uso real implementado:
 
-## 12. Riesgos principales
+- resolución SMTP por cliente desde `iunaorg_dyd.ll_clientes_email_config`
 
-### Riesgo 1 — Mala entregabilidad
-**Mitigación**
-- exigir identidad y configuración técnica mínima
-- no permitir campañas improvisadas
-- arrancar con volumen controlado
+### 3.5 Auditoría operativa
 
-### Riesgo 2 — Pérdida del control del embudo
-**Mitigación**
-- no ceder inbox completo desde el inicio
-- documentar claramente ownership y derivación
+Uso real implementado:
 
-### Riesgo 3 — Confusión conceptual con WhatsApp
-**Mitigación**
-- documentar email como canal de apertura
-- mantener estados propios
-- no mezclar prematuramente la lógica conversacional
-
-### Riesgo 4 — Cliente no apto
-**Mitigación**
-- definir requisitos mínimos de entrada
-- rechazar implementaciones sin condiciones mínimas
+- registro técnico del envío en `ll_envios_email`
 
 ---
 
-## 13. Entregables documentales de la fase
+## 4. Validaciones realizadas
 
-### Documentos núcleo
-- `docs/01-CONSTITUCIONAL/ADR-001-CANAL-EMAIL-PROSPECCION-OPERADO-POR-LEADMASTER.md`
-- `docs/06-FASES/PHASE-4B-EMAIL-PROSPECTING-PLAN.md`
+Durante la fase quedaron validadas las siguientes condiciones técnicas:
 
-### Documentos siguientes
-- `docs/04-INTEGRACION/ARQUITECTURA-CANAL-EMAIL.md`
-- `docs/07-CONTRATOS/Contratos-HTTP-Mailer.md`
-- `docs/05-REPORTES/OPS/REQUISITOS-MINIMOS-CANAL-EMAIL.md`
+- existencia del servicio standalone `leadmaster-mailer`
+- disponibilidad operativa de `GET /health` y `POST /send`
+- integración HTTP real `central-hub` → `leadmaster-mailer`
+- exposición del gateway `POST /mailer/send` en `central-hub`
+- exigencia de JWT en el gateway
+- resolución de `cliente_id` desde usuario autenticado
+- resolución SMTP por cliente desde `iunaorg_dyd.ll_clientes_email_config`
+- auditoría/persistencia de envíos
+- existencia de UI inicial para selección común de prospectos y preparación de Email
+- validación con envío real en modo prueba
 
----
+Resultado práctico:
 
-## 14. Criterios de éxito de la fase
-
-La fase se considera correctamente establecida cuando:
-
-- existe decisión constitucional aprobada
-- existe plan de etapa aprobado
-- existe arquitectura funcional del canal email
-- existe contrato HTTP inicial del mailer
-- existe documento de requisitos mínimos para clientes
-- queda definido que LeadMaster controla primer contacto y derivación selectiva
-- queda definido el vínculo entre base propia, landing y canal email
+- la cadena UI → `central-hub` → `leadmaster-mailer` → SMTP quedó funcional
 
 ---
 
-## 15. Próximos pasos recomendados
+## 5. Alcance efectivamente cerrado
 
-1. (Completado) ADR-001 aprobado
-2. (Completado) Plan Phase 4B aprobado
-3. Redactar `ARQUITECTURA-CANAL-EMAIL.md`
-4. Redactar `Contratos-HTTP-Mailer.md`
-5. Redactar `REQUISITOS-MINIMOS-CANAL-EMAIL.md`
-6. Recién después pasar a diseño técnico de implementación
+La subfase técnica efectivamente cerrada comprende:
+
+- servicio standalone de envío disponible y operativo
+- integración HTTP con `central-hub`
+- frontera autenticada del hub para Email
+- resolución multi-tenant por `cliente_id`
+- configuración SMTP por cliente
+- persistencia/auditoría técnica
+- interfaz inicial para operar envío manual en modo prueba
+
+Conclusión de cierre parcial:
+
+- el transporte y la integración técnica del canal quedaron resueltos para esta etapa
+- la fase ya no debe ser leída como “solo fundacional/documental”
 
 ---
 
-## 16. Nota final
+## 6. Pendientes reales
 
-Esta fase no implementa todavía el servicio mailer.
+Los pendientes que siguen abiertos no están en el transporte, sino en la maduración operativa del canal.
 
-Su función es dejar correctamente fijados:
+Pendientes reales:
 
-- el alcance
-- la lógica operativa
-- la protección del activo de LeadMaster
-- la relación con el cliente
-- la transición hacia arquitectura multicanal
+- cobertura útil de emails en la base operativa de prospectos
+- adquisición y enriquecimiento de emails
+- normalización e higiene de datos email
+- mayor robustez operativa sobre la UI inicial
+- evolución desde envío manual de prueba hacia operación más controlada
+
+Pendientes explícitamente fuera del cierre técnico actual:
+
+- dashboard comercial de campañas Email
+- explotación masiva del canal
+- automatizaciones avanzadas
+- reporting comercial completo
+
+---
+
+## 7. Limitación principal actual
+
+La limitación principal de la fase ya no es el envío ni la integración técnica.
+
+La limitación dominante es:
+
+- la disponibilidad/enriquecimiento de emails
+
+Lectura real del problema:
+
+- el canal ya puede enviar correctamente cuando existe email válido
+- la base actual no ofrece cobertura suficiente para escalar el canal de forma comercial
+- sin resolver la capa de datos, cualquier evolución comercial tendrá bajo rendimiento práctico
+
+Conclusión:
+
+- el cuello de botella actual es la capa de datos email, no el transporte
+
+---
+
+## 8. Próxima subfase recomendada
+
+La próxima subfase lógica debe enfocarse en datos y operatividad, no en reinvertir esfuerzo en transporte.
+
+Prioridades recomendadas:
+
+1. diseñar estrategia de adquisición de emails
+2. definir proceso de enriquecimiento de emails
+3. establecer pipeline de validación, normalización e higiene
+4. aumentar cobertura de emails útiles en la base operativa
+5. evolucionar la UI desde modo prueba manual hacia operación más robusta
+
+Regla de secuencia:
+
+- el dashboard comercial no forma parte de esta subfase
+- primero debe resolverse disponibilidad de datos
+
+---
+
+## 9. Criterio de cierre futuro de la fase completa
+
+La Phase 4B podrá considerarse realmente cerrada cuando se cumplan, además del cierre técnico ya alcanzado, las siguientes condiciones:
+
+- exista cobertura útil de emails sobre una base operativa real
+- exista proceso verificable de adquisición/enriquecimiento de emails
+- la operación del canal deje de depender de casos aislados con email ya presente
+- la UI y la operación soporten uso sostenido más allá de prueba manual
+- el canal pueda sostener explotación operativa mínima sin depender de parches manuales de datos
+
+Importante:
+
+- el criterio de cierre futuro no exige dashboard comercial completo
+- sí exige que el canal deje de estar bloqueado por falta estructural de datos email
+
+---
+
+## 10. Conclusión
+
+La Phase 4B avanzó más allá de la etapa fundacional y ya cuenta con un cierre técnico efectivo de su subfase de integración y transporte.
+
+Hoy el proyecto ya tiene:
+
+- standalone `leadmaster-mailer`
+- gateway autenticado `POST /mailer/send` en `central-hub`
+- resolución de `cliente_id` desde JWT
+- resolución SMTP por cliente
+- auditoría de envíos
+- UI inicial para operar Email en modo prueba
+- validación con envío real
+
+Sin embargo, la fase completa todavía no debe considerarse terminada.
+
+La razón es concreta:
+
+- falta resolver la capa de datos email necesaria para operar a escala útil
+
+La lectura correcta del estado de la fase es entonces:
+
+- subfase técnica cerrada
+- fase completa aún abierta por limitación de datos
+
+Ese es el punto real del proyecto al 2026-03-15.
