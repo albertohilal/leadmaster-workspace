@@ -16,6 +16,16 @@ const CARTERA_ORIGEN_UI_OPTIONS = [
   { value: 'OTRO', label: 'OTRO' }
 ];
 
+const CANAL_DISPONIBLE_OPTIONS = [
+  { value: 'todos', label: 'Todos' },
+  { value: 'whatsapp', label: 'WhatsApp' },
+  { value: 'email', label: 'Email' },
+  { value: 'ambos', label: 'Ambos' },
+  { value: 'solo_whatsapp', label: 'Solo WhatsApp' },
+  { value: 'solo_email', label: 'Solo Email' },
+  { value: 'sin_canales', label: 'Sin canales' }
+];
+
 // Valores reales en datos/BD (ll_societe_extended.cartera_origen)
 const CARTERA_ORIGEN_UI_TO_DATA = {
   CAPTADO_LEADMASTER: ['CAPTADO_LEADMASTER'],
@@ -55,6 +65,30 @@ function matchesCarteraOrigenFilter(prospecto, carteraOrigenFiltro) {
   return cartera !== null && allowed.includes(cartera);
 }
 
+function matchesCanalDisponibleFilter(prospecto, canalDisponibleFiltro) {
+  if (!canalDisponibleFiltro || canalDisponibleFiltro === 'todos') return true;
+
+  const hasWhatsapp = hasWhatsappDisponible(prospecto);
+  const hasEmail = hasEmailDisponible(prospecto);
+
+  switch (canalDisponibleFiltro) {
+    case 'whatsapp':
+      return hasWhatsapp;
+    case 'email':
+      return hasEmail;
+    case 'ambos':
+      return hasWhatsapp && hasEmail;
+    case 'solo_whatsapp':
+      return hasWhatsapp && !hasEmail;
+    case 'solo_email':
+      return !hasWhatsapp && hasEmail;
+    case 'sin_canales':
+      return !hasWhatsapp && !hasEmail;
+    default:
+      return true;
+  }
+}
+
 const GestionDestinatariosPage = () => {
   const navigate = useNavigate();
 
@@ -68,6 +102,7 @@ const GestionDestinatariosPage = () => {
   const [estadoFiltro, setEstadoFiltro] = useState('todos');
   const [tipoSocieteFiltro, setTipoSocieteFiltro] = useState('todos');
   const [carteraOrigenFiltro, setCarteraOrigenFiltro] = useState('todos');
+  const [canalDisponibleFiltro, setCanalDisponibleFiltro] = useState('todos');
   const [q, setQ] = useState('');
 
   // Estados para envío manual (flujo 2 fases)
@@ -132,6 +167,7 @@ const GestionDestinatariosPage = () => {
       setEstadoFiltro('todos');
       setTipoSocieteFiltro('todos');
       setCarteraOrigenFiltro('todos');
+      setCanalDisponibleFiltro('todos');
       setQ('');
     } catch (err) {
       console.error('Error cargando prospectos:', err);
@@ -141,24 +177,32 @@ const GestionDestinatariosPage = () => {
     }
   };
 
+  function estadoPrincipal(prospecto) {
+    return prospecto?.post_envio_estado || prospecto?.estado_campania || 'sin_envio';
+  }
+
   const prospectosFiltrados = useMemo(() => {
     let filtrados = [...prospectos];
 
     if (estadoFiltro !== 'todos') {
-      filtrados = filtrados.filter(p => estadoPrincipal(p) === estadoFiltro);
+      filtrados = filtrados.filter((p) => estadoPrincipal(p) === estadoFiltro);
     }
 
     if (tipoSocieteFiltro !== 'todos') {
-      filtrados = filtrados.filter(p => (p.tipo_societe || 'Otro') === tipoSocieteFiltro);
+      filtrados = filtrados.filter((p) => (p.tipo_societe || 'Otro') === tipoSocieteFiltro);
     }
 
     if (carteraOrigenFiltro !== 'todos') {
-      filtrados = filtrados.filter(p => matchesCarteraOrigenFilter(p, carteraOrigenFiltro));
+      filtrados = filtrados.filter((p) => matchesCarteraOrigenFilter(p, carteraOrigenFiltro));
     }
+
+    filtrados = filtrados.filter((p) =>
+      matchesCanalDisponibleFilter(p, canalDisponibleFiltro)
+    );
 
     const query = q.trim().toLowerCase();
     if (query) {
-      filtrados = filtrados.filter(p => {
+      filtrados = filtrados.filter((p) => {
         const nombre = String(p.nombre || '').toLowerCase();
         const telefono = String(p.telefono_wapp || '').toLowerCase();
         const email = String(p.email || '').toLowerCase();
@@ -173,10 +217,17 @@ const GestionDestinatariosPage = () => {
     }
 
     return filtrados;
-  }, [prospectos, estadoFiltro, tipoSocieteFiltro, carteraOrigenFiltro, q]);
+  }, [
+    prospectos,
+    estadoFiltro,
+    tipoSocieteFiltro,
+    carteraOrigenFiltro,
+    canalDisponibleFiltro,
+    q
+  ]);
 
   const contextoCampania = useMemo(
-    () => campanas.find(c => String(c.id) === String(campaniaSeleccionada)) || null,
+    () => campanas.find((c) => String(c.id) === String(campaniaSeleccionada)) || null,
     [campanas, campaniaSeleccionada]
   );
 
@@ -184,7 +235,7 @@ const GestionDestinatariosPage = () => {
     const conWhatsapp = seleccionados.filter(hasWhatsappDisponible);
     const conEmail = seleccionados.filter(hasEmailDisponible);
     const whatsappListos = seleccionados.filter(
-      p => hasWhatsappDisponible(p) && p.estado_campania === 'pendiente' && p.envio_id
+      (p) => hasWhatsappDisponible(p) && p.estado_campania === 'pendiente' && p.envio_id
     );
 
     return {
@@ -197,9 +248,9 @@ const GestionDestinatariosPage = () => {
   }, [seleccionados]);
 
   const toggleSeleccion = (prospecto) => {
-    setSeleccionados(prev => {
-      const existe = prev.find(p => p.prospecto_id === prospecto.prospecto_id);
-      if (existe) return prev.filter(p => p.prospecto_id !== prospecto.prospecto_id);
+    setSeleccionados((prev) => {
+      const existe = prev.find((p) => p.prospecto_id === prospecto.prospecto_id);
+      if (existe) return prev.filter((p) => p.prospecto_id !== prospecto.prospecto_id);
       return [...prev, prospecto];
     });
   };
@@ -207,19 +258,19 @@ const GestionDestinatariosPage = () => {
   const seleccionarTodos = () => {
     const todosSeleccionados =
       prospectosFiltrados.length > 0 &&
-      prospectosFiltrados.every(p =>
-        seleccionados.find(s => s.prospecto_id === p.prospecto_id)
+      prospectosFiltrados.every((p) =>
+        seleccionados.find((s) => s.prospecto_id === p.prospecto_id)
       );
 
     if (todosSeleccionados) {
-      setSeleccionados(prev =>
-        prev.filter(s => !prospectosFiltrados.find(p => p.prospecto_id === s.prospecto_id))
+      setSeleccionados((prev) =>
+        prev.filter((s) => !prospectosFiltrados.find((p) => p.prospecto_id === s.prospecto_id))
       );
     } else {
       const nuevos = prospectosFiltrados.filter(
-        p => !seleccionados.find(s => s.prospecto_id === p.prospecto_id)
+        (p) => !seleccionados.find((s) => s.prospecto_id === p.prospecto_id)
       );
-      setSeleccionados(prev => [...prev, ...nuevos]);
+      setSeleccionados((prev) => [...prev, ...nuevos]);
     }
   };
 
@@ -232,7 +283,7 @@ const GestionDestinatariosPage = () => {
     try {
       setLoading(true);
 
-      const destinatarios = seleccionados.map(p => ({
+      const destinatarios = seleccionados.map((p) => ({
         telefono_wapp: p.telefono_wapp,
         nombre_destino: p.nombre,
         lugar_id: p.prospecto_id
@@ -263,7 +314,6 @@ const GestionDestinatariosPage = () => {
 
   const cerrarModalEmail = () => {
     if (loadingEmail) return;
-
     setMostrarModalEmail(false);
   };
 
@@ -279,7 +329,9 @@ const GestionDestinatariosPage = () => {
     }
 
     if (resumenSeleccion.whatsappListos.length > 1) {
-      alert('El flujo actual de WhatsApp se reutiliza de a un prospecto por vez. Selecciona solo uno para continuar.');
+      alert(
+        'El flujo actual de WhatsApp se reutiliza de a un prospecto por vez. Selecciona solo uno para continuar.'
+      );
       return;
     }
 
@@ -355,10 +407,6 @@ const GestionDestinatariosPage = () => {
         return 'bg-gray-100 text-gray-800';
     }
   };
-
-  function estadoPrincipal(prospecto) {
-    return prospecto?.post_envio_estado || prospecto?.estado_campania || 'sin_envio';
-  }
 
   /**
    * FASE 1: Preparar envío manual
@@ -517,7 +565,7 @@ const GestionDestinatariosPage = () => {
   };
 
   const onChangePostEnvioEstado = (nuevoEstado) => {
-    setClasificacion(prev => {
+    setClasificacion((prev) => {
       const next = { ...prev, post_envio_estado: nuevoEstado };
 
       if (nuevoEstado === 'ATENDIO_MENOR_DE_EDAD') {
@@ -572,9 +620,13 @@ const GestionDestinatariosPage = () => {
   };
 
   const Indicator = ({ enabled, label, detail, icon: Icon }) => (
-    <div className={`inline-flex min-w-[132px] items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
-      enabled ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-gray-200 bg-gray-50 text-gray-500'
-    }`}>
+    <div
+      className={`inline-flex min-w-[132px] items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+        enabled
+          ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+          : 'border-gray-200 bg-gray-50 text-gray-500'
+      }`}
+    >
       <Icon className="h-4 w-4" />
       <div className="min-w-0">
         <div className="font-medium">{label}</div>
@@ -597,9 +649,7 @@ const GestionDestinatariosPage = () => {
           <h1 className="text-2xl font-bold">Seleccionar Prospectos</h1>
         </div>
 
-        <div className="text-sm text-gray-600">
-          {resumenSeleccion.total} seleccionados
-        </div>
+        <div className="text-sm text-gray-600">{resumenSeleccion.total} seleccionados</div>
       </div>
 
       <div className="flex-1 p-4 md:p-6 overflow-hidden">
@@ -607,7 +657,9 @@ const GestionDestinatariosPage = () => {
           <div className="sticky top-0 z-20 bg-white border-b">
             <div className="grid gap-4 border-b px-6 py-5 md:grid-cols-3">
               <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                <div className="text-xs font-medium uppercase tracking-wide text-gray-500">Campaña / base actual</div>
+                <div className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                  Campaña / base actual
+                </div>
                 <div className="mt-2 text-lg font-semibold text-gray-900">
                   {contextoCampania?.nombre || 'Seleccionar campaña'}
                 </div>
@@ -617,14 +669,22 @@ const GestionDestinatariosPage = () => {
               </div>
 
               <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
-                <div className="text-xs font-medium uppercase tracking-wide text-blue-700">Total filtrados</div>
-                <div className="mt-2 text-3xl font-semibold text-blue-900">{prospectosFiltrados.length}</div>
+                <div className="text-xs font-medium uppercase tracking-wide text-blue-700">
+                  Total filtrados
+                </div>
+                <div className="mt-2 text-3xl font-semibold text-blue-900">
+                  {prospectosFiltrados.length}
+                </div>
                 <div className="mt-1 text-sm text-blue-700">Prospectos visibles en la tabla</div>
               </div>
 
               <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-                <div className="text-xs font-medium uppercase tracking-wide text-emerald-700">Total seleccionados</div>
-                <div className="mt-2 text-3xl font-semibold text-emerald-900">{resumenSeleccion.total}</div>
+                <div className="text-xs font-medium uppercase tracking-wide text-emerald-700">
+                  Total seleccionados
+                </div>
+                <div className="mt-2 text-3xl font-semibold text-emerald-900">
+                  {resumenSeleccion.total}
+                </div>
                 <div className="mt-1 text-sm text-emerald-700">
                   {resumenSeleccion.conWhatsapp} con WhatsApp, {resumenSeleccion.conEmail} con email
                 </div>
@@ -633,23 +693,21 @@ const GestionDestinatariosPage = () => {
 
             <div className="px-6 py-4">
               <div className="flex flex-wrap items-end gap-3">
-              <div className="min-w-[240px] flex-1">
-                <label className="block text-sm font-medium mb-1">
-                  Campaña de destino
-                </label>
-                <select
-                  value={campaniaSeleccionada}
-                  onChange={(e) => setCampaniaSeleccionada(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg"
-                >
-                  <option value="">Seleccionar campaña...</option>
-                  {campanas.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.nombre}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                <div className="min-w-[240px] flex-1">
+                  <label className="block text-sm font-medium mb-1">Campaña de destino</label>
+                  <select
+                    value={campaniaSeleccionada}
+                    onChange={(e) => setCampaniaSeleccionada(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg"
+                  >
+                    <option value="">Seleccionar campaña...</option>
+                    {campanas.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
                 <button
                   onClick={agregarACampania}
@@ -660,9 +718,7 @@ const GestionDestinatariosPage = () => {
                 </button>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-700">
-                    Estado
-                  </label>
+                  <label className="block text-sm font-medium mb-1 text-gray-700">Estado</label>
                   <select
                     value={estadoFiltro}
                     onChange={(e) => setEstadoFiltro(e.target.value)}
@@ -674,8 +730,8 @@ const GestionDestinatariosPage = () => {
                       'pendiente',
                       'enviado',
                       'error',
-                      ...POST_ENVIO_ESTADOS.map(opt => opt.value)
-                    ].map(value => (
+                      ...POST_ENVIO_ESTADOS.map((opt) => opt.value)
+                    ].map((value) => (
                       <option key={value} value={value}>
                         {traducirEstado(value)}
                       </option>
@@ -709,7 +765,24 @@ const GestionDestinatariosPage = () => {
                     onChange={(e) => setCarteraOrigenFiltro(e.target.value)}
                     className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
                   >
-                    {CARTERA_ORIGEN_UI_OPTIONS.map(opt => (
+                    {CARTERA_ORIGEN_UI_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-700">
+                    Canal disponible
+                  </label>
+                  <select
+                    value={canalDisponibleFiltro}
+                    onChange={(e) => setCanalDisponibleFiltro(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  >
+                    {CANAL_DISPONIBLE_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>
                         {opt.label}
                       </option>
@@ -718,9 +791,7 @@ const GestionDestinatariosPage = () => {
                 </div>
 
                 <div className="min-w-[220px] flex-1">
-                  <label className="block text-sm font-medium mb-1 text-gray-700">
-                    Búsqueda
-                  </label>
+                  <label className="block text-sm font-medium mb-1 text-gray-700">Búsqueda</label>
                   <input
                     value={q}
                     onChange={(e) => setQ(e.target.value)}
@@ -734,11 +805,10 @@ const GestionDestinatariosPage = () => {
             <div className="border-t px-6 py-4">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <div className="text-sm font-medium text-gray-900">
-                    Acciones sobre seleccionados
-                  </div>
+                  <div className="text-sm font-medium text-gray-900">Acciones sobre seleccionados</div>
                   <div className="text-sm text-gray-600">
-                    {resumenSeleccion.total} seleccionados. WhatsApp reutiliza el flujo actual y se prepara de a un prospecto por vez. Email usa la selección común.
+                    {resumenSeleccion.total} seleccionados. WhatsApp reutiliza el flujo actual y se
+                    prepara de a un prospecto por vez. Email usa la selección común.
                   </div>
                 </div>
 
@@ -748,14 +818,20 @@ const GestionDestinatariosPage = () => {
                     className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                   >
                     {prospectosFiltrados.length > 0 &&
-                    prospectosFiltrados.every(p => seleccionados.find(s => s.prospecto_id === p.prospecto_id))
+                    prospectosFiltrados.every((p) =>
+                      seleccionados.find((s) => s.prospecto_id === p.prospecto_id)
+                    )
                       ? 'Deseleccionar todos'
                       : 'Seleccionar todos'}
                   </button>
 
                   <button
                     onClick={prepararEnvioWhatsAppSeleccionado}
-                    disabled={resumenSeleccion.total === 0 || resumenSeleccion.whatsappListos.length === 0 || loadingEnvio}
+                    disabled={
+                      resumenSeleccion.total === 0 ||
+                      resumenSeleccion.whatsappListos.length === 0 ||
+                      loadingEnvio
+                    }
                     className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-white hover:bg-green-700 disabled:bg-gray-300"
                   >
                     <MessageCircle className="h-4 w-4" />
@@ -773,11 +849,7 @@ const GestionDestinatariosPage = () => {
                 </div>
               </div>
 
-              {error && (
-                <div className="mt-3 text-sm text-red-600">
-                  {error}
-                </div>
-              )}
+              {error && <div className="mt-3 text-sm text-red-600">{error}</div>}
             </div>
           </div>
 
@@ -803,14 +875,12 @@ const GestionDestinatariosPage = () => {
               ) : prospectosFiltrados.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="p-6 text-center">
-                    {prospectos.length === 0
-                      ? 'No hay prospectos'
-                      : 'No hay prospectos con este filtro'}
+                    {prospectos.length === 0 ? 'No hay prospectos' : 'No hay prospectos con este filtro'}
                   </td>
                 </tr>
               ) : (
-                prospectosFiltrados.map(p => {
-                  const seleccionado = seleccionados.find(s => s.prospecto_id === p.prospecto_id);
+                prospectosFiltrados.map((p) => {
+                  const seleccionado = seleccionados.find((s) => s.prospecto_id === p.prospecto_id);
                   const estado = estadoPrincipal(p);
 
                   return (
@@ -821,19 +891,10 @@ const GestionDestinatariosPage = () => {
                     >
                       <td className="px-6 py-5 min-w-0">
                         <div className="flex items-start gap-3 min-w-0">
-                          <input
-                            type="checkbox"
-                            checked={!!seleccionado}
-                            readOnly
-                            className="mt-1"
-                          />
+                          <input type="checkbox" checked={!!seleccionado} readOnly className="mt-1" />
                           <div className="min-w-0">
-                            <div className="font-medium text-gray-900 break-words">
-                              {p.nombre}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {p.tipo_societe || 'Otro'}
-                            </div>
+                            <div className="font-medium text-gray-900 break-words">{p.nombre}</div>
+                            <div className="text-xs text-gray-500">{p.tipo_societe || 'Otro'}</div>
                           </div>
                         </div>
                       </td>
@@ -927,23 +988,17 @@ const GestionDestinatariosPage = () => {
 
             <div className="px-6 py-4 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Empresa
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Empresa</label>
                 <p className="text-gray-900">{prospectoSeleccionado.nombre}</p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Teléfono
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
                 <p className="text-gray-900">{prospectoSeleccionado.telefono_wapp}</p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Mensaje
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mensaje</label>
                 <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg max-h-40 overflow-y-auto">
                   {datosEnvioPreparado?.mensaje_final || 'Cargando mensaje...'}
                 </div>
@@ -952,9 +1007,8 @@ const GestionDestinatariosPage = () => {
               {!whatsappAbierto ? (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                   <p className="text-xs text-blue-800">
-                    ℹ️ Presiona "Abrir WhatsApp" para abrir una ventana con el mensaje. Luego
-                    confirma el envío cuando hayas enviado el mensaje (o marca error si hubo un
-                    inconveniente).
+                    ℹ️ Presiona "Abrir WhatsApp" para abrir una ventana con el mensaje. Luego confirma
+                    el envío cuando hayas enviado el mensaje (o marca error si hubo un inconveniente).
                   </p>
                 </div>
               ) : (
@@ -1057,7 +1111,7 @@ const GestionDestinatariosPage = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                 >
                   <option value="">Seleccionar...</option>
-                  {POST_ENVIO_ESTADOS.map(opt => (
+                  {POST_ENVIO_ESTADOS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
                       {opt.label}
                     </option>
@@ -1072,13 +1126,13 @@ const GestionDestinatariosPage = () => {
                 <select
                   value={clasificacion.accion_siguiente}
                   onChange={(e) =>
-                    setClasificacion(prev => ({ ...prev, accion_siguiente: e.target.value }))
+                    setClasificacion((prev) => ({ ...prev, accion_siguiente: e.target.value }))
                   }
                   disabled={clasificacion.post_envio_estado === 'ATENDIO_MENOR_DE_EDAD'}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:bg-gray-100"
                 >
                   <option value="">Seleccionar...</option>
-                  {POST_ENVIO_ACCIONES.map(opt => (
+                  {POST_ENVIO_ACCIONES.map((opt) => (
                     <option key={opt.value} value={opt.value}>
                       {opt.label}
                     </option>
@@ -1093,9 +1147,7 @@ const GestionDestinatariosPage = () => {
 
                 {(clasificacion.post_envio_estado === 'NUMERO_INEXISTENTE' ||
                   clasificacion.post_envio_estado === 'NUMERO_CAMBIO_DUEÑO') && (
-                  <p className="text-xs text-gray-600 mt-1">
-                    Sugerido: INVALIDAR_TELEFONO
-                  </p>
+                  <p className="text-xs text-gray-600 mt-1">Sugerido: INVALIDAR_TELEFONO</p>
                 )}
               </div>
 
@@ -1106,7 +1158,7 @@ const GestionDestinatariosPage = () => {
                 <input
                   value={clasificacion.detalle}
                   onChange={(e) =>
-                    setClasificacion(prev => ({ ...prev, detalle: e.target.value }))
+                    setClasificacion((prev) => ({ ...prev, detalle: e.target.value }))
                   }
                   placeholder="Detalle breve (máx 255)"
                   maxLength={255}
