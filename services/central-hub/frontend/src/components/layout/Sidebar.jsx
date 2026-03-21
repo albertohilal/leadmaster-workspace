@@ -4,52 +4,56 @@ import { useAuth } from '../../contexts/AuthContext';
 
 const Sidebar = () => {
   const location = useLocation();
-  
   const { user } = useAuth();
 
   const menuItems = [
-    { 
-      path: '/dashboard', 
-      icon: '📊', 
+    {
+      path: '/dashboard',
+      icon: '📊',
       label: 'Dashboard',
       exact: true
     },
-    { 
-      path: '/whatsapp', 
-      icon: '💬', 
-      label: 'WhatsApp' 
+    {
+      path: '/whatsapp',
+      icon: '💬',
+      label: 'WhatsApp'
     },
-    { 
-      path: '/leads', 
-      icon: '👥', 
-      label: 'Leads' 
+    {
+      path: '/leads',
+      icon: '👥',
+      label: 'Leads'
     },
-    { 
-      path: '/listener', 
-      icon: '🤖', 
-      label: 'Listener' 
+    {
+      path: '/listener',
+      icon: '🤖',
+      label: 'Listener'
     },
-    { 
-      path: '/campaigns', 
-      icon: '📨', 
-      label: 'Campañas' 
+    {
+      path: '/campaigns',
+      icon: '📨',
+      label: 'Campañas'
     },
-    { 
-      path: '/prospectos', 
-      icon: '🎯', 
-      label: 'Seleccionar Prospectos' 
+    {
+      path: '/email/campaigns/new',
+      icon: '✉️',
+      label: 'Crear campaña Email'
     },
-    { 
-      path: '/config', 
-      icon: '⚙️', 
-      label: 'Configuración' 
+    {
+      path: '/prospectos',
+      icon: '🎯',
+      label: 'Seleccionar Prospectos'
+    },
+    {
+      path: '/config',
+      icon: '⚙️',
+      label: 'Configuración'
     },
     {
       path: '/admin/sessions',
       icon: '🛠️',
       label: 'Sesiones (Admin)',
       admin: true
-    },
+    }
   ];
 
   const isActive = (item) => {
@@ -64,9 +68,9 @@ const Sidebar = () => {
       {/* Logo DyD */}
       <div className="mb-8 text-center">
         <div className="w-20 h-20 mx-auto mb-3 bg-gradient-to-br from-dyd-orange to-dyd-yellow rounded-full flex items-center justify-center shadow-lg">
-          <img 
-            src="/assets/logo-dyd.svg" 
-            alt="DyD Logo" 
+          <img
+            src="/assets/logo-dyd.svg"
+            alt="DyD Logo"
             className="w-16 h-16"
           />
         </div>
@@ -78,22 +82,22 @@ const Sidebar = () => {
       <nav className="flex-1">
         <ul className="space-y-2">
           {menuItems
-            .filter(item => !item.admin || (user?.tipo === 'admin'))
+            .filter((item) => !item.admin || user?.tipo === 'admin')
             .map((item) => (
-            <li key={item.path}>
-              <Link
-                to={item.path}
-                className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                  isActive(item)
-                    ? 'bg-dyd-blue text-white'
-                    : 'text-gray-300 hover:bg-gray-800'
-                }`}
-              >
-                <span className="text-xl">{item.icon}</span>
-                <span className="font-medium">{item.label}</span>
-              </Link>
-            </li>
-          ))}
+              <li key={item.path}>
+                <Link
+                  to={item.path}
+                  className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+                    isActive(item)
+                      ? 'bg-dyd-blue text-white'
+                      : 'text-gray-300 hover:bg-gray-800'
+                  }`}
+                >
+                  <span className="text-xl">{item.icon}</span>
+                  <span className="font-medium">{item.label}</span>
+                </Link>
+              </li>
+            ))}
         </ul>
       </nav>
 
