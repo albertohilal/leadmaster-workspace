@@ -2,9 +2,10 @@ async function createEmailCampaign({ cliente_id, request }) {
   return {
     mode: 'preparatory',
     persisted: false,
-    channel: 'email',
+    channel: request.channel,
     cliente_id,
     campaign: {
+      channel: request.channel,
       nombre: request.nombre,
       subject: request.subject,
       text: request.text

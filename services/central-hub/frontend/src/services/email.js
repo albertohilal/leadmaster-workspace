@@ -31,8 +31,9 @@ async function send({ to, subject, text }) {
   return response.data;
 }
 
-async function createCampaign({ nombre, subject, text }) {
+async function createCampaign({ channel = 'EMAIL', nombre, subject, text }) {
   const response = await apiService.post('/email/campaigns', {
+    channel,
     nombre,
     subject,
     text

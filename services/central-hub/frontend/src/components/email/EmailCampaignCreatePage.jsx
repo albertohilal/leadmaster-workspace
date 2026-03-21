@@ -3,6 +3,7 @@ import Card from '../common/Card';
 import emailService from '../../services/email';
 
 const INITIAL_FORM = {
+  channel: 'EMAIL',
   nombre: '',
   subject: '',
   text: ''
@@ -59,6 +60,7 @@ const EmailCampaignCreatePage = () => {
 
     try {
       const response = await emailService.createCampaign({
+        channel: formData.channel,
         nombre: formData.nombre.trim(),
         subject: formData.subject.trim(),
         text: formData.text.trim()
@@ -103,11 +105,28 @@ const EmailCampaignCreatePage = () => {
             Este flujo no usa <span className="font-mono">/sender/campaigns</span> ni reemplaza
             <span className="font-mono"> /mailer/send</span>. Email y WhatsApp siguen separados por canal.
           </p>
+          <p>
+            La cuenta remitente no se elige en este formulario mínimo: se resuelve por configuración del cliente en backend, preservando el contexto multi-tenant.
+          </p>
         </div>
       </Card>
 
       <Card title="Formulario mínimo" icon="✉️">
         <form className="space-y-5" onSubmit={handleSubmit}>
+          <div>
+            <label htmlFor="channel" className="mb-1 block text-sm font-medium text-gray-700">
+              Canal
+            </label>
+            <input
+              id="channel"
+              name="channel"
+              type="text"
+              value={formData.channel}
+              disabled
+              className="w-full rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-700"
+            />
+          </div>
+
           <div>
             <label htmlFor="nombre" className="mb-1 block text-sm font-medium text-gray-700">
               Nombre *

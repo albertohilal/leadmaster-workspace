@@ -57,6 +57,7 @@ describe('POST /api/email/campaigns', () => {
 
   test('acepta el contrato minimo con nombre, subject y text', async () => {
     const response = await makeRequest(server, {
+      channel: 'EMAIL',
       nombre: 'Campana Email Marzo',
       subject: 'Novedades de marzo',
       text: 'Contenido base del email'
@@ -66,12 +67,26 @@ describe('POST /api/email/campaigns', () => {
     expect(response.body.success).toBe(true);
     expect(response.body.data.mode).toBe('preparatory');
     expect(response.body.data.persisted).toBe(false);
-    expect(response.body.data.channel).toBe('email');
+    expect(response.body.data.channel).toBe('EMAIL');
     expect(response.body.data.campaign).toEqual({
+      channel: 'EMAIL',
       nombre: 'Campana Email Marzo',
       subject: 'Novedades de marzo',
       text: 'Contenido base del email'
     });
+  });
+
+  test('rechaza channel distinto de EMAIL', async () => {
+    const response = await makeRequest(server, {
+      channel: 'WHATSAPP',
+      nombre: 'Campana Email Marzo',
+      subject: 'Novedades de marzo',
+      text: 'Contenido base del email'
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('VALIDATION_ERROR');
+    expect(response.body.details).toEqual({ field: 'channel' });
   });
 
   test('rechaza falta de nombre', async () => {

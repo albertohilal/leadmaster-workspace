@@ -2,8 +2,9 @@ jest.mock('../services/emailCampaigns.service', () => ({
   createEmailCampaign: jest.fn().mockResolvedValue({
     mode: 'preparatory',
     persisted: false,
-    channel: 'email',
+    channel: 'EMAIL',
     campaign: {
+      channel: 'EMAIL',
       nombre: 'Campana test',
       subject: 'Asunto test',
       text: 'Texto test'

@@ -10,7 +10,7 @@ function findFirstPresentField(body, fieldNames) {
   return fieldNames.find((fieldName) => Object.prototype.hasOwnProperty.call(body, fieldName));
 }
 
-const ALLOWED_FIELDS = new Set(['nombre', 'subject', 'text']);
+const ALLOWED_FIELDS = new Set(['channel', 'nombre', 'subject', 'text']);
 
 const DISALLOWED_FIELDS = {
   cliente_id: 'cliente_id is not allowed in email campaign create payload',
@@ -64,6 +64,28 @@ function validateCreateEmailCampaignBody(body) {
     };
   }
 
+  if (body.channel !== undefined && body.channel !== null) {
+    if (typeof body.channel !== 'string' || body.channel.trim().length === 0) {
+      return {
+        ok: false,
+        status: 400,
+        code: 'VALIDATION_ERROR',
+        message: 'channel must be EMAIL',
+        details: { field: 'channel' }
+      };
+    }
+
+    if (body.channel.trim().toUpperCase() !== 'EMAIL') {
+      return {
+        ok: false,
+        status: 400,
+        code: 'VALIDATION_ERROR',
+        message: 'channel must be EMAIL',
+        details: { field: 'channel' }
+      };
+    }
+  }
+
   if (!isNonEmptyString(body.nombre)) {
     return {
       ok: false,
@@ -97,6 +119,7 @@ function validateCreateEmailCampaignBody(body) {
   return {
     ok: true,
     value: {
+      channel: 'EMAIL',
       nombre: body.nombre.trim(),
       subject: body.subject.trim(),
       text: body.text.trim()
