@@ -353,7 +353,7 @@ const CampaignsManager = () => {
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold text-gray-800">Gestión de Campañas</h1>
+            <h1 className="text-3xl font-bold text-gray-800">Campañas WhatsApp</h1>
             {isAdmin && (
               <span className="bg-purple-100 text-purple-800 text-sm font-medium px-3 py-1 rounded-full">
                 👑 Panel Administrador
@@ -362,14 +362,14 @@ const CampaignsManager = () => {
           </div>
           <p className="text-gray-600 mt-1">
             {isAdmin 
-              ? "Administra y envía campañas de todos los clientes" 
-              : "Administra tus envíos masivos de WhatsApp"
+              ? "Administra el flujo actual de campañas WhatsApp de todos los clientes" 
+              : "Administra tu flujo actual de campañas y envíos masivos de WhatsApp"
             }
           </p>
         </div>
         <div className="flex gap-3">
           <Button variant="primary" onClick={handleCreateCampaign}>
-            + Nueva Campaña
+            + Nueva Campaña WhatsApp
           </Button>
         </div>
       </div>
@@ -379,14 +379,14 @@ const CampaignsManager = () => {
           <div className="space-y-1">
             <p className="text-sm font-semibold text-sky-900">Nuevo frente Email</p>
             <p className="text-sm text-sky-800">
-              La creación de campañas Email ya tiene pantalla propia y sigue separada del flujo actual de campañas WhatsApp.
+              La creación de campañas Email ya tiene pantalla propia y sigue separada del flujo actual de campañas WhatsApp. Este panel no funciona todavía como gestor multicanal completo.
             </p>
           </div>
           <Link
             to="/email/campaigns/new"
             className="inline-flex items-center justify-center rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700"
           >
-            Ir a campaña Email
+            Ir a creación de campaña Email
           </Link>
         </div>
       </Card>
@@ -438,11 +438,11 @@ const CampaignsManager = () => {
       </Card>
 
       {/* Lista de Campañas */}
-      <Card title="Campañas" icon="📨">
+      <Card title="Campañas WhatsApp" icon="📨">
         <div className="space-y-6">
           {campaigns.length === 0 ? (
             <p className="text-center text-gray-500 py-12">
-              No hay campañas creadas. ¡Crea tu primera campaña!
+              No hay campañas WhatsApp creadas. ¡Crea tu primera campaña!
             </p>
           ) : (
             campaigns.map((campaign) => (
@@ -543,7 +543,7 @@ const CampaignsManager = () => {
       <Modal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
-        title="Nueva Campaña"
+        title="Nueva Campaña WhatsApp"
         size="large"
       >
         <div className="space-y-4">
@@ -632,7 +632,7 @@ const CampaignsManager = () => {
           setShowEditModal(false);
           setEditingCampaign(null);
         }}
-        title={`Editar Campaña: ${editingCampaign?.nombre}`}
+        title={`Editar Campaña WhatsApp: ${editingCampaign?.nombre}`}
         size="large"
       >
         <div className="space-y-4">

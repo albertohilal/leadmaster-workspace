@@ -99,6 +99,10 @@ const EmailCampaignCreatePage = () => {
             La creación actual es preparatoria: valida el contrato mínimo y devuelve una respuesta
             honesta, pero todavía no persiste, no envía y no programa.
           </p>
+          <p>
+            Este flujo no usa <span className="font-mono">/sender/campaigns</span> ni reemplaza
+            <span className="font-mono"> /mailer/send</span>. Email y WhatsApp siguen separados por canal.
+          </p>
         </div>
       </Card>
 
