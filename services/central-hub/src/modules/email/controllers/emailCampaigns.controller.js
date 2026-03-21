@@ -15,7 +15,7 @@ function getClienteIdFromReq(req) {
 async function create(req, res) {
   const cliente_id = getClienteIdFromReq(req);
 
-  if (!cliente_id && process.env.NODE_ENV !== 'test') {
+  if (!cliente_id) {
     return res.status(403).json({
       success: false,
       error: 'ACCESS_DENIED',
@@ -40,9 +40,8 @@ async function create(req, res) {
       request: validation.value
     });
 
-    return res.status(202).json({
+    return res.status(201).json({
       success: true,
-      message: 'Contrato minimo de campana Email validado. Persistencia y envio aun no implementados.',
       data
     });
   } catch (error) {
