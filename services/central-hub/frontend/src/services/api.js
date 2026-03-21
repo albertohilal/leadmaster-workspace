@@ -126,19 +126,7 @@ export const senderAPI = {
     api.put(`/sender/campaigns/${id}`, data),
 
   deleteCampaign: (id) =>
-    api.delete(`/sender/campaigns/${id}`),
-
-  getCampaignStats: (id) =>
-    api.get(`/sender/campaigns/${id}/stats`),
-
-  sendCampaign: (id) =>
-    api.post(`/sender/campaigns/${id}/send`),
-
-  pauseCampaign: (id) =>
-    api.post(`/sender/campaigns/${id}/pause`),
-
-  resumeCampaign: (id) =>
-    api.post(`/sender/campaigns/${id}/resume`)
+    api.delete(`/sender/campaigns/${id}`)
 };
 
 // ===============================
