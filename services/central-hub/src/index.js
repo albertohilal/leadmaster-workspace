@@ -156,6 +156,10 @@ const server = app.listen(PORT, () => {
   programacionScheduler.start();
   console.log('⏰ Scheduler de programaciones iniciado (cada 60 segundos)');
 
+  const emailCampaignsScheduler = require('./modules/email/services/emailCampaigns.scheduler');
+  emailCampaignsScheduler.start();
+  console.log('📧 Scheduler de campañas email iniciado');
+
   // Signal to PM2 that app is ready (wait_ready: true)
   if (process.send) {
     process.send('ready');

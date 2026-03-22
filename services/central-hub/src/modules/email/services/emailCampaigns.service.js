@@ -22,6 +22,34 @@ function toMySqlDateTime(value) {
   ].join(':');
 }
 
+async function getOwnedCampaignById({ cliente_id, campaign_id }) {
+  const [rows] = await db.execute(
+    `SELECT
+       id,
+       cliente_id,
+       nombre,
+       asunto,
+       body,
+       estado,
+       fecha_programada,
+       fecha_inicio_envio,
+       fecha_fin_envio,
+       email_from,
+       name_from,
+       reply_to_email,
+       total_destinatarios,
+       total_enviados,
+       total_fallidos,
+       observaciones
+     FROM ll_campanias_email
+     WHERE id = ? AND cliente_id = ?
+     LIMIT 1`,
+    [campaign_id, cliente_id]
+  );
+
+  return rows[0] || null;
+}
+
 async function createEmailCampaign({ cliente_id, request }) {
   const sql = `
     INSERT INTO ll_campanias_email (
@@ -70,5 +98,7 @@ async function createEmailCampaign({ cliente_id, request }) {
 }
 
 module.exports = {
-  createEmailCampaign
+  createEmailCampaign,
+  getOwnedCampaignById,
+  toMySqlDateTime
 };
