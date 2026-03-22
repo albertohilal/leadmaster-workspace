@@ -8,6 +8,10 @@ function isBasicEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+function isPositiveInteger(value) {
+  return Number.isInteger(value) && value > 0;
+}
+
 function normalizeOptionalString(value) {
   if (value === undefined || value === null) return undefined;
   if (typeof value !== 'string') return value;
@@ -65,6 +69,7 @@ function validateSendEmailBody(body) {
     html,
     campaign_id,
     contact_id,
+    envio_email_id,
     from_email,
     from_name,
     reply_to,
@@ -114,6 +119,16 @@ function validateSendEmailBody(body) {
     return replyToValidation;
   }
 
+  if (envio_email_id !== undefined && envio_email_id !== null && !isPositiveInteger(envio_email_id)) {
+    return {
+      ok: false,
+      status: 400,
+      code: 'VALIDATION_ERROR',
+      message: 'envio_email_id must be a positive integer',
+      details: { field: 'envio_email_id' }
+    };
+  }
+
   return {
     ok: true,
     value: {
@@ -123,6 +138,7 @@ function validateSendEmailBody(body) {
       html: hasHtml ? html : undefined,
       campaign_id,
       contact_id,
+      envio_email_id,
       from_email: fromEmailValidation.value,
       from_name: normalizeOptionalString(from_name),
       reply_to: replyToValidation.value,
