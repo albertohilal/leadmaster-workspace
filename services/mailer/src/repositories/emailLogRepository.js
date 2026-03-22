@@ -17,6 +17,31 @@ async function createPending({ cliente_id, to_email, subject, body, provider = "
   return result.insertId;
 }
 
+async function reuseExistingPending({ id, cliente_id, to_email, subject, body, provider = "smtp" }) {
+  const pool = getPool();
+
+  const sql = `
+    UPDATE ll_envios_email
+    SET
+      cliente_id = ?,
+      to_email = ?,
+      subject = ?,
+      body = ?,
+      provider = ?,
+      status = 'PENDING',
+      message_id = NULL,
+      error_message = NULL,
+      sent_at = NULL
+    WHERE id = ?
+    LIMIT 1
+  `;
+
+  const params = [cliente_id, to_email, subject || null, body || null, provider, id];
+
+  const [result] = await pool.execute(sql, params);
+  return result.affectedRows === 1;
+}
+
 async function markSent({ id, message_id }) {
   const pool = getPool();
 
@@ -54,6 +79,7 @@ async function markFailed({ id, error_message }) {
 module.exports = {
   emailLogRepository: {
     createPending,
+    reuseExistingPending,
     markSent,
     markFailed
   }

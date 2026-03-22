@@ -27,15 +27,41 @@ async function sendEmail(payload) {
   let emailLogFinalized = false;
 
   try {
-    emailLogId = await emailLogRepository.createPending({
-      cliente_id: payload.cliente_id,
-      to_email: payload.to,
-      subject: payload.subject,
-      body: pickBody(payload),
-      provider: "smtp"
-    });
+    if (payload.envio_email_id) {
+      const reused = await emailLogRepository.reuseExistingPending({
+        id: payload.envio_email_id,
+        cliente_id: payload.cliente_id,
+        to_email: payload.to,
+        subject: payload.subject,
+        body: pickBody(payload),
+        provider: "smtp"
+      });
+
+      if (!reused) {
+        throw createHttpError({
+          status: 404,
+          code: "EMAIL_LOG_NOT_FOUND",
+          message: "Email log not found"
+        });
+      }
+
+      emailLogId = payload.envio_email_id;
+    } else {
+      emailLogId = await emailLogRepository.createPending({
+        cliente_id: payload.cliente_id,
+        to_email: payload.to,
+        subject: payload.subject,
+        body: pickBody(payload),
+        provider: "smtp"
+      });
+    }
+
     logger.info("email log created", { id: emailLogId, cliente_id: payload.cliente_id });
   } catch (err) {
+    if (err && err.status) {
+      throw err;
+    }
+
     logger.error("failed to create email log", {
       cliente_id: payload && payload.cliente_id,
       message: err && err.message
