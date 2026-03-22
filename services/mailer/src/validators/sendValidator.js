@@ -31,6 +31,7 @@ function validateSendPayload(payload) {
     html,
     campaign_id,
     contact_id,
+    envio_email_id,
     from_email,
     from_name,
     reply_to,
@@ -93,11 +94,21 @@ function validateSendPayload(payload) {
     html: hasHtml ? html : undefined,
     campaign_id,
     contact_id,
+    envio_email_id,
     from_email,
     from_name,
     reply_to,
     metadata
   };
+
+  if (envio_email_id !== undefined && envio_email_id !== null && !isPositiveInteger(envio_email_id)) {
+    throw createHttpError({
+      status: 400,
+      code: "VALIDATION_ERROR",
+      message: "envio_email_id must be a positive integer",
+      details: { field: "envio_email_id" }
+    });
+  }
 
   return normalized;
 }

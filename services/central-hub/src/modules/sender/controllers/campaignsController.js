@@ -1,6 +1,15 @@
 
 const db = require('../../../config/db');
 
+function withFrontendCompatibility(campania, overrides = {}) {
+  return {
+    ...campania,
+    descripcion: overrides.descripcion ?? '',
+    programada: overrides.programada ?? false,
+    fecha_envio: overrides.fecha_envio ?? null
+  };
+}
+
 /**
  * Controlador de Campañas WhatsApp
  * Maneja CRUD completo de campañas con segmentación multi-cliente
@@ -38,12 +47,7 @@ exports.list = async (req, res) => {
     console.log('🔍 [campaigns] Query result count:', rows.length);
     
     // Agregar campos compatibles con el frontend
-    const campanias = rows.map(campania => ({
-      ...campania,
-      descripcion: '', // Campo para compatibilidad frontend
-      programada: false,
-      fecha_envio: null
-    }));
+    const campanias = rows.map((campania) => withFrontendCompatibility(campania));
     
     console.log('✅ [campaigns] Sending response...');
     res.json(campanias);
@@ -64,15 +68,23 @@ exports.detail = async (req, res) => {
   try {
     const { id } = req.params;
     const clienteId = req.user.cliente_id;
+    const esAdmin = req.user.tipo === 'admin';
     
-    const query = `
+    const query = esAdmin ? `
+      SELECT 
+        id, nombre, mensaje, fecha_creacion, estado, cliente_id
+      FROM ll_campanias_whatsapp 
+      WHERE id = ?
+    ` : `
       SELECT 
         id, nombre, mensaje, fecha_creacion, estado, cliente_id
       FROM ll_campanias_whatsapp 
       WHERE id = ? AND cliente_id = ?
     `;
     
-    const [rows] = await db.execute(query, [id, clienteId]);
+    const [rows] = esAdmin
+      ? await db.execute(query, [id])
+      : await db.execute(query, [id, clienteId]);
     
     if (rows.length === 0) {
       return res.status(404).json({ 
@@ -82,12 +94,7 @@ exports.detail = async (req, res) => {
     }
     
     // Agregar campos para compatibilidad con frontend
-    const campania = {
-      ...rows[0],
-      descripcion: '',
-      programada: false,
-      fecha_envio: null
-    };
+    const campania = withFrontendCompatibility(rows[0]);
     
     res.json(campania);
   } catch (error) {
@@ -107,13 +114,19 @@ exports.detail = async (req, res) => {
  * VALIDACIONES DE SEGURIDAD:
  * - Solo permite editar campañas del mismo cliente
  * - No permite editar campañas que ya han enviado mensajes
- * - Estados editables: 'pendiente', 'pendiente_aprobacion', 'programada'
- * - Cambia estado a 'pendiente_aprobacion' tras edición
+ * - Estados editables legacy: 'pendiente', 'pendiente_aprobacion', 'programada'
+ * - Cambia estado a 'pendiente' tras edición para requerir nueva aprobación
  */
 exports.update = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, mensaje } = req.body;
+    const {
+      nombre,
+      descripcion = '',
+      mensaje,
+      programada = false,
+      fecha_envio = null
+    } = req.body;
     const clienteId = req.user.cliente_id;
     const esAdmin = req.user.tipo === 'admin';
     
@@ -160,7 +173,7 @@ exports.update = async (req, res) => {
     const campaign = campaignRows[0];
     
     // 2. VALIDAR ESTADOS EDITABLES - CRÍTICO PARA INTEGRIDAD
-    const estadosNoEditables = ['activa', 'completada', 'pausada'];
+    const estadosNoEditables = ['activa', 'completada', 'pausada', 'en_progreso'];
     if (estadosNoEditables.includes(campaign.estado) || campaign.enviados > 0) {
       return res.status(403).json({ 
         success: false, 
@@ -191,21 +204,14 @@ exports.update = async (req, res) => {
       UPDATE ll_campanias_whatsapp 
       SET 
         nombre = ?,
-        descripcion = ?,
         mensaje = ?,
-        programada = ?,
-        fecha_envio = ?,
-        estado = 'pendiente_aprobacion',
-        fecha_actualizacion = NOW()
+        estado = 'pendiente'
       WHERE id = ? ${esAdmin ? '' : 'AND cliente_id = ?'}
     `;
     
     const updateParams = [
       nombre.trim(),
-      descripcion?.trim() || '',
       mensaje.trim(),
-      programada ? 1 : 0,
-      fechaEnvioFinal,
       id
     ];
     
@@ -222,7 +228,9 @@ exports.update = async (req, res) => {
     
     // 5. Obtener la campaña actualizada
     const [updatedRows] = await db.execute(
-      'SELECT * FROM ll_campanias_whatsapp WHERE id = ?', 
+      `SELECT id, nombre, mensaje, fecha_creacion, estado, cliente_id
+       FROM ll_campanias_whatsapp
+       WHERE id = ?`,
       [id]
     );
     
@@ -231,8 +239,12 @@ exports.update = async (req, res) => {
     
     res.json({
       success: true,
-      message: 'Campaña actualizada exitosamente. Estado cambiado a "Pendiente Aprobación".',
-      data: updatedRows[0],
+      message: 'Campaña actualizada exitosamente. Quedó pendiente de aprobación.',
+      data: withFrontendCompatibility(updatedRows[0], {
+        descripcion: descripcion?.trim() || '',
+        programada: Boolean(programada),
+        fecha_envio: fechaEnvioFinal
+      }),
       warnings: [
         'La campaña requiere nueva aprobación del administrador',
         'No se puede enviar hasta que sea aprobada'
@@ -340,7 +352,7 @@ exports.create = async (req, res) => {
     const insertQuery = `
       INSERT INTO ll_campanias_whatsapp 
       (nombre, mensaje, cliente_id, estado, fecha_creacion)
-      VALUES (?, ?, ?, 'pendiente_aprobacion', NOW())
+      VALUES (?, ?, ?, 'pendiente', NOW())
     `;
     
     const [result] = await db.execute(insertQuery, [
@@ -354,16 +366,17 @@ exports.create = async (req, res) => {
     res.status(201).json({
       success: true,
       message: 'Campaña creada exitosamente',
-      data: {
+      data: withFrontendCompatibility({
         id: result.insertId,
         nombre: nombre.trim(),
-        descripcion: descripcion?.trim() || '',
         mensaje: mensaje.trim(),
-        programada: programada ? 1 : 0,
-        fecha_envio: fechaEnvioFinal,
         cliente_id: clienteId,
-        estado: 'pendiente_aprobacion'
-      }
+        estado: 'pendiente'
+      }, {
+        descripcion: descripcion?.trim() || '',
+        programada: Boolean(programada),
+        fecha_envio: fechaEnvioFinal
+      })
     });
     
   } catch (error) {
@@ -408,8 +421,8 @@ exports.approve = async (req, res) => {
     
     const campania = campaniaRows[0];
     
-    // Validar que esté en estado pendiente
-    if (campania.estado !== 'pendiente') {
+    // Validar que esté en estado pendiente legacy
+    if (!['pendiente', 'pendiente_aprobacion'].includes(campania.estado)) {
       return res.status(400).json({
         success: false,
         error: `No se puede aprobar. Estado actual: ${campania.estado}`,
@@ -438,8 +451,8 @@ exports.approve = async (req, res) => {
       data: {
         id: parseInt(id),
         nombre: campania.nombre,
-        estadoAnterior: 'pendiente',
-        estadoNuevo: 'aprobada',
+        estadoAnterior: campania.estado,
+        estadoNuevo: 'en_progreso',
         aprobadoPor: req.user.usuario,
         comentario: comentario || null
       }

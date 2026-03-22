@@ -190,6 +190,16 @@ Deliverability before automation.
 Quality before speed.
 Validation before scaling.
 
+## Immediate Execution Focus
+
+Within the current project framework, the immediate execution priority is to complete Email as an operational end-to-end MVP capability.
+
+This does not replace the current phase structure. It defines the immediate execution focus within that framework and avoids opening a broader product scope before consolidating an already active line of work.
+
+There is also a subsequent product objective already defined in agenda: a client dashboard for visualization only. That dashboard is not the current priority and must not divert execution focus from completing Email.
+
+In a later stage, its role is limited to visibility over business and delivery information such as available balance, price per delivered lead, searches performed, conversations initiated, delivered leads, and the complete interaction associated with each delivered lead. The client does not operate the machine and does not trigger sends from that dashboard.
+
 ---
 
 # Constitutional Note

@@ -26,7 +26,13 @@ Para el estado constitucional y estratégico, ver `docs/01-CONSTITUCIONAL/PROJEC
 - Estado de fase: subfase técnica cerrada como integración end-to-end en modo prueba
 - Estado comercial: no cerrado; el canal todavía no está listo para escala comercial por falta de datos email suficientes
 - Cuello de botella actual: adquisición, cobertura y enriquecimiento de emails útiles en la base operativa
-- Dashboard comercial: fuera de alcance de esta etapa
+
+## Foco actual de ejecución
+
+- Prioridad inmediata actual: completar Email como funcionalidad MVP operativa de punta a punta.
+- Objetivo posterior en agenda: dashboard cliente de visualización.
+- Ese dashboard no forma parte del foco actual y no debe desviar la ejecución de completar Email.
+- En esa etapa posterior, el cliente no opera la máquina ni dispara envíos; sólo visualiza métricas de consumo, rendimiento y leads entregados con su interacción asociada.
 
 ## Referencias
 

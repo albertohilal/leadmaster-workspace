@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import LoadingSpinner from '../common/LoadingSpinner';
 import Modal from '../common/Modal';
-import { senderAPI, leadsAPI } from '../../services/api';
+import { senderAPI } from '../../services/api';
 import { destinatariosService } from '../../services/destinatarios';
 import { campanasService } from '../../services/campanas';
 import { useAuth } from '../../contexts/AuthContext';
@@ -20,7 +21,6 @@ const CampaignsManager = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showStatsModal, setShowStatsModal] = useState(false);
-  const [showSendModal, setShowSendModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showRecipientsModal, setShowRecipientsModal] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState(null);
@@ -35,6 +35,31 @@ const CampaignsManager = () => {
     programada: false,
     fecha_envio: ''
   });
+
+  const normalizeCampaignStatus = (estado) => {
+    switch (estado) {
+      case 'pendiente':
+      case 'pendiente_aprobacion':
+      case 'programada':
+        return 'pendiente';
+      case 'en_progreso':
+      case 'aprobada':
+      case 'activa':
+        return 'en_progreso';
+      case 'finalizado':
+      case 'completada':
+        return 'finalizado';
+      default:
+        return estado;
+    }
+  };
+
+  const canEditCampaign = (campaign) => {
+    const estadosNoEditables = ['activa', 'completada', 'pausada', 'en_progreso'];
+    const hayEnviados = (campaign.enviados || 0) > 0;
+
+    return !estadosNoEditables.includes(campaign.estado) && !hayEnviados;
+  };
 
   useEffect(() => {
     console.log('🔄 useEffect ejecutándose, cargando campañas...');
@@ -90,8 +115,8 @@ const CampaignsManager = () => {
 
   const handleEditCampaign = (campaign) => {
     // Validaciones más restrictivas para proteger integridad de datos
-    const estadosNoEditables = ['activa', 'completada', 'pausada'];
-    const hayEnviados = campaign.enviados > 0;
+    const estadosNoEditables = ['activa', 'completada', 'pausada', 'en_progreso'];
+    const hayEnviados = (campaign.enviados || 0) > 0;
     
     if (estadosNoEditables.includes(campaign.estado) || hayEnviados) {
       let mensaje = 'No se pueden editar campañas que ya han comenzado a enviarse.';
@@ -101,7 +126,7 @@ const CampaignsManager = () => {
         mensaje += '\nEditar el contenido crearía inconsistencias en los datos.';
       } else {
         mensaje += `\n\nEstado actual: "${campaign.estado}"`;
-        mensaje += '\nSolo se pueden editar campañas en estado: pendiente, pendiente_aprobacion, programada';
+        mensaje += '\nSolo se pueden editar campañas pendientes o en estados legacy compatibles.';
       }
       
       alert(mensaje);
@@ -150,7 +175,7 @@ const CampaignsManager = () => {
       ));
       
       // Mostrar mensaje de éxito del servidor
-      alert(response.data.message || 'Campaña editada exitosamente. Estado cambiado a "Pendiente Aprobación".');
+      alert(response.data.message || 'Campaña editada exitosamente. Estado cambiado a "Pendiente".');
       
       setShowEditModal(false);
       setEditingCampaign(null);
@@ -278,48 +303,14 @@ const CampaignsManager = () => {
     }
   };
 
-  const handleSendCampaign = (campaign) => {
-    setSelectedCampaign(campaign);
-    setShowSendModal(true);
-  };
-
-  const confirmSendCampaign = async () => {
-    try {
-      if (!selectedCampaign) return;
-      
-      // Simular envío de campaña
-      const updatedCampaigns = campaigns.map(c => 
-        c.id === selectedCampaign.id 
-          ? { ...c, estado: 'activa', enviados: Math.floor(c.total_destinatarios * 0.8) }
-          : c
-      );
-      
-      setCampaigns(updatedCampaigns);
-      setShowSendModal(false);
-      setSelectedCampaign(null);
-      alert('Campaña enviada exitosamente');
-    } catch (error) {
-      console.error('Error sending campaign:', error);
-      alert('Error al enviar campaña');
-    }
-  };
-
   const getStatusColor = (estado) => {
-    switch (estado) {
-      case 'activa':
-        return 'bg-green-500';
-      case 'completada':
+    switch (normalizeCampaignStatus(estado)) {
       case 'finalizado':
         return 'bg-blue-500';
-      case 'programada':
-        return 'bg-yellow-500';
       case 'pendiente':
         return 'bg-yellow-600';
       case 'en_progreso':
-      case 'aprobada':
         return 'bg-green-600';
-      case 'pendiente_aprobacion':
-        return 'bg-orange-500';
       case 'pausada':
         return 'bg-gray-400';
       case 'rechazada':
@@ -330,23 +321,13 @@ const CampaignsManager = () => {
   };
 
   const getStatusText = (estado) => {
-    switch (estado) {
-      case 'activa':
-        return 'Activa';
-      case 'completada':
-        return 'Completada';
+    switch (normalizeCampaignStatus(estado)) {
       case 'finalizado':
         return 'Finalizada';
-      case 'programada':
-        return isAdmin ? 'Lista para enviar' : 'Programada';
       case 'pendiente':
         return 'Pendiente Aprobación';
       case 'en_progreso':
-        return 'Aprobada';
-      case 'aprobada':
-        return 'Aprobada';
-      case 'pendiente_aprobacion':
-        return 'Pendiente Aprobación';
+        return 'En progreso';
       case 'pausada':
         return 'Pausada';
       case 'rechazada':
@@ -372,7 +353,7 @@ const CampaignsManager = () => {
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold text-gray-800">Gestión de Campañas</h1>
+            <h1 className="text-3xl font-bold text-gray-800">Campañas WhatsApp</h1>
             {isAdmin && (
               <span className="bg-purple-100 text-purple-800 text-sm font-medium px-3 py-1 rounded-full">
                 👑 Panel Administrador
@@ -381,54 +362,59 @@ const CampaignsManager = () => {
           </div>
           <p className="text-gray-600 mt-1">
             {isAdmin 
-              ? "Administra y envía campañas de todos los clientes" 
-              : "Administra tus envíos masivos de WhatsApp"
+              ? "Administra el flujo actual de campañas WhatsApp de todos los clientes" 
+              : "Administra tu flujo actual de campañas y envíos masivos de WhatsApp"
             }
-          </p>
-          {/* Debug info temporal */}
-          <p className="text-xs text-blue-600 mt-1">
-            Debug: {campaigns.length} campañas | showDetailsModal: {showDetailsModal ? 'true' : 'false'}
           </p>
         </div>
         <div className="flex gap-3">
           <Button variant="primary" onClick={handleCreateCampaign}>
-            + Nueva Campaña
-          </Button>
-          <Button variant="secondary" onClick={() => console.log('Debug - Campaigns:', campaigns, 'Modal states:', {showDetailsModal, showStatsModal, showEditModal})}>
-            🐛 Debug
-          </Button>
-          <Button variant="info" onClick={() => {
-            setSelectedCampaign(campaigns[0]);
-            setShowDetailsModal(true);
-            console.log('Test: Abriendo modal con primera campaña:', campaigns[0]);
-          }}>
-            🧪 Test Modal
+            + Nueva Campaña WhatsApp
           </Button>
         </div>
       </div>
+
+      <Card className="border border-sky-200 bg-sky-50">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-sky-900">Nuevo frente Email</p>
+            <p className="text-sm text-sky-800">
+              La creación de campañas Email ya tiene pantalla propia y sigue separada del flujo actual de campañas WhatsApp. Este panel no funciona todavía como gestor multicanal completo.
+            </p>
+          </div>
+          <Link
+            to="/email/campaigns/new"
+            className="inline-flex items-center justify-center rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700"
+          >
+            Ir a creación de campaña Email
+          </Link>
+        </div>
+      </Card>
 
       {/* Estadísticas Generales */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
           <div className="text-center py-4">
-            <p className="text-sm text-gray-600">Activas</p>
-            <p className="text-4xl font-bold text-success mt-2">
-              {campaigns.filter(c => c.estado === 'activa').length}
+            <p className="text-sm text-gray-600">Pendientes</p>
+            <p className="text-4xl font-bold text-yellow-600 mt-2">
+              {campaigns.filter(c => normalizeCampaignStatus(c.estado) === 'pendiente').length}
             </p>
           </div>
         </Card>
         <Card>
           <div className="text-center py-4">
-            <p className="text-sm text-gray-600">Completadas</p>
+            <p className="text-sm text-gray-600">En progreso</p>
+            <p className="text-4xl font-bold text-green-600 mt-2">
+              {campaigns.filter(c => normalizeCampaignStatus(c.estado) === 'en_progreso').length}
+            </p>
+          </div>
+        </Card>
+        <Card>
+          <div className="text-center py-4">
+            <p className="text-sm text-gray-600">Finalizadas</p>
             <p className="text-4xl font-bold text-primary mt-2">
-              {campaigns.filter(c => c.estado === 'completada').length}
+              {campaigns.filter(c => normalizeCampaignStatus(c.estado) === 'finalizado').length}
             </p>
-          </div>
-        </Card>
-        <Card>
-          <div className="text-center py-4">
-            <p className="text-sm text-gray-600">Mensajes Enviados</p>
-            <p className="text-4xl font-bold text-gray-800 mt-2">200</p>
           </div>
         </Card>
         <Card>
@@ -452,11 +438,11 @@ const CampaignsManager = () => {
       </Card>
 
       {/* Lista de Campañas */}
-      <Card title="Campañas" icon="📨">
+      <Card title="Campañas WhatsApp" icon="📨">
         <div className="space-y-6">
           {campaigns.length === 0 ? (
             <p className="text-center text-gray-500 py-12">
-              No hay campañas creadas. ¡Crea tu primera campaña!
+              No hay campañas WhatsApp creadas. ¡Crea tu primera campaña!
             </p>
           ) : (
             campaigns.map((campaign) => (
@@ -494,7 +480,7 @@ const CampaignsManager = () => {
                     </Button>
                     
                     {/* Solo mostrar botón editar si la campaña no está completada */}
-                    {campaign.estado !== 'completada' && campaign.estado !== 'enviando' && (
+                    {canEditCampaign(campaign) && (
                       <Button variant="info" onClick={() => handleEditCampaign(campaign)}>
                         ✏️ Editar
                       </Button>
@@ -507,11 +493,6 @@ const CampaignsManager = () => {
                       </Button>
                     )}
                     
-                    {isAdmin && (campaign.estado === 'programada' || campaign.estado === 'pendiente_aprobacion') && (
-                      <Button variant="primary" onClick={() => handleSendCampaign(campaign)}>
-                        🚀 Enviar Campaña
-                      </Button>
-                    )}
                   </div>
                 </div>
 
@@ -562,7 +543,7 @@ const CampaignsManager = () => {
       <Modal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
-        title="Nueva Campaña"
+        title="Nueva Campaña WhatsApp"
         size="large"
       >
         <div className="space-y-4">
@@ -651,7 +632,7 @@ const CampaignsManager = () => {
           setShowEditModal(false);
           setEditingCampaign(null);
         }}
-        title={`Editar Campaña: ${editingCampaign?.nombre}`}
+        title={`Editar Campaña WhatsApp: ${editingCampaign?.nombre}`}
         size="large"
       >
         <div className="space-y-4">
@@ -727,7 +708,7 @@ const CampaignsManager = () => {
 
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <p className="text-sm text-yellow-800">
-              <strong>Nota:</strong> Al editar una campaña, su estado cambiará a "Pendiente Aprobación" y requerirá nueva autorización del administrador.
+              <strong>Nota:</strong> Al editar una campaña, su estado volverá a "Pendiente" y requerirá nueva aprobación del administrador.
             </p>
           </div>
 
@@ -930,16 +911,14 @@ const CampaignsManager = () => {
                 )}
                 <div>
                   <span className="text-gray-600">Estado del sistema:</span>
-                  <p className="font-medium text-gray-800">
-                    {selectedCampaign.activa ? 'Activa' : 'Inactiva'}
-                  </p>
+                  <p className="font-medium text-gray-800">{getStatusText(selectedCampaign.estado)}</p>
                 </div>
               </div>
             </div>
 
             {/* Acciones rápidas */}
             <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-              {selectedCampaign.estado !== 'completada' && selectedCampaign.estado !== 'enviando' && (
+              {canEditCampaign(selectedCampaign) && (
                 <Button variant="info" onClick={() => {
                   setShowDetailsModal(false);
                   handleEditCampaign(selectedCampaign);
@@ -952,59 +931,6 @@ const CampaignsManager = () => {
                 handleViewStats(selectedCampaign);
               }}>
                 📊 Ver Estadísticas Completas
-              </Button>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      {/* Modal Enviar Campaña (Solo Admin) */}
-      <Modal
-        isOpen={showSendModal}
-        onClose={() => setShowSendModal(false)}
-        title="Confirmar Envío de Campaña"
-        size="medium"
-      >
-        {selectedCampaign && (
-          <div className="space-y-6">
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-              <div className="flex items-center">
-                <span className="text-2xl mr-3">⚠️</span>
-                <div>
-                  <h4 className="font-bold text-orange-800">¡Atención!</h4>
-                  <p className="text-orange-700">Esta acción iniciará el envío inmediato de la campaña y no se puede deshacer.</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h4 className="font-semibold text-gray-800 mb-3">Detalles de la campaña:</h4>
-              <dl className="space-y-2">
-                <div className="flex justify-between">
-                  <dt className="text-sm text-gray-600">Nombre:</dt>
-                  <dd className="text-sm font-medium text-gray-800">{selectedCampaign.nombre}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-sm text-gray-600">Cliente:</dt>
-                  <dd className="text-sm font-medium text-gray-800">{selectedCampaign.cliente_nombre}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-sm text-gray-600">Total destinatarios:</dt>
-                  <dd className="text-sm font-medium text-gray-800">{selectedCampaign.total_destinatarios}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-sm text-gray-600">Estado actual:</dt>
-                  <dd className="text-sm font-medium text-gray-800">{getStatusText(selectedCampaign.estado)}</dd>
-                </div>
-              </dl>
-            </div>
-
-            <div className="flex justify-end space-x-3">
-              <Button variant="secondary" onClick={() => setShowSendModal(false)}>
-                Cancelar
-              </Button>
-              <Button variant="danger" onClick={confirmSendCampaign}>
-                🚀 Confirmar Envío
               </Button>
             </div>
           </div>

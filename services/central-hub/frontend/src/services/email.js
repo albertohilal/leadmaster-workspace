@@ -31,6 +31,17 @@ async function send({ to, subject, text }) {
   return response.data;
 }
 
+async function createCampaign({ channel = 'EMAIL', nombre, subject, text }) {
+  const response = await apiService.post('/email/campaigns', {
+    channel,
+    nombre,
+    subject,
+    text
+  });
+
+  return response.data;
+}
+
 async function sendSelectionFanout({ recipients, subject, text }) {
   const attempts = await Promise.allSettled(
     recipients.map(async (recipient) => {
@@ -91,6 +102,7 @@ async function sendSelectionFanout({ recipients, subject, text }) {
 const emailService = {
   normalizeEmail,
   isValidEmail,
+  createCampaign,
   send,
   sendSelectionFanout
 };
