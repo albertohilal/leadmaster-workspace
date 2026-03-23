@@ -540,3 +540,63 @@
 - El listado Email sigue siendo mock y deberá reemplazarse por datos reales cuando exista backend de campañas Email.
 - El `campaignId` de la ruta contextual quedó sólo como contexto visual; si más adelante debe preseleccionar una campaña Email real, habrá que definir una regla explícita de matching.
 - El modo Email sigue compartiendo lógica interna de campañas operativas para agregar destinatarios, por lo que la transición completa todavía depende del vínculo `operational_campaign_id`.
+
+## Prompt 17 — Email selector: preselección por URL + cleanup warning en WhatsApp
+
+### Cambios realizados
+
+- Se agregó una preselección automática de `Campaña Email` cuando la URL contiene `/email/campaigns/:id/prospects` y el `id` existe en `emailCampaigns`.
+- Se dejó explícitamente acotado al branch legacy el warning asociado al contexto `campaignId` para evitar mensajes cruzados entre Email y WhatsApp.
+
+### Archivos tocados
+
+- `services/central-hub/frontend/src/components/destinatarios/GestionDestinatariosPage.jsx`
+- `services/central-hub/frontend/COPILOT_REPORT_EMAIL_UI.md`
+
+### Decisiones técnicas
+
+- La preselección por URL se resolvió con un `useEffect` específico para el modo `useEmailCampaignSelector`, sin alterar el flujo legacy basado en `campanas`.
+- Se mantuvo el `campaignId` como fuente de contexto única para ambos modos, pero cada branch ahora consume ese dato sólo cuando corresponde.
+
+### Cómo probar (pasos manuales)
+
+1. Navegar a `/email/campaigns/email-campaign-1/prospects`.
+2. Confirmar que el selector `Campaña Email` aparezca preseleccionado con `Reactivación Clientes Q1`.
+3. Verificar que se carguen prospectos usando la campaña operativa vinculada.
+4. Navegar a `/email/campaigns/email-campaign-2/prospects`.
+5. Confirmar que el selector quede preseleccionado y que aparezca el warning de campaña Email no vinculada.
+6. Navegar a `/prospectos` y verificar que no aparezcan warnings de campaña Email en el selector legacy.
+
+### Riesgos / pendientes
+
+- La preselección depende de que el `campaignId` de la URL coincida exactamente con un `id` del mock Email.
+- Mientras el origen de campañas Email siga siendo mock, la experiencia contextual por URL sigue siendo transicional.
+
+## Prompt 18 — Email selector: pasar campaignId al flujo destinatarios
+
+### Cambios realizados
+
+- Se volvió a pasar explícitamente `campaignId` desde `EmailCampaignProspectsPage` hacia `GestionDestinatariosPage`.
+- Con esto, el flujo de preselección por URL del selector Email vuelve a recibir el dato contextual necesario.
+
+### Archivos tocados
+
+- `services/central-hub/frontend/src/components/email/EmailCampaignProspectsPage.jsx`
+- `services/central-hub/frontend/COPILOT_REPORT_EMAIL_UI.md`
+
+### Decisiones técnicas
+
+- El ajuste se limitó al wrapper Email para no tocar nuevamente la lógica compartida de `GestionDestinatariosPage`.
+- Se preservó el comportamiento informativo del header y se restableció el dato necesario para la preselección interna.
+
+### Cómo probar (pasos manuales)
+
+1. Navegar a `/email/campaigns/email-campaign-1/prospects`.
+2. Confirmar que `Reactivación Clientes Q1` quede preseleccionada automáticamente.
+3. Navegar a `/email/campaigns/email-campaign-2/prospects`.
+4. Confirmar que la campaña mock correspondiente quede preseleccionada y muestre el warning de falta de vínculo operativo.
+
+### Riesgos / pendientes
+
+- La preselección sigue dependiendo de que el `campaignId` de la ruta coincida con un `id` del mock actual.
+- Mientras el origen de campañas Email sea mock, el comportamiento seguirá siendo transicional hasta conectar backend real.

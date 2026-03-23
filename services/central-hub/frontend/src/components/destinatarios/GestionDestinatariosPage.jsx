@@ -158,6 +158,16 @@ const GestionDestinatariosPage = ({
     }
   }, [campaignId, hasCampaignMatch]);
 
+  useEffect(() => {
+    if (!useEmailCampaignSelector) return;
+    if (!campaignId) return;
+
+    const exists = emailCampaigns.some((c) => String(c.id) === String(campaignId));
+    if (exists) {
+      setEmailCampaignSeleccionada(String(campaignId));
+    }
+  }, [campaignId, emailCampaigns, useEmailCampaignSelector]);
+
   const emailCampaignContexto = useMemo(
     () => emailCampaigns.find((c) => String(c.id) === String(emailCampaignSeleccionada)) || null,
     [emailCampaignSeleccionada, emailCampaigns]
@@ -799,7 +809,7 @@ const GestionDestinatariosPage = ({
                           Campaña fijada por contexto del módulo Email.
                         </p>
                       )}
-                      {campaignId && !hasCampaignMatch && (
+                      {!useEmailCampaignSelector && campaignId && !hasCampaignMatch && (
                         <p className="mt-1 text-xs text-amber-600">
                           Esta campaña Email aún no está vinculada a una campaña operativa. Seleccioná una campaña para continuar.
                         </p>

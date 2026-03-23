@@ -35,6 +35,7 @@ const EmailCampaignProspectsPage = () => {
 
       <GestionDestinatariosPage
         hideHeader
+        campaignId={campaignId}
         defaultCanalDisponibleFiltro="email"
         hideWhatsappActions
         useEmailCampaignSelector
