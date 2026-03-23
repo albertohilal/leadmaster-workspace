@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import GestionDestinatariosPage from '../destinatarios/GestionDestinatariosPage';
+import { EMAIL_CAMPAIGNS_MOCK } from './emailCampaignsMock';
 
 const EmailCampaignProspectsPage = () => {
   const { campaignId } = useParams();
@@ -34,9 +35,10 @@ const EmailCampaignProspectsPage = () => {
 
       <GestionDestinatariosPage
         hideHeader
-        campaignId={campaignId}
         defaultCanalDisponibleFiltro="email"
         hideWhatsappActions
+        useEmailCampaignSelector
+        emailCampaigns={EMAIL_CAMPAIGNS_MOCK}
       />
     </div>
   );

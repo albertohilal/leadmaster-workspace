@@ -504,3 +504,39 @@
 - La eliminación visual de la columna no cambia la lógica interna relacionada con disponibilidad WhatsApp, que sigue presente en el componente compartido.
 - Si más adelante se ajustan widths específicos para modo Email, convendrá revisar la tabla con datasets largos para evitar cortes inesperados.
 - El modo Email depende de `hideWhatsappActions` como bandera compuesta; si el componente crece, puede convenir separar flags de layout y acciones.
+
+## Prompt 16 — Email: selector de campañas Email (mock) sin mostrar campañas WhatsApp
+
+### Cambios realizados
+
+- Se agregó un mock de campañas Email con `id`, `nombre` y `operational_campaign_id` para desacoplar el selector visual del listado de campañas WhatsApp.
+- `GestionDestinatariosPage` ahora soporta un modo opcional con selector `Campaña Email`, que hace mapping interno hacia `campaniaSeleccionada` sólo cuando existe vínculo operativo.
+- El wrapper Email activa este modo y deja de mostrar campañas WhatsApp en los selectores de `/email/campaigns/*`.
+
+### Archivos tocados
+
+- `services/central-hub/frontend/src/components/email/emailCampaignsMock.js`
+- `services/central-hub/frontend/src/components/destinatarios/GestionDestinatariosPage.jsx`
+- `services/central-hub/frontend/src/components/email/EmailCampaignProspectsPage.jsx`
+- `services/central-hub/frontend/COPILOT_REPORT_EMAIL_UI.md`
+
+### Decisiones técnicas
+
+- Se mantuvo `prospectosService.filtrarProspectos({ campania_id })` intacto y se resolvió el desacople sólo con un mapping UI → campaña operativa.
+- El selector Email usa un estado independiente (`emailCampaignSeleccionada`) para evitar mezclar IDs de campañas Email con IDs operativos legacy.
+- Cuando una campaña Email no tiene vínculo operativo, se limpia la grilla y se muestra un warning explícito para evitar que queden prospectos viejos en pantalla.
+
+### Cómo probar (pasos manuales)
+
+1. Iniciar sesión y navegar a `/email/campaigns/prospects`.
+2. Confirmar que el selector se llame `Campaña Email` y no liste campañas WhatsApp.
+3. Seleccionar `Reactivación Clientes Q1` y verificar que cargue prospectos usando la campaña operativa `47`.
+4. Seleccionar `Campaña Bienvenida Marzo` o `Promo Servicios Premium` y confirmar que aparezca el warning de falta de vínculo operativo y no se carguen prospectos.
+5. Repetir la validación en `/email/campaigns/<id>/prospects` y confirmar que el contexto del header siga siendo sólo informativo.
+6. Navegar a `/prospectos` y verificar que el selector legacy de campañas WhatsApp siga funcionando igual.
+
+### Riesgos / pendientes
+
+- El listado Email sigue siendo mock y deberá reemplazarse por datos reales cuando exista backend de campañas Email.
+- El `campaignId` de la ruta contextual quedó sólo como contexto visual; si más adelante debe preseleccionar una campaña Email real, habrá que definir una regla explícita de matching.
+- El modo Email sigue compartiendo lógica interna de campañas operativas para agregar destinatarios, por lo que la transición completa todavía depende del vínculo `operational_campaign_id`.

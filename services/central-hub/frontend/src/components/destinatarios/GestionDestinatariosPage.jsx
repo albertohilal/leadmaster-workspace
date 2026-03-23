@@ -95,12 +95,15 @@ const GestionDestinatariosPage = ({
   title = 'Seleccionar Prospectos',
   campaignId,
   defaultCanalDisponibleFiltro = 'todos',
-  hideWhatsappActions = false
+  hideWhatsappActions = false,
+  useEmailCampaignSelector = false,
+  emailCampaigns = []
 }) => {
   const navigate = useNavigate();
 
   const [campanas, setCampanas] = useState([]);
   const [campaniaSeleccionada, setCampaniaSeleccionada] = useState('');
+  const [emailCampaignSeleccionada, setEmailCampaignSeleccionada] = useState('');
   const [prospectos, setProspectos] = useState([]);
   const [seleccionados, setSeleccionados] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -134,8 +137,10 @@ const GestionDestinatariosPage = ({
   });
 
   useEffect(() => {
-    cargarCampanas();
-  }, []);
+    if (!useEmailCampaignSelector) {
+      cargarCampanas();
+    }
+  }, [useEmailCampaignSelector]);
 
   useEffect(() => {
     if (campaniaSeleccionada) {
@@ -143,7 +148,7 @@ const GestionDestinatariosPage = ({
     }
   }, [campaniaSeleccionada]);
 
-  const hasCampaignMatch = Boolean(campaignId) && campanas.some(
+  const hasCampaignMatch = !useEmailCampaignSelector && Boolean(campaignId) && campanas.some(
     (c) => String(c.id) === String(campaignId)
   );
 
@@ -152,6 +157,32 @@ const GestionDestinatariosPage = ({
       setCampaniaSeleccionada(String(campaignId));
     }
   }, [campaignId, hasCampaignMatch]);
+
+  const emailCampaignContexto = useMemo(
+    () => emailCampaigns.find((c) => String(c.id) === String(emailCampaignSeleccionada)) || null,
+    [emailCampaignSeleccionada, emailCampaigns]
+  );
+
+  useEffect(() => {
+    if (!useEmailCampaignSelector) return;
+
+    const selectedEmailCampaign = emailCampaigns.find(
+      (item) => String(item.id) === String(emailCampaignSeleccionada)
+    );
+
+    const operationalCampaignId = selectedEmailCampaign?.operational_campaign_id
+      ? String(selectedEmailCampaign.operational_campaign_id)
+      : '';
+
+    setCampaniaSeleccionada(operationalCampaignId);
+
+    if (!operationalCampaignId) {
+      setProspectos([]);
+      setSeleccionados([]);
+      setResultadoEmail(null);
+      setMostrarModalEmail(false);
+    }
+  }, [emailCampaignSeleccionada, emailCampaigns, useEmailCampaignSelector]);
 
   const cargarCampanas = async () => {
     try {
@@ -680,10 +711,20 @@ const GestionDestinatariosPage = ({
                   Campaña / base actual
                 </div>
                 <div className="mt-2 text-lg font-semibold text-gray-900">
-                  {contextoCampania?.nombre || 'Seleccionar campaña'}
+                  {useEmailCampaignSelector
+                    ? emailCampaignContexto?.nombre || 'Seleccionar campaña Email'
+                    : contextoCampania?.nombre || 'Seleccionar campaña'}
                 </div>
                 <div className="mt-1 text-sm text-gray-500">
-                  {campaniaSeleccionada ? `ID ${campaniaSeleccionada}` : 'Sin campaña seleccionada'}
+                  {useEmailCampaignSelector
+                    ? campaniaSeleccionada
+                      ? `Campaña operativa vinculada: ${campaniaSeleccionada}`
+                      : emailCampaignSeleccionada
+                        ? 'Sin vínculo operativo'
+                        : 'Sin campaña Email seleccionada'
+                    : campaniaSeleccionada
+                      ? `ID ${campaniaSeleccionada}`
+                      : 'Sin campaña seleccionada'}
                 </div>
               </div>
 
@@ -715,29 +756,55 @@ const GestionDestinatariosPage = ({
             <div className="px-6 py-4">
               <div className="flex flex-wrap items-end gap-3">
                 <div className="min-w-[240px] flex-1">
-                  <label className="block text-sm font-medium mb-1">Campaña de destino</label>
-                  <select
-                    value={campaniaSeleccionada}
-                    onChange={(e) => setCampaniaSeleccionada(e.target.value)}
-                    disabled={hasCampaignMatch}
-                    className="w-full px-3 py-2 border rounded-lg disabled:bg-gray-100 disabled:text-gray-600"
-                  >
-                    <option value="">Seleccionar campaña...</option>
-                    {campanas.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.nombre}
-                      </option>
-                    ))}
-                  </select>
-                  {hasCampaignMatch && (
-                    <p className="mt-1 text-xs text-blue-600">
-                      Campaña fijada por contexto del módulo Email.
-                    </p>
-                  )}
-                  {campaignId && !hasCampaignMatch && (
-                    <p className="mt-1 text-xs text-amber-600">
-                      Esta campaña Email aún no está vinculada a una campaña operativa. Seleccioná una campaña para continuar.
-                    </p>
+                  <label className="block text-sm font-medium mb-1">
+                    {useEmailCampaignSelector ? 'Campaña Email' : 'Campaña de destino'}
+                  </label>
+                  {useEmailCampaignSelector ? (
+                    <>
+                      <select
+                        value={emailCampaignSeleccionada}
+                        onChange={(e) => setEmailCampaignSeleccionada(e.target.value)}
+                        className="w-full px-3 py-2 border rounded-lg"
+                      >
+                        <option value="">Seleccionar campaña Email...</option>
+                        {emailCampaigns.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.nombre}
+                          </option>
+                        ))}
+                      </select>
+                      {emailCampaignSeleccionada && !campaniaSeleccionada && (
+                        <p className="mt-1 text-xs text-amber-600">
+                          Esta campaña Email aún no está vinculada a una campaña operativa.
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <select
+                        value={campaniaSeleccionada}
+                        onChange={(e) => setCampaniaSeleccionada(e.target.value)}
+                        disabled={hasCampaignMatch}
+                        className="w-full px-3 py-2 border rounded-lg disabled:bg-gray-100 disabled:text-gray-600"
+                      >
+                        <option value="">Seleccionar campaña...</option>
+                        {campanas.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.nombre}
+                          </option>
+                        ))}
+                      </select>
+                      {hasCampaignMatch && (
+                        <p className="mt-1 text-xs text-blue-600">
+                          Campaña fijada por contexto del módulo Email.
+                        </p>
+                      )}
+                      {campaignId && !hasCampaignMatch && (
+                        <p className="mt-1 text-xs text-amber-600">
+                          Esta campaña Email aún no está vinculada a una campaña operativa. Seleccioná una campaña para continuar.
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
 
