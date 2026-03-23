@@ -705,7 +705,9 @@ const GestionDestinatariosPage = ({
                   {resumenSeleccion.total}
                 </div>
                 <div className="mt-1 text-sm text-emerald-700">
-                  {resumenSeleccion.conWhatsapp} con WhatsApp, {resumenSeleccion.conEmail} con email
+                  {hideWhatsappActions
+                    ? `emails válidos: ${resumenSeleccion.conEmail}, sin email: ${resumenSeleccion.sinEmail}`
+                    : `${resumenSeleccion.conWhatsapp} con WhatsApp, ${resumenSeleccion.conEmail} con email`}
                 </div>
               </div>
             </div>
@@ -890,7 +892,9 @@ const GestionDestinatariosPage = ({
             <thead className="bg-gray-50 text-xs uppercase text-gray-500">
               <tr>
                 <th className="px-6 py-3 text-left w-[24%]">Empresa</th>
-                <th className="px-6 py-3 text-left w-[16%]">WhatsApp</th>
+                <th className="px-6 py-3 text-left w-[16%]">
+                  {hideWhatsappActions ? 'Teléfono' : 'WhatsApp'}
+                </th>
                 <th className="px-6 py-3 text-left w-[16%]">Email</th>
                 <th className="px-6 py-3 text-left w-[12%]">Estado</th>
                 <th className="px-6 py-3 text-left w-[20%]">Dirección</th>

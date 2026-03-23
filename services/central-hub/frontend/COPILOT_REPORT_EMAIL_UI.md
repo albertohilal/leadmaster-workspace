@@ -436,3 +436,37 @@
 - En el contexto Email todavía se ve la columna de disponibilidad WhatsApp, aunque la acción por fila quede oculta.
 - Si más adelante se requiere una experiencia Email completamente aislada, convendrá revisar también acciones de clasificación y columnas contextuales.
 - La lógica de apertura de WhatsApp sigue viva en el componente compartido, aunque quede inaccesible desde el wrapper Email.
+
+## Prompt 13 — Destinatarios Email: ocultar métricas WhatsApp y ajustar labels
+
+### Cambios realizados
+
+- En modo Email, la card `Total seleccionados` dejó de mencionar `con WhatsApp` y ahora muestra métricas centradas en email.
+- La columna de tabla `WhatsApp` pasa a mostrarse como `Teléfono` cuando `hideWhatsappActions` está activo.
+- El flujo legacy `/prospectos` mantiene los labels y métricas originales sin cambios.
+
+### Archivos tocados
+
+- `services/central-hub/frontend/src/components/destinatarios/GestionDestinatariosPage.jsx`
+- `services/central-hub/frontend/COPILOT_REPORT_EMAIL_UI.md`
+
+### Decisiones técnicas
+
+- Se reutilizó `hideWhatsappActions` como señal de contexto Email para no introducir nuevas props sólo para labels.
+- El cambio se limitó a textos y render condicional, sin modificar hooks, filtros ni lógica operativa.
+- Se eligió mostrar `emails válidos` y `sin email` para dar una señal útil al operador en el flujo Email.
+
+### Cómo probar (pasos manuales)
+
+1. Iniciar sesión y navegar a `/email/campaigns/prospects`.
+2. Verificar que la card `Total seleccionados` ya no diga `con WhatsApp`.
+3. Confirmar que en modo Email muestre algo como `emails válidos: X, sin email: Y`.
+4. Verificar que el header de la columna cambie de `WhatsApp` a `Teléfono`.
+5. Navegar a `/prospectos`.
+6. Confirmar que allí se mantengan el resumen legacy con `con WhatsApp` y el header `WhatsApp`.
+
+### Riesgos / pendientes
+
+- Aunque los labels se neutralizan en Email, la columna sigue mostrando el mismo indicador técnico basado en teléfono/WhatsApp.
+- Si más adelante se busca una experiencia Email más pura, podría convenir ocultar directamente esa columna en lugar de sólo renombrarla.
+- La reutilización de `hideWhatsappActions` como modo Email funciona hoy, pero conviene documentarla si el componente sigue creciendo.
