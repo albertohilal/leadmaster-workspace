@@ -36,6 +36,7 @@ const EmailCampaignProspectsPage = () => {
         hideHeader
         campaignId={campaignId}
         defaultCanalDisponibleFiltro="email"
+        hideWhatsappActions
       />
     </div>
   );

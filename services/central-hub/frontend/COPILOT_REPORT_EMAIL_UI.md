@@ -365,3 +365,40 @@
 - El filtro por default mejora la operación de Email, pero sigue dependiendo de la disponibilidad real de emails en los prospectos cargados.
 - Si más adelante aparecen otros módulos con defaults distintos, convendrá documentar explícitamente los valores admitidos por `defaultCanalDisponibleFiltro`.
 - El comportamiento de reset al cambiar campaña ahora es contextual; si en el futuro se quiere preservar la última selección manual, habrá que revisar esta decisión.
+
+## Prompt 11 — Destinatarios Email: ocultar acciones WhatsApp en módulo Email
+
+### Cambios realizados
+
+- Se agregó la prop opcional `hideWhatsappActions` a `GestionDestinatariosPage`.
+- Cuando `hideWhatsappActions` es `true`, se oculta el botón `Preparar envío WhatsApp`.
+- El texto del bloque `Acciones sobre seleccionados` ahora cambia a una versión neutral en el contexto Email.
+- `EmailCampaignProspectsPage` pasó a activar `hideWhatsappActions`, manteniendo intacto el flujo legacy `/prospectos`.
+
+### Archivos tocados
+
+- `services/central-hub/frontend/src/components/destinatarios/GestionDestinatariosPage.jsx`
+- `services/central-hub/frontend/src/components/email/EmailCampaignProspectsPage.jsx`
+- `services/central-hub/frontend/COPILOT_REPORT_EMAIL_UI.md`
+
+### Decisiones técnicas
+
+- Se ocultó sólo la UI de WhatsApp y no se modificaron funciones ni lógica interna del envío para evitar regresiones en el flujo legacy.
+- El copy descriptivo se resolvió de forma condicional para que el módulo Email no siga hablando de WhatsApp como flujo principal.
+- La activación de este modo ocurre únicamente desde el wrapper Email, preservando el comportamiento completo de `/prospectos`.
+- El botón `Preparar envío Email` y el resto de la operativa de destinatarios permanecen sin cambios.
+
+### Cómo probar (pasos manuales)
+
+1. Iniciar sesión y navegar a `/email/campaigns/prospects`.
+2. Verificar que en `Acciones sobre seleccionados` ya no aparezca `Preparar envío WhatsApp`.
+3. Confirmar que el texto descriptivo no mencione WhatsApp y diga `Prepará y enviá Email sobre la selección común.`.
+4. Confirmar que `Preparar envío Email` siga visible y funcione igual.
+5. Navegar a `/email/campaigns/<id>/prospects` y verificar el mismo comportamiento.
+6. Navegar a `/prospectos` y confirmar que el botón `Preparar envío WhatsApp` y el texto legacy siguen visibles.
+
+### Riesgos / pendientes
+
+- La tabla sigue mostrando la columna de disponibilidad WhatsApp también en el contexto Email, porque este prompt sólo oculta acciones y copy operativo.
+- Si en el futuro se busca una experiencia Email aún más enfocada, convendrá revisar también columnas, badges y acciones por fila.
+- La lógica de WhatsApp sigue presente en el componente compartido, aunque quede oculta en el wrapper Email.

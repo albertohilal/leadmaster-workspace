@@ -94,7 +94,8 @@ const GestionDestinatariosPage = ({
   backPath = '/campaigns',
   title = 'Seleccionar Prospectos',
   campaignId,
-  defaultCanalDisponibleFiltro = 'todos'
+  defaultCanalDisponibleFiltro = 'todos',
+  hideWhatsappActions = false
 }) => {
   const navigate = useNavigate();
 
@@ -836,8 +837,9 @@ const GestionDestinatariosPage = ({
                 <div>
                   <div className="text-sm font-medium text-gray-900">Acciones sobre seleccionados</div>
                   <div className="text-sm text-gray-600">
-                    {resumenSeleccion.total} seleccionados. WhatsApp reutiliza el flujo actual y se
-                    prepara de a un prospecto por vez. Email usa la selección común.
+                    {hideWhatsappActions
+                      ? `${resumenSeleccion.total} seleccionados. Prepará y enviá Email sobre la selección común.`
+                      : `${resumenSeleccion.total} seleccionados. WhatsApp reutiliza el flujo actual y se prepara de a un prospecto por vez. Email usa la selección común.`}
                   </div>
                 </div>
 
@@ -854,18 +856,20 @@ const GestionDestinatariosPage = ({
                       : 'Seleccionar todos'}
                   </button>
 
-                  <button
-                    onClick={prepararEnvioWhatsAppSeleccionado}
-                    disabled={
-                      resumenSeleccion.total === 0 ||
-                      resumenSeleccion.whatsappListos.length === 0 ||
-                      loadingEnvio
-                    }
-                    className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-white hover:bg-green-700 disabled:bg-gray-300"
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                    Preparar envío WhatsApp
-                  </button>
+                  {!hideWhatsappActions && (
+                    <button
+                      onClick={prepararEnvioWhatsAppSeleccionado}
+                      disabled={
+                        resumenSeleccion.total === 0 ||
+                        resumenSeleccion.whatsappListos.length === 0 ||
+                        loadingEnvio
+                      }
+                      className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-white hover:bg-green-700 disabled:bg-gray-300"
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                      Preparar envío WhatsApp
+                    </button>
+                  )}
 
                   <button
                     onClick={abrirModalEmail}
