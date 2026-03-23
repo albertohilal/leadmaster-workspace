@@ -293,3 +293,38 @@
 - Al quitar la referencia visual dentro de WhatsApp, algunos usuarios pueden tardar en descubrir el módulo Email si sólo navegaban por esa pantalla.
 - Si en el futuro se requiere relacionar ambos canales, convendrá hacerlo desde navegación global o dashboards, no desde copy mezclado en cada módulo.
 - El acceso a Email queda correctamente desacoplado en UI, pero todavía resta consolidar esa separación a nivel de datos y backend.
+
+## Prompt 9 — Email destinatarios: shortcuts operativos en header
+
+### Cambios realizados
+
+- Se actualizó el header de `EmailCampaignProspectsPage` para mantener `← Volver a Campañas Email` y sumar el acceso rápido `+ Nueva campaña Email`.
+- Se agregó una línea informativa `Contexto campaña: <campaignId>` cuando la ruta incluye un `campaignId`.
+- Se mantuvo intacto el render de `GestionDestinatariosPage hideHeader campaignId={campaignId}`.
+
+### Archivos tocados
+
+- `services/central-hub/frontend/src/components/email/EmailCampaignProspectsPage.jsx`
+- `services/central-hub/frontend/COPILOT_REPORT_EMAIL_UI.md`
+
+### Decisiones técnicas
+
+- Los accesos operativos se resolvieron en el wrapper para no tocar la lógica interna del flujo de destinatarios.
+- El CTA `+ Nueva campaña Email` usa estilos Tailwind consistentes con otros accesos secundarios del módulo.
+- El `campaignId` se muestra sólo como contexto visual y no modifica el comportamiento ya implementado.
+- Se mantuvo el patrón actual de navegación del módulo Email sin agregar dependencias nuevas.
+
+### Cómo probar (pasos manuales)
+
+1. Iniciar sesión y navegar a `/email/campaigns/prospects`.
+2. Verificar que se vean `← Volver a Campañas Email` y `+ Nueva campaña Email` en el header.
+3. Hacer click en `+ Nueva campaña Email` y confirmar navegación a `/email/campaigns/new`.
+4. Volver a `/email/campaigns/prospects` y confirmar que `GestionDestinatariosPage` sigue renderizando normalmente.
+5. Navegar a `/email/campaigns/<id>/prospects`.
+6. Verificar que además aparezca la línea `Contexto campaña: <id>` sin romper el flujo de destinatarios.
+
+### Riesgos / pendientes
+
+- El `campaignId` mostrado en el header es sólo informativo y todavía puede provenir de datos mock no vinculados al backend real.
+- Si en el futuro el header requiere más acciones operativas, convendrá revisar jerarquía visual para no sobrecargar la cabecera.
+- La navegación rápida a nueva campaña mejora operación, pero no reemplaza una futura vista de detalle o edición contextual por campaña.
