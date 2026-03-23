@@ -34,9 +34,9 @@ const Sidebar = () => {
       label: 'Campañas WhatsApp'
     },
     {
-      path: '/email/campaigns/new',
+      path: '/email/campaigns',
       icon: '✉️',
-      label: 'Crear campaña Email'
+      label: 'Campañas Email'
     },
     {
       path: '/prospectos',

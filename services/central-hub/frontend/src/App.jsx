@@ -13,6 +13,7 @@ import AdminSessions from './components/admin/AdminSessions';
 import CampaignsManager from './components/campaigns/CampaignsManager';
 import ConfigPanel from './components/config/ConfigPanel';
 import GestionDestinatariosPage from './components/destinatarios/GestionDestinatariosPage';
+import EmailCampaignsManager from './components/email/EmailCampaignsManager';
 import EmailCampaignCreatePage from './components/email/EmailCampaignCreatePage';
 
 // Componente para manejar redirección si ya está autenticado
@@ -108,6 +109,16 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <CampaignsManager />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/email/campaigns"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <EmailCampaignsManager />
                 </Layout>
               </ProtectedRoute>
             }

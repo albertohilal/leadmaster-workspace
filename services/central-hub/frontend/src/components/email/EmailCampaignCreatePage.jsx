@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import Card from '../common/Card';
 import emailService from '../../services/email';
 
@@ -10,6 +11,7 @@ const INITIAL_FORM = {
 };
 
 const EmailCampaignCreatePage = () => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState(INITIAL_FORM);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -73,6 +75,7 @@ const EmailCampaignCreatePage = () => {
         data: response?.data
       });
       setFormData(INITIAL_FORM);
+      navigate('/email/campaigns');
     } catch (requestError) {
       setError(
         requestError?.response?.data?.message ||
@@ -87,6 +90,12 @@ const EmailCampaignCreatePage = () => {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div>
+        <Link
+          to="/email/campaigns"
+          className="inline-flex items-center text-sm font-medium text-blue-600 transition-colors hover:text-blue-700"
+        >
+          ← Volver a Campañas Email
+        </Link>
         <h1 className="text-3xl font-bold text-gray-800">Crear campaña Email</h1>
         <p className="mt-1 text-gray-600">
           Alta mínima y separada del dominio actual de campañas WhatsApp.
