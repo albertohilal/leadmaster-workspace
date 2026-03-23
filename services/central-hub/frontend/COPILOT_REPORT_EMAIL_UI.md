@@ -257,3 +257,39 @@
 - Usuarios habituados al acceso directo desde el sidebar pueden necesitar adaptación al nuevo esquema modular.
 - El acceso a destinatarios desde WhatsApp ahora depende del CTA en `CampaignsManager`, por lo que conviene mantenerlo visible en futuros rediseños.
 - Si aparecen más módulos que reutilicen destinatarios, convendrá definir una estrategia consistente para accesos contextuales sin reintroducir un pseudo-módulo global.
+
+## Prompt 8 — WhatsApp: remover referencias a Email (módulos independientes)
+
+### Cambios realizados
+
+- Se eliminó por completo la card `Nuevo frente Email` de `CampaignsManager`.
+- Se mantuvo intacto el CTA `Seleccionar destinatarios` dentro del módulo Campañas WhatsApp.
+- No se agregó ningún acceso nuevo a Email dentro de la pantalla de WhatsApp; el acceso queda sólo por navegación modular.
+- Se preservó el acceso al módulo Email desde el sidebar, sin tocar sus rutas ni componentes.
+
+### Archivos tocados
+
+- `services/central-hub/frontend/src/components/campaigns/CampaignsManager.jsx`
+- `services/central-hub/frontend/COPILOT_REPORT_EMAIL_UI.md`
+
+### Decisiones técnicas
+
+- Se removió el bloque promocional de Email para evitar mezclar dominios funcionales dentro del módulo WhatsApp.
+- No se alteró la navegación existente: Email sigue entrando por `Campañas Email` en el sidebar y WhatsApp conserva su propio acceso operativo a destinatarios.
+- El cambio es únicamente visual y no modifica rutas, contratos ni lógica de negocio.
+- Se dejó intacto el CTA `Seleccionar destinatarios` en WhatsApp porque forma parte del flujo operativo propio del módulo.
+
+### Cómo probar (pasos manuales)
+
+1. Iniciar sesión y navegar a `/campaigns`.
+2. Verificar que ya no aparezca la card `Nuevo frente Email`.
+3. Confirmar que el CTA `Seleccionar destinatarios` siga visible en la cabecera del módulo.
+4. Hacer click en `Seleccionar destinatarios` y verificar navegación a `/prospectos`.
+5. Verificar que el sidebar siga mostrando `Campañas Email` como acceso separado al módulo Email.
+6. Hacer click en `Campañas Email` desde el sidebar y confirmar que `/email/campaigns` sigue funcionando.
+
+### Riesgos / pendientes
+
+- Al quitar la referencia visual dentro de WhatsApp, algunos usuarios pueden tardar en descubrir el módulo Email si sólo navegaban por esa pantalla.
+- Si en el futuro se requiere relacionar ambos canales, convendrá hacerlo desde navegación global o dashboards, no desde copy mezclado en cada módulo.
+- El acceso a Email queda correctamente desacoplado en UI, pero todavía resta consolidar esa separación a nivel de datos y backend.
