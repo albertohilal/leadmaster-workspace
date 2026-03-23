@@ -892,9 +892,9 @@ const GestionDestinatariosPage = ({
             <thead className="bg-gray-50 text-xs uppercase text-gray-500">
               <tr>
                 <th className="px-6 py-3 text-left w-[24%]">Empresa</th>
-                <th className="px-6 py-3 text-left w-[16%]">
-                  {hideWhatsappActions ? 'Teléfono' : 'WhatsApp'}
-                </th>
+                {!hideWhatsappActions && (
+                  <th className="px-6 py-3 text-left w-[16%]">WhatsApp</th>
+                )}
                 <th className="px-6 py-3 text-left w-[16%]">Email</th>
                 <th className="px-6 py-3 text-left w-[12%]">Estado</th>
                 <th className="px-6 py-3 text-left w-[20%]">Dirección</th>
@@ -905,13 +905,13 @@ const GestionDestinatariosPage = ({
             <tbody className="divide-y">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="p-6 text-center">
+                  <td colSpan={hideWhatsappActions ? 5 : 6} className="p-6 text-center">
                     Cargando...
                   </td>
                 </tr>
               ) : prospectosFiltrados.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-6 text-center">
+                  <td colSpan={hideWhatsappActions ? 5 : 6} className="p-6 text-center">
                     {prospectos.length === 0 ? 'No hay prospectos' : 'No hay prospectos con este filtro'}
                   </td>
                 </tr>
@@ -936,14 +936,16 @@ const GestionDestinatariosPage = ({
                         </div>
                       </td>
 
-                      <td className="px-6 py-5 text-sm text-gray-700">
-                        <Indicator
-                          enabled={hasWhatsappDisponible(p)}
-                          label={hasWhatsappDisponible(p) ? 'Disponible' : 'Sin WhatsApp'}
-                          detail={p.telefono_wapp || 'Sin teléfono'}
-                          icon={Phone}
-                        />
-                      </td>
+                      {!hideWhatsappActions && (
+                        <td className="px-6 py-5 text-sm text-gray-700">
+                          <Indicator
+                            enabled={hasWhatsappDisponible(p)}
+                            label={hasWhatsappDisponible(p) ? 'Disponible' : 'Sin WhatsApp'}
+                            detail={p.telefono_wapp || 'Sin teléfono'}
+                            icon={Phone}
+                          />
+                        </td>
+                      )}
 
                       <td className="px-6 py-5 text-sm text-gray-700">
                         <Indicator

@@ -470,3 +470,37 @@
 - Aunque los labels se neutralizan en Email, la columna sigue mostrando el mismo indicador técnico basado en teléfono/WhatsApp.
 - Si más adelante se busca una experiencia Email más pura, podría convenir ocultar directamente esa columna en lugar de sólo renombrarla.
 - La reutilización de `hideWhatsappActions` como modo Email funciona hoy, pero conviene documentarla si el componente sigue creciendo.
+
+## Prompt 14 — Destinatarios Email: ocultar columna Teléfono/WhatsApp
+
+### Cambios realizados
+
+- En modo Email (`hideWhatsappActions=true`) se dejó de renderizar por completo la columna Teléfono/WhatsApp en el header de la tabla.
+- En las filas de la tabla, la celda con el indicador de disponibilidad WhatsApp/teléfono ahora sólo se renderiza en modo legacy.
+- Los estados de `loading` y `empty` ahora usan un `colSpan` dinámico para evitar desalineación cuando la columna oculta no existe.
+
+### Archivos tocados
+
+- `services/central-hub/frontend/src/components/destinatarios/GestionDestinatariosPage.jsx`
+- `services/central-hub/frontend/COPILOT_REPORT_EMAIL_UI.md`
+
+### Decisiones técnicas
+
+- Se reutilizó `hideWhatsappActions` como señal única del contexto Email para no agregar nuevas props sólo para layout.
+- El cambio se limitó a render condicional en `thead`, `tbody` y `colSpan`, sin tocar helpers, hooks ni lógica del `Indicator`.
+- No se redistribuyeron anchos de columnas porque la tabla sigue siendo legible con la eliminación de la columna en modo Email.
+
+### Cómo probar (pasos manuales)
+
+1. Iniciar sesión y navegar a `/email/campaigns/prospects`.
+2. Confirmar que la tabla muestre sólo `Empresa`, `Email`, `Estado`, `Dirección` y `Acciones`.
+3. Repetir la validación en `/email/campaigns/<id>/prospects`.
+4. Forzar un estado sin resultados o esperar `loading` y verificar que no haya desalineación visual en la tabla.
+5. Navegar a `/prospectos`.
+6. Confirmar que allí siga visible la columna `WhatsApp` con su indicador como antes.
+
+### Riesgos / pendientes
+
+- La eliminación visual de la columna no cambia la lógica interna relacionada con disponibilidad WhatsApp, que sigue presente en el componente compartido.
+- Si más adelante se ajustan widths específicos para modo Email, convendrá revisar la tabla con datasets largos para evitar cortes inesperados.
+- El modo Email depende de `hideWhatsappActions` como bandera compuesta; si el componente crece, puede convenir separar flags de layout y acciones.
