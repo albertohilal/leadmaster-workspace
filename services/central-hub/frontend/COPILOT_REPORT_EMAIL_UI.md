@@ -328,3 +328,40 @@
 - El `campaignId` mostrado en el header es sólo informativo y todavía puede provenir de datos mock no vinculados al backend real.
 - Si en el futuro el header requiere más acciones operativas, convendrá revisar jerarquía visual para no sobrecargar la cabecera.
 - La navegación rápida a nueva campaña mejora operación, pero no reemplaza una futura vista de detalle o edición contextual por campaña.
+
+## Prompt 10 — Destinatarios: default filtro canal Email en módulo Email
+
+### Cambios realizados
+
+- Se agregó la prop opcional `defaultCanalDisponibleFiltro` a `GestionDestinatariosPage` con default `'todos'`.
+- El estado inicial y el reset del filtro `Canal disponible` ahora respetan `defaultCanalDisponibleFiltro`.
+- `EmailCampaignProspectsPage` pasó a renderizar `GestionDestinatariosPage` con `defaultCanalDisponibleFiltro="email"`.
+- El flujo legacy `/prospectos` no se tocó, por lo que mantiene el default actual en `Todos`.
+
+### Archivos tocados
+
+- `services/central-hub/frontend/src/components/destinatarios/GestionDestinatariosPage.jsx`
+- `services/central-hub/frontend/src/components/email/EmailCampaignProspectsPage.jsx`
+- `services/central-hub/frontend/COPILOT_REPORT_EMAIL_UI.md`
+
+### Decisiones técnicas
+
+- El default del filtro se parametrizó por prop para reutilizar la misma página en distintos contextos sin duplicar lógica.
+- No se fuerza el filtro después del render inicial: el operador puede cambiarlo manualmente y seguir trabajando igual.
+- El reset dentro de `cargarProspectos()` usa el mismo valor por defecto para mantener consistencia al cambiar de campaña.
+- El flujo Email fija `email` como valor inicial, mientras que el flujo legacy conserva `'todos'` por omisión.
+
+### Cómo probar (pasos manuales)
+
+1. Iniciar sesión y navegar a `/email/campaigns/prospects`.
+2. Verificar que el filtro `Canal disponible` arranque seleccionado en `Email`.
+3. Cambiar el filtro manualmente a otro valor y confirmar que la UI responde normalmente.
+4. Seleccionar otra campaña dentro del flujo Email y verificar que el filtro vuelva a resetearse a `Email`.
+5. Navegar a `/email/campaigns/<id>/prospects` y confirmar que el filtro también arranca en `Email`.
+6. Navegar a `/prospectos` y verificar que el filtro `Canal disponible` siga arrancando en `Todos`.
+
+### Riesgos / pendientes
+
+- El filtro por default mejora la operación de Email, pero sigue dependiendo de la disponibilidad real de emails en los prospectos cargados.
+- Si más adelante aparecen otros módulos con defaults distintos, convendrá documentar explícitamente los valores admitidos por `defaultCanalDisponibleFiltro`.
+- El comportamiento de reset al cambiar campaña ahora es contextual; si en el futuro se quiere preservar la última selección manual, habrá que revisar esta decisión.

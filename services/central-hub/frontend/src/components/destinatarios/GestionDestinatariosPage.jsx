@@ -93,7 +93,8 @@ const GestionDestinatariosPage = ({
   hideHeader = false,
   backPath = '/campaigns',
   title = 'Seleccionar Prospectos',
-  campaignId
+  campaignId,
+  defaultCanalDisponibleFiltro = 'todos'
 }) => {
   const navigate = useNavigate();
 
@@ -107,7 +108,7 @@ const GestionDestinatariosPage = ({
   const [estadoFiltro, setEstadoFiltro] = useState('todos');
   const [tipoSocieteFiltro, setTipoSocieteFiltro] = useState('todos');
   const [carteraOrigenFiltro, setCarteraOrigenFiltro] = useState('todos');
-  const [canalDisponibleFiltro, setCanalDisponibleFiltro] = useState('todos');
+  const [canalDisponibleFiltro, setCanalDisponibleFiltro] = useState(defaultCanalDisponibleFiltro);
   const [q, setQ] = useState('');
 
   // Estados para envío manual (flujo 2 fases)
@@ -182,7 +183,7 @@ const GestionDestinatariosPage = ({
       setEstadoFiltro('todos');
       setTipoSocieteFiltro('todos');
       setCarteraOrigenFiltro('todos');
-      setCanalDisponibleFiltro('todos');
+      setCanalDisponibleFiltro(defaultCanalDisponibleFiltro);
       setQ('');
     } catch (err) {
       console.error('Error cargando prospectos:', err);

@@ -32,7 +32,11 @@ const EmailCampaignProspectsPage = () => {
         )}
       </div>
 
-      <GestionDestinatariosPage hideHeader campaignId={campaignId} />
+      <GestionDestinatariosPage
+        hideHeader
+        campaignId={campaignId}
+        defaultCanalDisponibleFiltro="email"
+      />
     </div>
   );
 };
