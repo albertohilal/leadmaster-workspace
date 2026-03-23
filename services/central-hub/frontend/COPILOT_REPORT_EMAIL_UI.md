@@ -145,3 +145,39 @@
 - El modo embebido resuelve el header duplicado, pero `GestionDestinatariosPage` sigue siendo una página grande reutilizada dentro de otra vista.
 - Si en el futuro se necesitan más variantes visuales del flujo de destinatarios, probablemente convenga extraer subcomponentes más pequeños.
 - No se agregó tipado formal de props, por lo que el contrato sigue siendo implícito en JavaScript.
+
+## Prompt 5 — Campañas Email: listado UI (mock) + acciones
+
+### Cambios realizados
+
+- Se reemplazó el placeholder del home de campañas Email por una tabla UI con 3 campañas mock.
+- Se mantuvieron los CTAs `Nueva campaña Email` y `Seleccionar destinatarios` dentro de la card de gestión.
+- Se agregaron acciones por fila: `Destinatarios` hacia `/email/campaigns/prospects` y `Ver (pendiente)` deshabilitado.
+- Se incorporó una estructura de empty state para el caso en que el mock quede vacío.
+
+### Archivos tocados
+
+- `services/central-hub/frontend/src/components/email/EmailCampaignsManager.jsx`
+- `services/central-hub/frontend/COPILOT_REPORT_EMAIL_UI.md`
+
+### Decisiones técnicas
+
+- El listado usa un array `MOCK_CAMPAIGNS` in-file para no introducir dependencias ni llamadas a backend en esta etapa.
+- Se agregaron helpers locales `badgeForStatus()` y `labelForStatus()` para dejar preparada la UI de estado antes de conectar la API real.
+- La tabla y las acciones se diseñaron para que luego sea simple reemplazar el mock por `emailService.listCampaigns()`.
+- La acción `Ver` queda deshabilitada con texto explícito `pendiente` para evitar rutas o pantallas no implementadas.
+
+### Cómo probar (pasos manuales)
+
+1. Iniciar sesión y navegar a `/email/campaigns`.
+2. Verificar que sigan visibles los botones `Nueva campaña Email` y `Seleccionar destinatarios`.
+3. Confirmar que debajo se muestre una tabla con 3 campañas mock.
+4. Verificar que cada fila muestre `Nombre`, `Asunto`, `Estado`, `Actualizado` y `Acciones`.
+5. Hacer click en `Destinatarios` desde cualquier fila y confirmar navegación a `/email/campaigns/prospects`.
+6. Confirmar que `Ver (pendiente)` aparezca deshabilitado y que no rompa la navegación actual.
+
+### Riesgos / pendientes
+
+- El listado todavía no está conectado a backend ni refleja campañas reales persistidas.
+- Los valores de estado y fecha son mock, por lo que pueden diferir del contrato final de la API.
+- Cuando se implemente `emailService.listCampaigns()`, habrá que definir loading, error state y posiblemente paginación o filtros.
