@@ -92,7 +92,8 @@ function matchesCanalDisponibleFilter(prospecto, canalDisponibleFiltro) {
 const GestionDestinatariosPage = ({
   hideHeader = false,
   backPath = '/campaigns',
-  title = 'Seleccionar Prospectos'
+  title = 'Seleccionar Prospectos',
+  campaignId
 }) => {
   const navigate = useNavigate();
 
@@ -139,6 +140,16 @@ const GestionDestinatariosPage = ({
       cargarProspectos();
     }
   }, [campaniaSeleccionada]);
+
+  const hasCampaignMatch = Boolean(campaignId) && campanas.some(
+    (c) => String(c.id) === String(campaignId)
+  );
+
+  useEffect(() => {
+    if (hasCampaignMatch) {
+      setCampaniaSeleccionada(String(campaignId));
+    }
+  }, [campaignId, hasCampaignMatch]);
 
   const cargarCampanas = async () => {
     try {
@@ -704,7 +715,8 @@ const GestionDestinatariosPage = ({
                   <select
                     value={campaniaSeleccionada}
                     onChange={(e) => setCampaniaSeleccionada(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg"
+                    disabled={hasCampaignMatch}
+                    className="w-full px-3 py-2 border rounded-lg disabled:bg-gray-100 disabled:text-gray-600"
                   >
                     <option value="">Seleccionar campaña...</option>
                     {campanas.map((c) => (
@@ -713,6 +725,16 @@ const GestionDestinatariosPage = ({
                       </option>
                     ))}
                   </select>
+                  {hasCampaignMatch && (
+                    <p className="mt-1 text-xs text-blue-600">
+                      Campaña fijada por contexto del módulo Email.
+                    </p>
+                  )}
+                  {campaignId && !hasCampaignMatch && (
+                    <p className="mt-1 text-xs text-amber-600">
+                      Esta campaña Email aún no está vinculada a una campaña operativa. Seleccioná una campaña para continuar.
+                    </p>
+                  )}
                 </div>
 
                 <button

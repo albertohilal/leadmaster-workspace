@@ -145,6 +145,16 @@ function App() {
             }
           />
           <Route
+            path="/email/campaigns/:campaignId/prospects"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <EmailCampaignProspectsPage />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/config"
             element={
               <ProtectedRoute>

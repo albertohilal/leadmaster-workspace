@@ -130,7 +130,7 @@ const EmailCampaignsManager = () => {
                         <td className="px-5 py-4">
                           <div className="flex flex-wrap gap-2">
                             <Link
-                              to="/email/campaigns/prospects"
+                              to={`/email/campaigns/${campaign.id}/prospects`}
                               className="inline-flex items-center rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100"
                             >
                               Destinatarios

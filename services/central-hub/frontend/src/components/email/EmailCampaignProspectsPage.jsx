@@ -1,8 +1,10 @@
 import React, { useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import GestionDestinatariosPage from '../destinatarios/GestionDestinatariosPage';
 
 const EmailCampaignProspectsPage = () => {
+  const { campaignId } = useParams();
+
   useEffect(() => {
     document.title = 'Seleccionar destinatarios Email | LeadMaster';
   }, []);
@@ -19,7 +21,7 @@ const EmailCampaignProspectsPage = () => {
         <h1 className="mt-2 text-3xl font-bold text-gray-800">Seleccionar destinatarios (Email)</h1>
       </div>
 
-      <GestionDestinatariosPage hideHeader />
+      <GestionDestinatariosPage hideHeader campaignId={campaignId} />
     </div>
   );
 };

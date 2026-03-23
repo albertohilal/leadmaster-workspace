@@ -181,3 +181,42 @@
 - El listado todavía no está conectado a backend ni refleja campañas reales persistidas.
 - Los valores de estado y fecha son mock, por lo que pueden diferir del contrato final de la API.
 - Cuando se implemente `emailService.listCampaigns()`, habrá que definir loading, error state y posiblemente paginación o filtros.
+
+## Prompt 6 — Destinatarios por campaña: route param con fallback seguro
+
+### Cambios realizados
+
+- Se agregó la ruta protegida `/email/campaigns/:campaignId/prospects` manteniendo también `/email/campaigns/prospects`.
+- La acción `Destinatarios` del listado Email ahora navega a la ruta contextual por campaña.
+- El wrapper `EmailCampaignProspectsPage` ahora lee `campaignId` desde la URL y lo pasa a `GestionDestinatariosPage`.
+- `GestionDestinatariosPage` sólo fija y bloquea la campaña cuando el `campaignId` coincide con una campaña cargada; si no hay match, deja el selector habilitado y muestra un warning no bloqueante.
+
+### Archivos tocados
+
+- `services/central-hub/frontend/src/App.jsx`
+- `services/central-hub/frontend/src/components/email/EmailCampaignsManager.jsx`
+- `services/central-hub/frontend/src/components/email/EmailCampaignProspectsPage.jsx`
+- `services/central-hub/frontend/src/components/destinatarios/GestionDestinatariosPage.jsx`
+- `services/central-hub/frontend/COPILOT_REPORT_EMAIL_UI.md`
+
+### Decisiones técnicas
+
+- Se reutilizó el mismo wrapper para la ruta genérica y la contextual para no duplicar vistas ni lógica de navegación.
+- La coincidencia de campaña se resolvió comparando `campaignId` con los `id` cargados por `campanasService`, evitando fijar un valor inválido en el selector.
+- El selector sólo queda `disabled` cuando existe match real; en caso contrario se mantiene el flujo genérico como fallback seguro.
+- El warning contextual se muestra sólo cuando llega un `campaignId` sin correspondencia, sin alterar filtros, modales ni lógica operativa existente.
+
+### Cómo probar (pasos manuales)
+
+1. Iniciar sesión y navegar a `/email/campaigns`.
+2. Hacer click en `Destinatarios` desde una fila y confirmar navegación a `/email/campaigns/<id>/prospects`.
+3. Verificar que, si ese `id` no existe en las campañas cargadas, el selector siga habilitado y aparezca el warning `Esta campaña Email aún no está vinculada a una campaña operativa. Seleccioná una campaña para continuar.`.
+4. Navegar a `/email/campaigns/prospects` y confirmar que el flujo genérico sigue permitiendo elegir campaña manualmente sin warnings.
+5. Probar manualmente un caso con `campaignId` que sí exista y verificar que la campaña quede preseleccionada, el selector quede bloqueado y aparezca el hint contextual.
+6. Confirmar que `/prospectos` siga funcionando con el comportamiento legacy.
+
+### Riesgos / pendientes
+
+- Los `campaignId` del listado Email siguen siendo mock y hoy no necesariamente coinciden con campañas operativas reales cargadas por `campanasService`.
+- Cuando exista integración real entre campañas Email y campañas operativas, habrá que reemplazar esta coincidencia temporal por un vínculo de dominio explícito.
+- Si en el futuro se cambia la forma de identificar campañas, habrá que revisar la comparación basada en `String(c.id) === String(campaignId)`.
