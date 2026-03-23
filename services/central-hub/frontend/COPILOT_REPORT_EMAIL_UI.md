@@ -108,3 +108,40 @@
 - `GestionDestinatariosPage` conserva su comportamiento y UI original, por lo que puede mostrar elementos pensados para el flujo general además del contexto Email.
 - Al renderizar el wrapper arriba del componente existente, puede haber duplicación visual de títulos o controles propios de la página reutilizada.
 - Cuando se avance el módulo Email, probablemente convenga extraer una versión más composable de destinatarios en lugar de depender de una página completa reutilizada como child.
+
+## Prompt 4 — Destinatarios embebible: hideHeader + back configurable
+
+### Cambios realizados
+
+- Se parametrizó `GestionDestinatariosPage` con las props opcionales `hideHeader`, `backPath` y `title`.
+- El header superior propio de `GestionDestinatariosPage` ahora se oculta cuando `hideHeader` es `true`.
+- El wrapper `EmailCampaignProspectsPage` pasó a reutilizar `GestionDestinatariosPage` en modo embebido con `hideHeader`.
+- El uso legacy `/prospectos` queda intacto porque sigue renderizando el componente sin props, usando los defaults originales.
+
+### Archivos tocados
+
+- `services/central-hub/frontend/src/components/destinatarios/GestionDestinatariosPage.jsx`
+- `services/central-hub/frontend/src/components/email/EmailCampaignProspectsPage.jsx`
+- `services/central-hub/frontend/COPILOT_REPORT_EMAIL_UI.md`
+
+### Decisiones técnicas
+
+- Se eligieron props opcionales con defaults para preservar compatibilidad hacia atrás sin tocar la ruta `/prospectos`.
+- La lógica interna de carga, filtros, selección, modales y envíos no se modificó; sólo se aisló el bloque visual del header superior.
+- `backPath` y `title` sólo se usan cuando el header está visible, respetando la regla de ignorarlos en modo embebido.
+- El wrapper Email mantiene su propio encabezado y delega el resto del flujo a `GestionDestinatariosPage` sin refactor adicional.
+
+### Cómo probar (pasos manuales)
+
+1. Iniciar sesión y navegar a `/email/campaigns/prospects`.
+2. Verificar que se vea sólo el header del wrapper con `Seleccionar destinatarios (Email)` y `← Volver a Campañas Email`.
+3. Confirmar que no aparezca el header interno de `GestionDestinatariosPage` con `Volver` + `Seleccionar Prospectos`.
+4. Probar filtros, selección de prospectos y apertura de modales para confirmar que el flujo sigue operativo.
+5. Navegar a `/prospectos` y verificar que el header legacy siga visible con su botón `Volver`, título `Seleccionar Prospectos` y contador.
+6. Confirmar en `/prospectos` que las acciones existentes de selección, filtros, modales y envío siguen funcionando igual.
+
+### Riesgos / pendientes
+
+- El modo embebido resuelve el header duplicado, pero `GestionDestinatariosPage` sigue siendo una página grande reutilizada dentro de otra vista.
+- Si en el futuro se necesitan más variantes visuales del flujo de destinatarios, probablemente convenga extraer subcomponentes más pequeños.
+- No se agregó tipado formal de props, por lo que el contrato sigue siendo implícito en JavaScript.

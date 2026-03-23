@@ -19,7 +19,7 @@ const EmailCampaignProspectsPage = () => {
         <h1 className="mt-2 text-3xl font-bold text-gray-800">Seleccionar destinatarios (Email)</h1>
       </div>
 
-      <GestionDestinatariosPage />
+      <GestionDestinatariosPage hideHeader />
     </div>
   );
 };

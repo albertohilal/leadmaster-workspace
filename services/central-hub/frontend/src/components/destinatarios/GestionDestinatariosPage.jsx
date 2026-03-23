@@ -89,7 +89,11 @@ function matchesCanalDisponibleFilter(prospecto, canalDisponibleFiltro) {
   }
 }
 
-const GestionDestinatariosPage = () => {
+const GestionDestinatariosPage = ({
+  hideHeader = false,
+  backPath = '/campaigns',
+  title = 'Seleccionar Prospectos'
+}) => {
   const navigate = useNavigate();
 
   const [campanas, setCampanas] = useState([]);
@@ -637,20 +641,22 @@ const GestionDestinatariosPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col overflow-x-hidden">
-      <div className="bg-white border-b px-6 py-4 flex justify-between items-center">
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={() => navigate('/campaigns')}
-            className="flex items-center text-gray-600 hover:text-gray-800"
-          >
-            <ArrowLeft className="h-5 w-5 mr-1" />
-            Volver
-          </button>
-          <h1 className="text-2xl font-bold">Seleccionar Prospectos</h1>
-        </div>
+      {!hideHeader && (
+        <div className="bg-white border-b px-6 py-4 flex justify-between items-center">
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => navigate(backPath)}
+              className="flex items-center text-gray-600 hover:text-gray-800"
+            >
+              <ArrowLeft className="h-5 w-5 mr-1" />
+              Volver
+            </button>
+            <h1 className="text-2xl font-bold">{title}</h1>
+          </div>
 
-        <div className="text-sm text-gray-600">{resumenSeleccion.total} seleccionados</div>
-      </div>
+          <div className="text-sm text-gray-600">{resumenSeleccion.total} seleccionados</div>
+        </div>
+      )}
 
       <div className="flex-1 p-4 md:p-6 overflow-hidden">
         <div className="bg-white rounded-lg shadow h-full overflow-y-auto overflow-x-hidden">
