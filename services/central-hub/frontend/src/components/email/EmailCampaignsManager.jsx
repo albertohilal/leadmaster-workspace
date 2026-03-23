@@ -25,6 +25,12 @@ const EmailCampaignsManager = () => {
             >
               Nueva campaña Email
             </Link>
+            <Link
+              to="/email/campaigns/prospects"
+              className="inline-flex items-center rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-50"
+            >
+              Seleccionar destinatarios
+            </Link>
           </div>
 
           <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 px-5 py-8 text-sm text-gray-600">

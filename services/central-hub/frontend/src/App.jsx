@@ -15,6 +15,7 @@ import ConfigPanel from './components/config/ConfigPanel';
 import GestionDestinatariosPage from './components/destinatarios/GestionDestinatariosPage';
 import EmailCampaignsManager from './components/email/EmailCampaignsManager';
 import EmailCampaignCreatePage from './components/email/EmailCampaignCreatePage';
+import EmailCampaignProspectsPage from './components/email/EmailCampaignProspectsPage';
 
 // Componente para manejar redirección si ya está autenticado
 const PublicRoute = ({ children }) => {
@@ -129,6 +130,16 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <EmailCampaignCreatePage />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/email/campaigns/prospects"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <EmailCampaignProspectsPage />
                 </Layout>
               </ProtectedRoute>
             }

@@ -70,3 +70,41 @@
 - La redirección inmediata impide ver el mensaje de éxito en esta pantalla, aunque el estado siga seteándose como se pidió.
 - Cuando exista detalle o identificador de campaña, convendrá reemplazar esta redirección al home por navegación a una vista específica.
 - El módulo sigue sin listado real, por lo que el destino actual después del alta es todavía una home con placeholder.
+
+## Prompt 3 — Prospects en módulo Email: ruta wrapper
+
+### Cambios realizados
+
+- Se agregó la nueva ruta protegida `/email/campaigns/prospects` dentro del módulo Email.
+- Se creó `EmailCampaignProspectsPage` como wrapper liviano con título propio, link de regreso al módulo y reutilización directa de `GestionDestinatariosPage`.
+- Se incorporó el CTA `Seleccionar destinatarios` en la home `/email/campaigns`.
+- Se mantuvo la ruta legacy/compatible `/prospectos` sin cambios.
+
+### Archivos tocados
+
+- `services/central-hub/frontend/src/App.jsx`
+- `services/central-hub/frontend/src/components/email/EmailCampaignsManager.jsx`
+- `services/central-hub/frontend/src/components/email/EmailCampaignProspectsPage.jsx`
+- `services/central-hub/frontend/COPILOT_REPORT_EMAIL_UI.md`
+
+### Decisiones técnicas
+
+- Se implementó un wrapper en vez de refactorizar `GestionDestinatariosPage`, respetando el alcance pedido y preservando compatibilidad con `/prospectos`.
+- La nueva ruta usa el mismo patrón de `ProtectedRoute` + `Layout` del resto del frontend.
+- El wrapper sólo agrega contexto visual del módulo Email y delega toda la lógica existente de destinatarios al componente actual.
+- El CTA adicional en la home del módulo usa `Link` y estilos Tailwind consistentes con el botón principal ya existente.
+
+### Cómo probar (pasos manuales)
+
+1. Iniciar sesión y entrar a `/email/campaigns`.
+2. Verificar que exista el botón `Seleccionar destinatarios` junto a `Nueva campaña Email`.
+3. Hacer click en `Seleccionar destinatarios` y confirmar navegación a `/email/campaigns/prospects`.
+4. Verificar que la pantalla cargue sin crash, muestre `Seleccionar destinatarios (Email)` y el link `← Volver a Campañas Email`.
+5. Hacer click en `← Volver a Campañas Email` y confirmar retorno a `/email/campaigns`.
+6. Navegar manualmente a `/prospectos` y confirmar que sigue cargando el flujo existente como antes.
+
+### Riesgos / pendientes
+
+- `GestionDestinatariosPage` conserva su comportamiento y UI original, por lo que puede mostrar elementos pensados para el flujo general además del contexto Email.
+- Al renderizar el wrapper arriba del componente existente, puede haber duplicación visual de títulos o controles propios de la página reutilizada.
+- Cuando se avance el módulo Email, probablemente convenga extraer una versión más composable de destinatarios en lugar de depender de una página completa reutilizada como child.
