@@ -600,3 +600,37 @@
 
 - La preselección sigue dependiendo de que el `campaignId` de la ruta coincida con un `id` del mock actual.
 - Mientras el origen de campañas Email sea mock, el comportamiento seguirá siendo transicional hasta conectar backend real.
+
+## Prompt 19 — Unificar mocks Email (listado + selector) y alinear IDs
+
+### Cambios realizados
+
+- Se consolidó un único `EMAIL_CAMPAIGNS_MOCK` compartido entre el listado del módulo Email y el selector `Campaña Email`.
+- Se alinearon `id` y `nombre` para que la navegación desde `EmailCampaignsManager` y la preselección del selector usen exactamente la misma identidad.
+- Se preservó el vínculo operativo de `Reactivación Clientes Q1` hacia `operational_campaign_id: '47'`.
+
+### Archivos tocados
+
+- `services/central-hub/frontend/src/components/email/emailCampaignsMock.js`
+- `services/central-hub/frontend/src/components/email/EmailCampaignsManager.jsx`
+- `services/central-hub/frontend/COPILOT_REPORT_EMAIL_UI.md`
+
+### Decisiones técnicas
+
+- Se eligió dejar en el mock compartido también los campos de listado (`subject`, `status`, `updatedAt`) para evitar duplicación entre manager y selector.
+- `EmailCampaignsManager` pasó a depender del mock compartido sin modificar sus helpers de badges ni la navegación por fila.
+- No se tocó `EmailCampaignProspectsPage` porque ya estaba consumiendo el mismo origen de datos.
+
+### Cómo probar (pasos manuales)
+
+1. Navegar a `/email/campaigns`.
+2. Hacer click en `Destinatarios` de `Campaña Bienvenida Marzo`.
+3. Confirmar que la URL sea `/email/campaigns/email-campaign-1/prospects`.
+4. Verificar que el selector `Campaña Email` quede preseleccionado con `Campaña Bienvenida Marzo`.
+5. Volver al listado y abrir `Destinatarios` de `Reactivación Clientes Q1`.
+6. Confirmar que la URL use `email-campaign-2` y que esa campaña mantenga el mapping operativo a `47`.
+
+### Riesgos / pendientes
+
+- El mock compartido sigue siendo transicional y deberá reemplazarse por backend real cuando exista API de campañas Email.
+- Si se agregan más campos visuales al listado o al selector, convendrá revisar que el mock siga representando ambos casos sin mezclar responsabilidades de dominio.

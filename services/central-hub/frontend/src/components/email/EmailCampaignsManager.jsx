@@ -1,30 +1,7 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../common/Card';
-
-const MOCK_CAMPAIGNS = [
-  {
-    id: 'email-campaign-1',
-    nombre: 'Campaña Bienvenida Marzo',
-    subject: 'Te damos la bienvenida a LeadMaster',
-    status: 'draft',
-    updatedAt: '23/03/2026 09:15'
-  },
-  {
-    id: 'email-campaign-2',
-    nombre: 'Reactivación Clientes Q1',
-    subject: 'Volvamos a conectar este mes',
-    status: 'active',
-    updatedAt: '22/03/2026 18:40'
-  },
-  {
-    id: 'email-campaign-3',
-    nombre: 'Promo Servicios Premium',
-    subject: 'Conocé los beneficios del plan premium',
-    status: 'paused',
-    updatedAt: '20/03/2026 11:05'
-  }
-];
+import { EMAIL_CAMPAIGNS_MOCK } from './emailCampaignsMock';
 
 const badgeForStatus = (status) => {
   const styles = {
@@ -77,7 +54,7 @@ const EmailCampaignsManager = () => {
             </Link>
           </div>
 
-          {MOCK_CAMPAIGNS.length === 0 ? (
+          {EMAIL_CAMPAIGNS_MOCK.length === 0 ? (
             <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 px-5 py-8 text-center text-sm text-gray-600">
               <p className="font-medium text-gray-800">No hay campañas Email todavía</p>
               <p className="mt-2">
@@ -115,7 +92,7 @@ const EmailCampaignsManager = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 bg-white">
-                    {MOCK_CAMPAIGNS.map((campaign) => (
+                    {EMAIL_CAMPAIGNS_MOCK.map((campaign) => (
                       <tr key={campaign.id} className="hover:bg-gray-50">
                         <td className="px-5 py-4 font-medium text-gray-900">{campaign.nombre}</td>
                         <td className="px-5 py-4 text-gray-600">{campaign.subject}</td>
