@@ -968,7 +968,7 @@ const GestionDestinatariosPage = ({
 
                       <td className="px-6 py-5">
                         <div className="flex flex-wrap gap-2">
-                          {p.estado_campania === 'pendiente' && p.telefono_wapp && (
+                          {!hideWhatsappActions && p.estado_campania === 'pendiente' && p.telefono_wapp && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();

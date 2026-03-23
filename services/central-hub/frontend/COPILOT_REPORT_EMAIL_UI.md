@@ -402,3 +402,37 @@
 - La tabla sigue mostrando la columna de disponibilidad WhatsApp también en el contexto Email, porque este prompt sólo oculta acciones y copy operativo.
 - Si en el futuro se busca una experiencia Email aún más enfocada, convendrá revisar también columnas, badges y acciones por fila.
 - La lógica de WhatsApp sigue presente en el componente compartido, aunque quede oculta en el wrapper Email.
+
+## Prompt 12 — Destinatarios Email: ocultar Web WhatsApp por fila
+
+### Cambios realizados
+
+- Se reutilizó `hideWhatsappActions` para ocultar el botón `Web WhatsApp` en la columna de acciones por fila.
+- El flujo Email hereda este comportamiento desde su wrapper sin cambios adicionales.
+- El flujo legacy `/prospectos` conserva la acción `Web WhatsApp` cuando corresponde.
+
+### Archivos tocados
+
+- `services/central-hub/frontend/src/components/destinatarios/GestionDestinatariosPage.jsx`
+- `services/central-hub/frontend/COPILOT_REPORT_EMAIL_UI.md`
+
+### Decisiones técnicas
+
+- Se ocultó únicamente la UI del botón `Web WhatsApp`, sin tocar `handleAbrirModalWhatsApp()` ni la lógica interna existente.
+- Se reutilizó la misma prop ya introducida para el contexto Email, evitando agregar nuevas banderas innecesarias.
+- El comportamiento legacy se preserva por default porque `hideWhatsappActions` sigue siendo `false` fuera del wrapper Email.
+
+### Cómo probar (pasos manuales)
+
+1. Iniciar sesión y navegar a `/email/campaigns/prospects`.
+2. Verificar que en ninguna fila aparezca el botón `Web WhatsApp`.
+3. Navegar a `/email/campaigns/<id>/prospects` y confirmar el mismo comportamiento.
+4. Verificar que el resto de acciones por fila, como `Clasificar post-envío`, sigan visibles cuando corresponda.
+5. Navegar a `/prospectos`.
+6. Confirmar que el botón `Web WhatsApp` siga apareciendo en las filas que cumplan la condición legacy.
+
+### Riesgos / pendientes
+
+- En el contexto Email todavía se ve la columna de disponibilidad WhatsApp, aunque la acción por fila quede oculta.
+- Si más adelante se requiere una experiencia Email completamente aislada, convendrá revisar también acciones de clasificación y columnas contextuales.
+- La lógica de apertura de WhatsApp sigue viva en el componente compartido, aunque quede inaccesible desde el wrapper Email.
