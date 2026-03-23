@@ -39,11 +39,6 @@ const Sidebar = () => {
       label: 'Campañas Email'
     },
     {
-      path: '/prospectos',
-      icon: '🎯',
-      label: 'Seleccionar Prospectos'
-    },
-    {
       path: '/config',
       icon: '⚙️',
       label: 'Configuración'

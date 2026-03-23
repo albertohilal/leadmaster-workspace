@@ -220,3 +220,40 @@
 - Los `campaignId` del listado Email siguen siendo mock y hoy no necesariamente coinciden con campañas operativas reales cargadas por `campanasService`.
 - Cuando exista integración real entre campañas Email y campañas operativas, habrá que reemplazar esta coincidencia temporal por un vínculo de dominio explícito.
 - Si en el futuro se cambia la forma de identificar campañas, habrá que revisar la comparación basada en `String(c.id) === String(campaignId)`.
+
+## Prompt 7 — Sidebar: alinear navegación modular (sin Prospectos como módulo)
+
+### Cambios realizados
+
+- Se quitó `Seleccionar Prospectos` del sidebar para que deje de figurar como módulo global.
+- Se mantuvo intacto el acceso a destinatarios desde el módulo Email mediante el CTA `Seleccionar destinatarios`.
+- Se agregó un CTA visible `Seleccionar destinatarios` en `CampaignsManager` para conservar acceso operativo desde campañas WhatsApp.
+- No se eliminaron ni modificaron las rutas `/prospectos` ni `/email/campaigns/prospects`.
+
+### Archivos tocados
+
+- `services/central-hub/frontend/src/components/layout/Sidebar.jsx`
+- `services/central-hub/frontend/src/components/campaigns/CampaignsManager.jsx`
+- `services/central-hub/frontend/COPILOT_REPORT_EMAIL_UI.md`
+
+### Decisiones técnicas
+
+- Se priorizó navegación modular removiendo `Prospectos` del menú principal en lugar de renombrarlo o reubicarlo.
+- El acceso operativo a `/prospectos` se conservó desde campañas WhatsApp con un CTA directo en la cabecera del módulo.
+- No se tocaron las rutas existentes para preservar compatibilidad con flujos legacy y accesos internos ya implementados.
+- El CTA agregado en WhatsApp usa estilos consistentes con los botones existentes del frontend.
+
+### Cómo probar (pasos manuales)
+
+1. Iniciar sesión y verificar que el sidebar ya no muestre `Seleccionar Prospectos`.
+2. Navegar a `/email/campaigns` y confirmar que sigue visible el CTA `Seleccionar destinatarios`.
+3. Hacer click en ese CTA y verificar navegación a `/email/campaigns/prospects`.
+4. Navegar a `/campaigns` y verificar que en la cabecera exista el CTA `Seleccionar destinatarios`.
+5. Hacer click en ese CTA y confirmar navegación a `/prospectos`.
+6. Confirmar que tanto `/prospectos` como `/email/campaigns/prospects` siguen cargando sin romper flujos existentes.
+
+### Riesgos / pendientes
+
+- Usuarios habituados al acceso directo desde el sidebar pueden necesitar adaptación al nuevo esquema modular.
+- El acceso a destinatarios desde WhatsApp ahora depende del CTA en `CampaignsManager`, por lo que conviene mantenerlo visible en futuros rediseños.
+- Si aparecen más módulos que reutilicen destinatarios, convendrá definir una estrategia consistente para accesos contextuales sin reintroducir un pseudo-módulo global.
