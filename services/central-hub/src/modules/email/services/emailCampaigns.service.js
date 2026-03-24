@@ -73,17 +73,17 @@ async function createEmailCampaign({ cliente_id, request }) {
   const params = [
     cliente_id,
     request.nombre,
-    request.asunto,
-    request.body,
+    request.subject,
+    request.text,
     'borrador',
-    toMySqlDateTime(request.fecha_programada),
-    request.email_from,
-    request.name_from,
-    request.reply_to_email,
+    null,
+    null,
+    null,
+    null,
     0,
     0,
     0,
-    request.observaciones
+    null
   ];
 
   const [result] = await db.execute(sql, params);
@@ -92,7 +92,8 @@ async function createEmailCampaign({ cliente_id, request }) {
     id: result.insertId,
     cliente_id,
     nombre: request.nombre,
-    asunto: request.asunto,
+    subject: request.subject,
+    text: request.text,
     estado: 'borrador'
   };
 }
