@@ -113,24 +113,60 @@ describe('POST /api/email/campaigns/:id/prepare', () => {
     expect(response.body.data.campaign.scheduling_strategy).toBe('first_recipient_only_then_scheduler_chain');
   });
 
-  test('rechaza prepare si falta email_from en la campaña', async () => {
+  test('resuelve email_from desde config activa del cliente si falta en la campaña', async () => {
     db.execute.mockReset();
-    db.execute.mockResolvedValueOnce([[{
-      id: 321,
-      cliente_id: 77,
-      nombre: 'Campaña Email Marzo',
-      asunto: 'Promoción especial',
-      body: '<h1>Hola</h1>',
-      email_from: null,
-      estado: 'borrador',
-      fecha_programada: null
-    }]]);
+    db.execute
+      .mockResolvedValueOnce([[{
+        id: 321,
+        cliente_id: 77,
+        nombre: 'Campaña Email Marzo',
+        asunto: 'Promoción especial',
+        body: '<h1>Hola</h1>',
+        email_from: null,
+        name_from: null,
+        reply_to_email: null,
+        estado: 'borrador',
+        fecha_programada: null
+      }]])
+      .mockResolvedValueOnce([[{
+        id: 44,
+        cliente_id: 77,
+        from_email: 'smtp@test.com',
+        from_name: 'Marketing',
+        reply_to_email: 'reply@test.com'
+      }]])
+      .mockResolvedValueOnce([{ affectedRows: 1 }])
+      .mockResolvedValueOnce([[{ id: 901, status: 'PENDING' }]])
+      .mockResolvedValueOnce([{ affectedRows: 1 }])
+      .mockResolvedValueOnce([[{ id: 901 }]])
+      .mockResolvedValueOnce([{ affectedRows: 1 }])
+      .mockResolvedValueOnce([{ affectedRows: 1 }])
+      .mockResolvedValueOnce([[{
+        total_destinatarios: 1,
+        total_enviados: 0,
+        total_fallidos: 0,
+        total_pendientes: 1,
+        total_cancelados: 0
+      }]])
+      .mockResolvedValueOnce([{ affectedRows: 1 }]);
 
     const response = await makeRequest(server, {
       fecha_programada: '2026-03-23T10:30:00Z'
     });
 
-    expect(response.status).toBe(400);
-    expect(response.body.error).toBe('CAMPAIGN_EMAIL_FROM_REQUIRED');
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(
+      db.execute.mock.calls.some(([sql, params]) => (
+        sql.includes('SET') &&
+        sql.includes('email_from = ?') &&
+        Array.isArray(params) &&
+        params[0] === 'smtp@test.com' &&
+        params[1] === 'Marketing' &&
+        params[2] === 'reply@test.com' &&
+        params[3] === 321 &&
+        params[4] === 77
+      ))
+    ).toBe(true);
   });
 });

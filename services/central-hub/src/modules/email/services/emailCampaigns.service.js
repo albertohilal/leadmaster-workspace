@@ -71,6 +71,51 @@ async function listEmailCampaigns({ cliente_id }) {
   }));
 }
 
+async function getActiveClientEmailConfig({ cliente_id }) {
+  const [rows] = await db.execute(
+    `SELECT
+       id,
+       cliente_id,
+       from_email,
+       from_name,
+       reply_to_email
+     FROM ll_clientes_email_config
+     WHERE cliente_id = ?
+       AND is_active = 1
+     ORDER BY id DESC
+     LIMIT 1`,
+    [cliente_id]
+  );
+
+  return rows[0] || null;
+}
+
+async function updateCampaignSenderFields({
+  cliente_id,
+  campaign_id,
+  email_from,
+  name_from,
+  reply_to_email
+}) {
+  await db.execute(
+    `UPDATE ll_campanias_email
+     SET
+       email_from = ?,
+       name_from = ?,
+       reply_to_email = ?,
+       updated_at = NOW()
+     WHERE id = ? AND cliente_id = ?
+     LIMIT 1`,
+    [email_from, name_from, reply_to_email, campaign_id, cliente_id]
+  );
+
+  return {
+    email_from,
+    name_from,
+    reply_to_email
+  };
+}
+
 async function createEmailCampaign({ cliente_id, request }) {
   const sql = `
     INSERT INTO ll_campanias_email (
@@ -121,7 +166,9 @@ async function createEmailCampaign({ cliente_id, request }) {
 
 module.exports = {
   createEmailCampaign,
+  getActiveClientEmailConfig,
   getOwnedCampaignById,
   listEmailCampaigns,
+  updateCampaignSenderFields,
   toMySqlDateTime
 };

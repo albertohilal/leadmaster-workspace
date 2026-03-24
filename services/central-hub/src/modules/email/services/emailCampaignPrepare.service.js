@@ -59,6 +59,54 @@ function ensurePreparableCampaign(campaign) {
   }
 }
 
+function normalizeNullableString(value) {
+  if (value === undefined || value === null) return null;
+
+  const normalized = String(value).trim();
+  return normalized ? normalized : null;
+}
+
+async function resolveCampaignSenderFromClientConfig({ cliente_id, campaign }) {
+  if (campaign.email_from && String(campaign.email_from).trim()) {
+    return campaign;
+  }
+
+  const clientEmailConfig = await emailCampaignsService.getActiveClientEmailConfig({
+    cliente_id
+  });
+
+  if (!clientEmailConfig) {
+    throw createServiceError(
+      404,
+      'CLIENT_EMAIL_CONFIG_NOT_FOUND',
+      'La campaña no tiene email_from y el cliente no tiene configuración Email activa'
+    );
+  }
+
+  const resolvedEmailFrom = normalizeNullableString(clientEmailConfig.from_email);
+
+  if (!resolvedEmailFrom) {
+    throw createServiceError(
+      400,
+      'CLIENT_EMAIL_CONFIG_INCOMPLETE',
+      'La configuración Email activa del cliente no tiene from_email'
+    );
+  }
+
+  const resolvedSender = await emailCampaignsService.updateCampaignSenderFields({
+    cliente_id,
+    campaign_id: campaign.id,
+    email_from: resolvedEmailFrom,
+    name_from: normalizeNullableString(clientEmailConfig.from_name),
+    reply_to_email: normalizeNullableString(clientEmailConfig.reply_to_email)
+  });
+
+  return {
+    ...campaign,
+    ...resolvedSender
+  };
+}
+
 async function prepareCampaign({ cliente_id, campaign_id, request }) {
   const campaign = await emailCampaignsService.getOwnedCampaignById({
     cliente_id,
@@ -70,9 +118,15 @@ async function prepareCampaign({ cliente_id, campaign_id, request }) {
   }
 
   ensurePreparableCampaign(campaign);
-  ensureSendableCampaign(campaign);
 
-  const scheduledFor = toMySqlDateTime(request.fecha_programada || campaign.fecha_programada) || toMySqlDateTime(new Date());
+  const resolvedCampaign = await resolveCampaignSenderFromClientConfig({
+    cliente_id,
+    campaign
+  });
+
+  ensureSendableCampaign(resolvedCampaign);
+
+  const scheduledFor = toMySqlDateTime(request.fecha_programada || resolvedCampaign.fecha_programada) || toMySqlDateTime(new Date());
 
   const [existingRows] = await db.execute(
     `SELECT id, status
@@ -103,7 +157,7 @@ async function prepareCampaign({ cliente_id, campaign_id, request }) {
        locked_at = NULL,
        sent_at = CASE WHEN status = 'SENT' THEN sent_at ELSE NULL END
      WHERE campania_email_id = ?`,
-    [campaign.asunto, campaign.body, 'smtp', campaign_id]
+    [resolvedCampaign.asunto, resolvedCampaign.body, 'smtp', campaign_id]
   );
 
   const [nextRows] = await db.execute(
@@ -153,8 +207,8 @@ async function prepareCampaign({ cliente_id, campaign_id, request }) {
 
   return {
     campaign: {
-      id: campaign.id,
-      nombre: campaign.nombre,
+      id: resolvedCampaign.id,
+      nombre: resolvedCampaign.nombre,
       estado: 'pendiente',
       fecha_programada: scheduledFor,
       next_envio_id: nextRows[0].id,
@@ -167,6 +221,7 @@ async function prepareCampaign({ cliente_id, campaign_id, request }) {
 module.exports = {
   prepareCampaign,
   __test__: {
+    resolveCampaignSenderFromClientConfig,
     toMySqlDateTime
   }
 };
