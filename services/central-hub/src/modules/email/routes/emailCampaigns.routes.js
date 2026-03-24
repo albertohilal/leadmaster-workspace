@@ -3,6 +3,9 @@ const router = express.Router();
 
 const emailCampaignsController = require('../controllers/emailCampaigns.controller');
 
+// GET /api/email/campaigns
+router.get('/', emailCampaignsController.list);
+
 // POST /api/email/campaigns
 router.post('/', emailCampaignsController.create);
 

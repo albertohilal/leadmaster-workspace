@@ -20,6 +20,42 @@ function getClienteIdFromReq(req) {
   return i;
 }
 
+async function list(req, res) {
+  const cliente_id = getClienteIdFromReq(req);
+
+  if (!cliente_id) {
+    return res.status(403).json({
+      success: false,
+      error: 'ACCESS_DENIED',
+      message: 'Usuario autenticado sin cliente_id valido'
+    });
+  }
+
+  try {
+    const campaigns = await emailCampaignsService.listEmailCampaigns({
+      cliente_id
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        campaigns
+      }
+    });
+  } catch (error) {
+    console.error('[EmailCampaigns] Error listando campañas:', {
+      name: error?.name,
+      message: error?.message
+    });
+
+    return res.status(500).json({
+      success: false,
+      error: 'INTERNAL_ERROR',
+      message: 'Error interno del servidor'
+    });
+  }
+}
+
 async function create(req, res) {
   const cliente_id = getClienteIdFromReq(req);
 
@@ -210,6 +246,7 @@ async function prepare(req, res) {
 }
 
 module.exports = {
+  list,
   create,
   addRecipients,
   prepare

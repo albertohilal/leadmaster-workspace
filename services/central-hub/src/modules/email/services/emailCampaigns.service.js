@@ -50,6 +50,27 @@ async function getOwnedCampaignById({ cliente_id, campaign_id }) {
   return rows[0] || null;
 }
 
+async function listEmailCampaigns({ cliente_id }) {
+  const [rows] = await db.execute(
+    `SELECT
+       id,
+       nombre,
+       asunto,
+       estado
+     FROM ll_campanias_email
+     WHERE cliente_id = ?
+     ORDER BY id DESC`,
+    [cliente_id]
+  );
+
+  return rows.map((row) => ({
+    id: row.id,
+    nombre: row.nombre,
+    subject: row.asunto,
+    estado: row.estado
+  }));
+}
+
 async function createEmailCampaign({ cliente_id, request }) {
   const sql = `
     INSERT INTO ll_campanias_email (
@@ -101,5 +122,6 @@ async function createEmailCampaign({ cliente_id, request }) {
 module.exports = {
   createEmailCampaign,
   getOwnedCampaignById,
+  listEmailCampaigns,
   toMySqlDateTime
 };
