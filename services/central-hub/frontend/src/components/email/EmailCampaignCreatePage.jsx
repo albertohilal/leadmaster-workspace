@@ -4,7 +4,6 @@ import Card from '../common/Card';
 import emailService from '../../services/email';
 
 const INITIAL_FORM = {
-  channel: 'EMAIL',
   nombre: '',
   subject: '',
   text: ''
@@ -62,7 +61,6 @@ const EmailCampaignCreatePage = () => {
 
     try {
       const response = await emailService.createCampaign({
-        channel: formData.channel,
         nombre: formData.nombre.trim(),
         subject: formData.subject.trim(),
         text: formData.text.trim()
@@ -71,7 +69,7 @@ const EmailCampaignCreatePage = () => {
       setSuccess({
         message:
           response?.message ||
-          'Campaña Email creada en modo preparatorio. Aún no hay persistencia real, envío, destinatarios ni programación.',
+          'Campaña Email creada correctamente como borrador persistido. Destinatarios, programación y envío siguen fuera de este paso.',
         data: response?.data
       });
       setFormData(INITIAL_FORM);
@@ -107,35 +105,19 @@ const EmailCampaignCreatePage = () => {
           <p className="font-semibold">Estado actual del flujo</p>
           <p>
             Este formulario usa <span className="font-mono">POST /api/email/campaigns</span>.
-            La creación actual es preparatoria: valida el contrato mínimo y devuelve una respuesta
-            honesta, pero todavía no persiste, no envía y no programa.
+            La creación actual persiste una campaña Email en estado borrador con el contrato
+            mínimo canónico. Este paso no envía ni programa.
           </p>
           <p>
             Este flujo no usa <span className="font-mono">/sender/campaigns</span> ni reemplaza
             <span className="font-mono"> /mailer/send</span>. Email y WhatsApp siguen separados por canal.
           </p>
-          <p>
-            La cuenta remitente no se elige en este formulario mínimo: se resuelve por configuración del cliente en backend, preservando el contexto multi-tenant.
-          </p>
+          <p>Destinatarios, preparación y programación siguen fuera del alcance de este formulario.</p>
         </div>
       </Card>
 
       <Card title="Formulario mínimo" icon="✉️">
         <form className="space-y-5" onSubmit={handleSubmit}>
-          <div>
-            <label htmlFor="channel" className="mb-1 block text-sm font-medium text-gray-700">
-              Canal
-            </label>
-            <input
-              id="channel"
-              name="channel"
-              type="text"
-              value={formData.channel}
-              disabled
-              className="w-full rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-700"
-            />
-          </div>
-
           <div>
             <label htmlFor="nombre" className="mb-1 block text-sm font-medium text-gray-700">
               Nombre *
@@ -194,15 +176,6 @@ const EmailCampaignCreatePage = () => {
             <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
               <div className="font-medium text-emerald-900">Creación aceptada</div>
               <div className="mt-1">{success.message}</div>
-              {success.data?.campaign && (
-                <div className="mt-3 rounded-lg border border-emerald-100 bg-white px-3 py-3 text-xs text-gray-700">
-                  <div><strong>Canal:</strong> {success.data.channel}</div>
-                  <div><strong>Modo:</strong> {success.data.mode}</div>
-                  <div><strong>Persistida:</strong> {String(success.data.persisted)}</div>
-                  <div><strong>Nombre:</strong> {success.data.campaign.nombre}</div>
-                  <div><strong>Asunto:</strong> {success.data.campaign.subject}</div>
-                </div>
-              )}
             </div>
           )}
 
