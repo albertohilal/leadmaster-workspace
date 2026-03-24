@@ -46,6 +46,14 @@ async function listCampaigns() {
   return response?.data?.data?.campaigns || [];
 }
 
+async function addCampaignRecipients(campaignId, recipients) {
+  const response = await apiService.post(`/email/campaigns/${campaignId}/recipients`, {
+    recipients
+  });
+
+  return response?.data?.data || null;
+}
+
 async function sendSelectionFanout({ recipients, subject, text }) {
   const attempts = await Promise.allSettled(
     recipients.map(async (recipient) => {
@@ -108,6 +116,7 @@ const emailService = {
   isValidEmail,
   createCampaign,
   listCampaigns,
+  addCampaignRecipients,
   send,
   sendSelectionFanout
 };

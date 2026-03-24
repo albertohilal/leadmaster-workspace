@@ -137,10 +137,8 @@ const GestionDestinatariosPage = ({
   });
 
   useEffect(() => {
-    if (!useEmailCampaignSelector) {
-      cargarCampanas();
-    }
-  }, [useEmailCampaignSelector]);
+    cargarCampanas();
+  }, []);
 
   useEffect(() => {
     if (campaniaSeleccionada) {
@@ -175,23 +173,9 @@ const GestionDestinatariosPage = ({
 
   useEffect(() => {
     if (!useEmailCampaignSelector) return;
-
-    const selectedEmailCampaign = emailCampaigns.find(
-      (item) => String(item.id) === String(emailCampaignSeleccionada)
-    );
-
-    const operationalCampaignId = selectedEmailCampaign?.operational_campaign_id
-      ? String(selectedEmailCampaign.operational_campaign_id)
-      : '';
-
-    setCampaniaSeleccionada(operationalCampaignId);
-
-    if (!operationalCampaignId) {
-      setProspectos([]);
-      setSeleccionados([]);
-      setResultadoEmail(null);
-      setMostrarModalEmail(false);
-    }
+    setSeleccionados([]);
+    setResultadoEmail(null);
+    setMostrarModalEmail(false);
   }, [emailCampaignSeleccionada, emailCampaigns, useEmailCampaignSelector]);
 
   const cargarCampanas = async () => {
@@ -333,28 +317,58 @@ const GestionDestinatariosPage = ({
   };
 
   const agregarACampania = async () => {
-    if (!campaniaSeleccionada || seleccionados.length === 0) {
-      alert('Selecciona campaña y prospectos');
-      return;
-    }
-
     try {
       setLoading(true);
 
-      const destinatarios = seleccionados.map((p) => ({
-        telefono_wapp: p.telefono_wapp,
-        nombre_destino: p.nombre,
-        lugar_id: p.prospecto_id
-      }));
+      if (useEmailCampaignSelector) {
+        if (!emailCampaignSeleccionada || seleccionados.length === 0) {
+          alert('Selecciona campaña Email y prospectos');
+          return;
+        }
 
-      await destinatariosService.agregarDestinatarios(campaniaSeleccionada, destinatarios);
+        const recipients = seleccionados
+          .filter(hasEmailDisponible)
+          .map((p) => ({
+            to_email: emailService.normalizeEmail(p.email),
+            nombre_destino: p.nombre || null,
+            lugar_id: p.prospecto_id || null
+          }));
 
-      alert(`Se agregaron ${destinatarios.length} prospectos`);
+        const omitidosSinEmail = seleccionados.length - recipients.length;
+
+        if (recipients.length === 0) {
+          alert('Los prospectos seleccionados no tienen email válido');
+          return;
+        }
+
+        const data = await emailService.addCampaignRecipients(emailCampaignSeleccionada, recipients);
+        const summary = data?.summary || {};
+
+        alert(
+          `Destinatarios Email procesados. Insertados: ${summary.inserted || 0}. Reencolados: ${summary.requeued || 0}. Ya pendientes: ${summary.already_pending || 0}. Omitidos sin email válido: ${omitidosSinEmail}.`
+        );
+      } else {
+        if (!campaniaSeleccionada || seleccionados.length === 0) {
+          alert('Selecciona campaña y prospectos');
+          return;
+        }
+
+        const destinatarios = seleccionados.map((p) => ({
+          telefono_wapp: p.telefono_wapp,
+          nombre_destino: p.nombre,
+          lugar_id: p.prospecto_id
+        }));
+
+        await destinatariosService.agregarDestinatarios(campaniaSeleccionada, destinatarios);
+
+        alert(`Se agregaron ${destinatarios.length} prospectos`);
+      }
+
       setSeleccionados([]);
       cargarProspectos();
     } catch (err) {
       console.error('Error agregando destinatarios:', err);
-      alert('Error al agregar destinatarios');
+      alert('Error al agregar destinatarios: ' + (err.response?.data?.message || err.message));
     } finally {
       setLoading(false);
     }
@@ -718,7 +732,7 @@ const GestionDestinatariosPage = ({
             <div className="grid gap-4 border-b px-6 py-5 md:grid-cols-3">
               <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
                 <div className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                  Campaña / base actual
+                  {useEmailCampaignSelector ? 'Campaña Email / base origen' : 'Campaña / base actual'}
                 </div>
                 <div className="mt-2 text-lg font-semibold text-gray-900">
                   {useEmailCampaignSelector
@@ -728,9 +742,9 @@ const GestionDestinatariosPage = ({
                 <div className="mt-1 text-sm text-gray-500">
                   {useEmailCampaignSelector
                     ? campaniaSeleccionada
-                      ? `Campaña operativa vinculada: ${campaniaSeleccionada}`
+                      ? `Base origen: ${contextoCampania?.nombre || `ID ${campaniaSeleccionada}`}`
                       : emailCampaignSeleccionada
-                        ? 'Sin vínculo operativo'
+                        ? 'Seleccioná una campaña base para listar prospectos'
                         : 'Sin campaña Email seleccionada'
                     : campaniaSeleccionada
                       ? `ID ${campaniaSeleccionada}`
@@ -765,12 +779,10 @@ const GestionDestinatariosPage = ({
 
             <div className="px-6 py-4">
               <div className="flex flex-wrap items-end gap-3">
-                <div className="min-w-[240px] flex-1">
-                  <label className="block text-sm font-medium mb-1">
-                    {useEmailCampaignSelector ? 'Campaña Email' : 'Campaña de destino'}
-                  </label>
-                  {useEmailCampaignSelector ? (
-                    <>
+                {useEmailCampaignSelector ? (
+                  <>
+                    <div className="min-w-[240px] flex-1">
+                      <label className="block text-sm font-medium mb-1">Campaña Email</label>
                       <select
                         value={emailCampaignSeleccionada}
                         onChange={(e) => setEmailCampaignSeleccionada(e.target.value)}
@@ -783,13 +795,32 @@ const GestionDestinatariosPage = ({
                           </option>
                         ))}
                       </select>
-                      {emailCampaignSeleccionada && !campaniaSeleccionada && (
+                    </div>
+
+                    <div className="min-w-[240px] flex-1">
+                      <label className="block text-sm font-medium mb-1">Campaña base de prospectos</label>
+                      <select
+                        value={campaniaSeleccionada}
+                        onChange={(e) => setCampaniaSeleccionada(e.target.value)}
+                        className="w-full px-3 py-2 border rounded-lg"
+                      >
+                        <option value="">Seleccionar campaña base...</option>
+                        {campanas.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.nombre}
+                          </option>
+                        ))}
+                      </select>
+                      {!campaniaSeleccionada && (
                         <p className="mt-1 text-xs text-amber-600">
-                          Esta campaña Email aún no está vinculada a una campaña operativa.
+                          Seleccioná una campaña base para listar prospectos y agregarlos a la campaña Email elegida.
                         </p>
                       )}
-                    </>
-                  ) : (
+                    </div>
+                  </>
+                ) : (
+                  <div className="min-w-[240px] flex-1">
+                    <label className="block text-sm font-medium mb-1">Campaña de destino</label>
                     <>
                       <select
                         value={campaniaSeleccionada}
@@ -815,12 +846,16 @@ const GestionDestinatariosPage = ({
                         </p>
                       )}
                     </>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 <button
                   onClick={agregarACampania}
-                  disabled={!campaniaSeleccionada || resumenSeleccion.total === 0}
+                  disabled={
+                    (useEmailCampaignSelector
+                      ? !emailCampaignSeleccionada
+                      : !campaniaSeleccionada) || resumenSeleccion.total === 0
+                  }
                   className="px-4 py-2 bg-slate-700 text-white rounded-lg disabled:bg-gray-300"
                 >
                   Agregar a Campaña
