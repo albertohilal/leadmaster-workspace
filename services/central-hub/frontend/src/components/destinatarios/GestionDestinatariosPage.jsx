@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CheckCircle2, Mail, MessageCircle, Phone, SendHorizontal, XCircle } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import prospectosService from '../../services/prospectos';
 import campanasService from '../../services/campanas';
 import destinatariosService from '../../services/destinatarios';
@@ -89,6 +89,12 @@ function matchesCanalDisponibleFilter(prospecto, canalDisponibleFiltro) {
   }
 }
 
+const INITIAL_CLASIFICACION = {
+  post_envio_estado: '',
+  accion_siguiente: '',
+  detalle: ''
+};
+
 const GestionDestinatariosPage = ({
   hideHeader = false,
   backPath = '/campaigns',
@@ -100,6 +106,7 @@ const GestionDestinatariosPage = ({
   emailCampaigns = []
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [campanas, setCampanas] = useState([]);
   const [campaniaSeleccionada, setCampaniaSeleccionada] = useState('');
@@ -130,11 +137,34 @@ const GestionDestinatariosPage = ({
   const [mostrarModalClasificar, setMostrarModalClasificar] = useState(false);
   const [prospectoClasificar, setProspectoClasificar] = useState(null);
   const [loadingClasificacion, setLoadingClasificacion] = useState(false);
-  const [clasificacion, setClasificacion] = useState({
-    post_envio_estado: '',
-    accion_siguiente: '',
-    detalle: ''
-  });
+  const [clasificacion, setClasificacion] = useState(INITIAL_CLASIFICACION);
+
+  const resetWhatsappModalState = useCallback(() => {
+    setMostrarModalWhatsApp(false);
+    setProspectoSeleccionado(null);
+    setDatosEnvioPreparado(null);
+    setLoadingEnvio(false);
+    setWhatsappAbierto(false);
+  }, []);
+
+  const resetEmailModalState = useCallback(() => {
+    setMostrarModalEmail(false);
+    setLoadingEmail(false);
+    setResultadoEmail(null);
+  }, []);
+
+  const resetClasificacionState = useCallback(() => {
+    setMostrarModalClasificar(false);
+    setProspectoClasificar(null);
+    setClasificacion(INITIAL_CLASIFICACION);
+    setLoadingClasificacion(false);
+  }, []);
+
+  const resetTransientUiState = useCallback(() => {
+    resetWhatsappModalState();
+    resetEmailModalState();
+    resetClasificacionState();
+  }, [resetClasificacionState, resetEmailModalState, resetWhatsappModalState]);
 
   useEffect(() => {
     cargarCampanas();
@@ -145,6 +175,10 @@ const GestionDestinatariosPage = ({
       cargarProspectos();
     }
   }, [campaniaSeleccionada]);
+
+  useEffect(() => {
+    resetTransientUiState();
+  }, [location.pathname, campaniaSeleccionada, emailCampaignSeleccionada, resetTransientUiState]);
 
   const hasCampaignMatch = !useEmailCampaignSelector && Boolean(campaignId) && campanas.some(
     (c) => String(c.id) === String(campaignId)
@@ -174,8 +208,7 @@ const GestionDestinatariosPage = ({
   useEffect(() => {
     if (!useEmailCampaignSelector) return;
     setSeleccionados([]);
-    setResultadoEmail(null);
-    setMostrarModalEmail(false);
+    resetEmailModalState();
   }, [emailCampaignSeleccionada, emailCampaigns, useEmailCampaignSelector]);
 
   const cargarCampanas = async () => {
@@ -204,8 +237,7 @@ const GestionDestinatariosPage = ({
       const lista = response?.data || [];
       setProspectos(lista);
       setSeleccionados([]);
-      setResultadoEmail(null);
-      setMostrarModalEmail(false);
+      resetTransientUiState();
       setEstadoFiltro('todos');
       setTipoSocieteFiltro('todos');
       setCarteraOrigenFiltro('todos');
@@ -380,13 +412,12 @@ const GestionDestinatariosPage = ({
       return;
     }
 
-    setResultadoEmail(null);
+    resetEmailModalState();
     setMostrarModalEmail(true);
   };
 
   const cerrarModalEmail = () => {
-    if (loadingEmail) return;
-    setMostrarModalEmail(false);
+    resetEmailModalState();
   };
 
   const prepararEnvioWhatsAppSeleccionado = async () => {
@@ -589,10 +620,7 @@ const GestionDestinatariosPage = ({
   };
 
   const cancelarEnvio = () => {
-    setMostrarModalWhatsApp(false);
-    setProspectoSeleccionado(null);
-    setDatosEnvioPreparado(null);
-    setWhatsappAbierto(false);
+    resetWhatsappModalState();
   };
 
   const POST_ENVIO_ESTADOS = [
@@ -630,10 +658,7 @@ const GestionDestinatariosPage = ({
   };
 
   const cerrarModalClasificar = () => {
-    setMostrarModalClasificar(false);
-    setProspectoClasificar(null);
-    setClasificacion({ post_envio_estado: '', accion_siguiente: '', detalle: '' });
-    setLoadingClasificacion(false);
+    resetClasificacionState();
   };
 
   const onChangePostEnvioEstado = (nuevoEstado) => {
