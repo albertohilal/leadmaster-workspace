@@ -9,6 +9,7 @@ export const prospectosService = {
       
       // campania_id es opcional: Email carga el universo completo del cliente.
       if (filtros.campania_id) queryParams.append('campania_id', filtros.campania_id);
+      if (filtros.email_campaign_id) queryParams.append('email_campaign_id', filtros.email_campaign_id);
       
       // Filtros simplificados
       if (filtros.estado) queryParams.append('estado', filtros.estado);

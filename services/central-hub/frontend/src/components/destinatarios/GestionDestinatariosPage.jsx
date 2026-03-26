@@ -168,12 +168,16 @@ const GestionDestinatariosPage = ({
 
   useEffect(() => {
     if (useEmailCampaignSelector) {
-      cargarProspectos();
       return;
     }
 
     cargarCampanas();
   }, [useEmailCampaignSelector]);
+
+  useEffect(() => {
+    if (!useEmailCampaignSelector) return;
+    cargarProspectos();
+  }, [useEmailCampaignSelector, emailCampaignSeleccionada]);
 
   useEffect(() => {
     if (!useEmailCampaignSelector && campaniaSeleccionada) {
@@ -237,7 +241,9 @@ const GestionDestinatariosPage = ({
 
       const response = await prospectosService.filtrarProspectos(
         useEmailCampaignSelector
-          ? {}
+          ? {
+              email_campaign_id: emailCampaignSeleccionada || undefined
+            }
           : {
               campania_id: campaniaSeleccionada
             }
@@ -260,9 +266,67 @@ const GestionDestinatariosPage = ({
     }
   };
 
+  function normalizeEmailRecipientStatus(status) {
+    if (status === undefined || status === null) return null;
+
+    const normalized = String(status).trim().toUpperCase();
+    if (!normalized) return null;
+
+    switch (normalized) {
+      case 'PENDING':
+        return 'pendiente';
+      case 'SENT':
+        return 'enviado';
+      case 'FAILED':
+      case 'ERROR':
+        return 'error';
+      default:
+        return `email_status:${normalized}`;
+    }
+  }
+
   function estadoPrincipal(prospecto) {
+    if (useEmailCampaignSelector) {
+      if (!emailCampaignSeleccionada) {
+        return 'seleccionar_campana';
+      }
+
+      return normalizeEmailRecipientStatus(prospecto?.email_recipient_status) || 'sin_envio';
+    }
+
     return prospecto?.post_envio_estado || prospecto?.estado_campania || 'sin_envio';
   }
+
+  const estadoOptions = useMemo(() => {
+    if (useEmailCampaignSelector) {
+      if (!emailCampaignSeleccionada) {
+        return [{ value: 'seleccionar_campana', label: 'Seleccionar campaña' }];
+      }
+
+      const preferredOrder = ['sin_envio', 'pendiente', 'enviado', 'error'];
+      const presentes = Array.from(new Set(prospectos.map((p) => estadoPrincipal(p))));
+      const ordered = preferredOrder.filter((value) => presentes.includes(value));
+      const extra = presentes
+        .filter((value) => !preferredOrder.includes(value))
+        .sort((a, b) => traducirEstado(a).localeCompare(traducirEstado(b), 'es'));
+
+      return [...ordered, ...extra].map((value) => ({
+        value,
+        label: traducirEstado(value)
+      }));
+    }
+
+    return [
+      'sin_envio',
+      'pendiente',
+      'enviado',
+      'error',
+      ...POST_ENVIO_ESTADOS.map((opt) => opt.value)
+    ].map((value) => ({
+      value,
+      label: traducirEstado(value)
+    }));
+  }, [useEmailCampaignSelector, emailCampaignSeleccionada, prospectos]);
 
   const prospectosFiltrados = useMemo(() => {
     let filtrados = [...prospectos];
@@ -477,7 +541,13 @@ const GestionDestinatariosPage = ({
   };
 
   const traducirEstado = (estado) => {
+    if (typeof estado === 'string' && estado.startsWith('email_status:')) {
+      return estado.replace('email_status:', '').replaceAll('_', ' ');
+    }
+
     switch (estado) {
+      case 'seleccionar_campana':
+        return 'Seleccionar campaña';
       case 'sin_envio':
         return 'No incluido';
       case 'pendiente':
@@ -508,7 +578,17 @@ const GestionDestinatariosPage = ({
   };
 
   const badgeEstado = (estado) => {
+    if (typeof estado === 'string' && estado.startsWith('email_status:')) {
+      const raw = estado.replace('email_status:', '');
+      if (raw === 'PENDING') return 'bg-yellow-100 text-yellow-800';
+      if (raw === 'SENT') return 'bg-green-100 text-green-800';
+      if (raw === 'FAILED' || raw === 'ERROR') return 'bg-red-100 text-red-800';
+      return 'bg-gray-100 text-gray-800';
+    }
+
     switch (estado) {
+      case 'seleccionar_campana':
+        return 'bg-slate-100 text-slate-700';
       case 'enviado':
         return 'bg-green-100 text-green-800';
       case 'pendiente':
@@ -881,15 +961,9 @@ const GestionDestinatariosPage = ({
                     className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
                   >
                     <option value="todos">Todos</option>
-                    {[
-                      'sin_envio',
-                      'pendiente',
-                      'enviado',
-                      'error',
-                      ...POST_ENVIO_ESTADOS.map((opt) => opt.value)
-                    ].map((value) => (
-                      <option key={value} value={value}>
-                        {traducirEstado(value)}
+                    {estadoOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
                       </option>
                     ))}
                   </select>

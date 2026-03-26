@@ -22,6 +22,7 @@ Se aplicó un refactor acotado y reutilizable:
 - se hizo que Email cargue el universo del cliente autenticado al entrar;
 - se extendió el endpoint existente `/api/sender/prospectos/filtrar` para soportar un modo sin `campania_id`;
 - se corrigió la selección canónica de filas en ese modo Email para no perder emails válidos por un `MAX(rowid)` ciego;
+- se corrigió además la semántica del **Estado** visual en la grilla Email para que dependa de `ll_envios_email` de la campaña seleccionada;
 - se mantuvieron sin romperse los flujos de:
   - filtros locales;
   - selección múltiple;
@@ -87,6 +88,8 @@ Ese middleware inyecta `req.user`, y tanto Sender como Email consumen `req.user.
 #### Prospectos / selección
 
 - `GET /api/sender/prospectos/filtrar`
+
+En el ajuste final de Email, este endpoint acepta además `email_campaign_id` opcional cuando se usa el universo Email sin `campania_id`.
 
 #### Campañas Email
 
@@ -240,6 +243,25 @@ Nuevo comportamiento aplicado para Email:
 	- `fecha_envio = null`
 - no se hereda estado ni clasificación desde WhatsApp.
 
+##### Modo 3 — Email sin `campania_id` y con `email_campaign_id`
+
+Cuando la UI selecciona una campaña Email concreta, el mismo endpoint devuelve el universo Email enriquecido con estado real del recipient en `ll_envios_email` para esa campaña.
+
+Campos agregados:
+
+- `email_envio_id`
+- `email_recipient_status`
+- `email_selected_at`
+- `email_sent_at`
+- `email_error_message`
+
+La resolución se hace contra la identidad real usada por el módulo Email:
+
+- `campania_email_id`
+- `to_email`
+
+usando el email normalizado del prospecto canónico.
+
 #### Motivo del ajuste adicional
 
 El ajuste anterior seguía siendo insuficiente para Email porque un criterio canónico puramente basado en `MAX(rowid)` podía elegir, dentro del mismo grupo lógico, una fila con peor calidad para el canal.
@@ -252,6 +274,21 @@ Ejemplo de bug corregido:
 Con `MAX(rowid)` simple podía quedar visible la fila B y perderse el email válido de la fila A.
 
 La corrección aplicada asegura que, si dentro del grupo existe una fila con email válido, la fila devuelta para Email tenga email válido.
+
+#### Corrección adicional de semántica del estado visual
+
+Después de corregir el universo Email, se detectó otro bug funcional: el badge **Estado** seguía mostrando `No incluido` aunque el recipient ya existiera en `ll_envios_email` con estado real `PENDING`.
+
+La causa era que la UI seguía leyendo `estado_campania = 'sin_envio'` del universo neutral, en lugar de resolver el estado real de la campaña Email seleccionada.
+
+La corrección final aplicada fue:
+
+- con campaña Email seleccionada:
+	- la grilla usa `email_recipient_status` resuelto desde `ll_envios_email`;
+	- `No incluido` significa ausencia real de recipient en esa campaña;
+- sin campaña Email seleccionada:
+	- la grilla no muestra `No incluido` como si fuera un estado real de campaña;
+	- muestra un estado neutral: `Seleccionar campaña`.
 
 #### Motivo por el que no se creó un endpoint nuevo
 
@@ -273,12 +310,15 @@ No hizo falta crear uno nuevo porque:
 4. la tabla ya aparece poblada sin campaña base;
 5. el universo incluye también contactos solo-email;
 6. si un grupo deduplicado tiene al menos una fila con email válido, la fila visible conserva ese email válido;
-7. el estado mostrado en este modo es neutral;
-8. los filtros operan sobre ese universo del cliente;
-9. el usuario selecciona prospectos;
-10. elige la campaña Email destino;
-11. `Agregar a Campaña` llama `POST /api/email/campaigns/:id/recipients`;
-12. `Preparar envío Email` sigue abriendo el modal existente y usando `/mailer/send` por destinatario válido.
+7. sin campaña Email seleccionada, el estado mostrado es neutral (`Seleccionar campaña`);
+8. con campaña Email seleccionada, el estado visible se resuelve contra `ll_envios_email` de esa campaña;
+9. `No incluido` sólo significa ausencia real del recipient en esa campaña;
+10. los filtros operan sobre ese universo del cliente;
+11. el usuario selecciona prospectos;
+12. elige la campaña Email destino;
+13. `Agregar a Campaña` llama `POST /api/email/campaigns/:id/recipients`;
+14. al recargar la grilla, el estado ya refleja el recipient real en `ll_envios_email`;
+15. `Preparar envío Email` sigue abriendo el modal existente y usando `/mailer/send` por destinatario válido.
 
 ### 5.2 Flujo WhatsApp posterior al cambio
 
@@ -336,12 +376,14 @@ No cambió:
 
 2. `services/central-hub/frontend/src/services/prospectos.js`
 	- `campania_id` documentado como opcional
+	- soporte de `email_campaign_id` opcional
 
 3. `services/central-hub/src/modules/sender/controllers/prospectosController.js`
 	- soporte para universo del cliente autenticado sin `campania_id`
 	- deduplicación híbrida por teléfono o email normalizado
 	- priorización de filas con email válido dentro de cada grupo
 	- estado neutral sin herencia desde WhatsApp
+	- enriquecimiento opcional con estado real Email desde `ll_envios_email`
 
 ---
 
@@ -362,9 +404,11 @@ No cambió:
 
 ## 9. Riesgos o puntos a validar manualmente
 
+
 1. **Semántica del estado en modo Email**
-	- al no depender de una campaña WhatsApp, el `estado` mostrado en este modo es neutral (`sin_envio`).
-	- esto evita mezclar semántica de WhatsApp con selector Email, pero conviene validar si negocio necesita un estado específico de Email a futuro.
+   - sin campaña Email seleccionada, la grilla muestra un estado neutral (`Seleccionar campaña`);
+   - con campaña Email seleccionada, el badge se resuelve contra `ll_envios_email` de esa campaña;
+   - `No incluido` sólo significa ausencia real del recipient en la campaña seleccionada.
 
 2. **Volumen de datos**
 	- la carga inicial de Email ahora puede devolver más filas que antes porque incluye contactos solo-email.
@@ -374,7 +418,11 @@ No cambió:
 	- la selección canónica depende de detectar correctamente email válido dentro del grupo.
 	- conviene validar con casos borde de emails históricos o formatos poco frecuentes.
 
-4. **Flujo de envío Email actual**
+4. **Semántica del estado Email**
+	- el badge de estado ahora depende de `ll_envios_email` sólo cuando hay campaña Email seleccionada.
+	- conviene validar manualmente los estados reales usados por el scheduler (`PENDING`, `SENT`, `FAILED` y cualquier otro futuro).
+
+5. **Flujo de envío Email actual**
 	- sigue siendo el flujo real ya conectado: modal + fanout a `/mailer/send`.
 	- no se migró a `POST /api/email/campaigns/:id/prepare` porque no es el flujo operativo que esta pantalla estaba usando hoy.
 	- este cambio resuelve el selector/recipients Email, no un pipeline técnico nuevo de prepare/send backend.
@@ -413,7 +461,9 @@ La pantalla de destinatarios Email ahora:
 - ya no depende de una campaña base de prospectos;
 - deduplica por teléfono si existe, o por email normalizado si no hay teléfono;
 - prioriza filas con email válido al elegir la fila visible del grupo;
-- devuelve estado neutral en el modo sin `campania_id`;
+- sin campaña seleccionada, muestra estado neutral;
+- con campaña seleccionada, resuelve el estado contra `ll_envios_email` de esa campaña;
+- `No incluido` sólo significa ausencia real de recipient en la campaña Email seleccionada;
 - conserva los filtros actuales;
 - conserva la selección múltiple;
 - conserva el agregado a campaña;

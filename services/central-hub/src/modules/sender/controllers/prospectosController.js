@@ -68,6 +68,34 @@ const prospectosController = {
         });
       }
 
+      const emailCampaignId = !campaniaId && req.query?.email_campaign_id
+        ? parseIntId(req.query.email_campaign_id)
+        : null;
+
+      if (!campaniaId && req.query?.email_campaign_id && !emailCampaignId) {
+        return res.status(400).json({
+          success: false,
+          error: 'email_campaign_id debe ser un entero válido'
+        });
+      }
+
+      if (!campaniaId && emailCampaignId) {
+        const [emailCampaignRows] = await db.execute(
+          `SELECT id
+           FROM ll_campanias_email
+           WHERE id = ? AND cliente_id = ?
+           LIMIT 1`,
+          [emailCampaignId, clienteId]
+        );
+
+        if (!emailCampaignRows.length) {
+          return res.status(404).json({
+            success: false,
+            error: 'Campaña Email no encontrada para el cliente autenticado'
+          });
+        }
+      }
+
       const carteraOrigen = normalizeCarteraOrigen(req.query?.cartera_origen);
       // Valores reales esperados en BD (ll_societe_extended.cartera_origen):
       // CARTERA_PROPIA | CAPTADO_LEADMASTER | IMPORT_MANUAL | REFERIDO
@@ -219,7 +247,12 @@ const prospectosController = {
             NULL AS detalle,
             NULL AS clasificado_por,
             NULL AS post_envio_created_at,
-            NULL AS post_envio_id
+            NULL AS post_envio_id,
+            email_env.id AS email_envio_id,
+            email_env.status AS email_recipient_status,
+            email_env.selected_at AS email_selected_at,
+            email_env.sent_at AS email_sent_at,
+            email_env.error_message AS email_error_message
           FROM (
             SELECT selected.dedupe_key, MAX(selected.rowid) AS rowid_canon
             FROM (
@@ -256,9 +289,13 @@ const prospectosController = {
             ON suc.dedupe_key = canon.dedupe_key
           LEFT JOIN ll_societe_extended se
             ON se.societe_id = s.rowid
+          LEFT JOIN ll_envios_email email_env
+            ON email_env.campania_email_id = ?
+           AND email_env.cliente_id = ?
+           AND email_env.to_email = LOWER(TRIM(s.email))
         `;
 
-        params = [clienteId, clienteId, clienteId];
+        params = [clienteId, clienteId, clienteId, emailCampaignId || 0, clienteId];
       }
 
       if (carteraOrigen) {
@@ -272,7 +309,9 @@ const prospectosController = {
 
       const [rows] = await db.execute(sql, params);
 
-      console.log(`✅ [prospectos] campania_id=${campaniaId || 'cliente_universo'} cliente_id=${clienteId} => ${rows.length} filas`);
+      console.log(
+        `✅ [prospectos] campania_id=${campaniaId || 'cliente_universo'} email_campaign_id=${emailCampaignId || 'none'} cliente_id=${clienteId} => ${rows.length} filas`
+      );
 
       return res.json({
         success: true,
