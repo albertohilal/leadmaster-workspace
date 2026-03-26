@@ -167,14 +167,19 @@ const GestionDestinatariosPage = ({
   }, [resetClasificacionState, resetEmailModalState, resetWhatsappModalState]);
 
   useEffect(() => {
+    if (useEmailCampaignSelector) {
+      cargarProspectos();
+      return;
+    }
+
     cargarCampanas();
-  }, []);
+  }, [useEmailCampaignSelector]);
 
   useEffect(() => {
-    if (campaniaSeleccionada) {
+    if (!useEmailCampaignSelector && campaniaSeleccionada) {
       cargarProspectos();
     }
-  }, [campaniaSeleccionada]);
+  }, [campaniaSeleccionada, useEmailCampaignSelector]);
 
   useEffect(() => {
     resetTransientUiState();
@@ -230,9 +235,13 @@ const GestionDestinatariosPage = ({
       setLoading(true);
       setError(null);
 
-      const response = await prospectosService.filtrarProspectos({
-        campania_id: campaniaSeleccionada
-      });
+      const response = await prospectosService.filtrarProspectos(
+        useEmailCampaignSelector
+          ? {}
+          : {
+              campania_id: campaniaSeleccionada
+            }
+      );
 
       const lista = response?.data || [];
       setProspectos(lista);
@@ -757,7 +766,7 @@ const GestionDestinatariosPage = ({
             <div className="grid gap-4 border-b px-6 py-5 md:grid-cols-3">
               <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
                 <div className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                  {useEmailCampaignSelector ? 'Campaña Email / base origen' : 'Campaña / base actual'}
+                  {useEmailCampaignSelector ? 'Campaña Email actual' : 'Campaña / base actual'}
                 </div>
                 <div className="mt-2 text-lg font-semibold text-gray-900">
                   {useEmailCampaignSelector
@@ -766,11 +775,9 @@ const GestionDestinatariosPage = ({
                 </div>
                 <div className="mt-1 text-sm text-gray-500">
                   {useEmailCampaignSelector
-                    ? campaniaSeleccionada
-                      ? `Base origen: ${contextoCampania?.nombre || `ID ${campaniaSeleccionada}`}`
-                      : emailCampaignSeleccionada
-                        ? 'Seleccioná una campaña base para listar prospectos'
-                        : 'Sin campaña Email seleccionada'
+                    ? emailCampaignSeleccionada
+                      ? 'Mostrando el universo de prospectos del cliente autenticado'
+                      : 'La tabla carga el universo del cliente aunque aún no elijas campaña Email'
                     : campaniaSeleccionada
                       ? `ID ${campaniaSeleccionada}`
                       : 'Sin campaña seleccionada'}
@@ -805,44 +812,24 @@ const GestionDestinatariosPage = ({
             <div className="px-6 py-4">
               <div className="flex flex-wrap items-end gap-3">
                 {useEmailCampaignSelector ? (
-                  <>
-                    <div className="min-w-[240px] flex-1">
-                      <label className="block text-sm font-medium mb-1">Campaña Email</label>
-                      <select
-                        value={emailCampaignSeleccionada}
-                        onChange={(e) => setEmailCampaignSeleccionada(e.target.value)}
-                        className="w-full px-3 py-2 border rounded-lg"
-                      >
-                        <option value="">Seleccionar campaña Email...</option>
-                        {emailCampaigns.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.nombre}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="min-w-[240px] flex-1">
-                      <label className="block text-sm font-medium mb-1">Campaña base de prospectos</label>
-                      <select
-                        value={campaniaSeleccionada}
-                        onChange={(e) => setCampaniaSeleccionada(e.target.value)}
-                        className="w-full px-3 py-2 border rounded-lg"
-                      >
-                        <option value="">Seleccionar campaña base...</option>
-                        {campanas.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.nombre}
-                          </option>
-                        ))}
-                      </select>
-                      {!campaniaSeleccionada && (
-                        <p className="mt-1 text-xs text-amber-600">
-                          Seleccioná una campaña base para listar prospectos y agregarlos a la campaña Email elegida.
-                        </p>
-                      )}
-                    </div>
-                  </>
+                  <div className="min-w-[240px] flex-1">
+                    <label className="block text-sm font-medium mb-1">Campaña Email</label>
+                    <select
+                      value={emailCampaignSeleccionada}
+                      onChange={(e) => setEmailCampaignSeleccionada(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-lg"
+                    >
+                      <option value="">Seleccionar campaña Email...</option>
+                      {emailCampaigns.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.nombre}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-xs text-gray-500">
+                      La grilla usa automáticamente todos los prospectos del cliente autenticado.
+                    </p>
+                  </div>
                 ) : (
                   <div className="min-w-[240px] flex-1">
                     <label className="block text-sm font-medium mb-1">Campaña de destino</label>
