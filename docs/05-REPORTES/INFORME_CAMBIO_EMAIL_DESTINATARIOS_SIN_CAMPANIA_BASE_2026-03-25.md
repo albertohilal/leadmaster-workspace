@@ -529,3 +529,42 @@ La pantalla de destinatarios Email ahora:
 - deja fuera de este contexto el composer manual ad hoc vía `/mailer/send`.
 
 Estado del resultado: **alineado con el objetivo funcional solicitado para el selector Email**.
+
+---
+
+## 12. Estado de cierre de la etapa
+
+Esta etapa queda **cerrada funcionalmente** con validación funcional y end-to-end sobre el flujo principal de Campañas Email.
+
+El alcance validado de cierre cubre:
+
+- selección de destinatarios sin dependencia de “Campaña base de prospectos”;
+- grilla alimentada con el universo de prospectos del cliente autenticado;
+- estado real por prospecto resuelto contra `ll_envios_email` de la campaña seleccionada;
+- agregado de recipients sobre la campaña Email persistida;
+- `Preparar envío Email` operando sobre la campaña persistida y no sobre un composer manual;
+- envío técnico real de la campaña preparada;
+- recepción real del correo en inbox;
+- validación end-to-end para cliente `52`.
+
+También quedó validado que el remitente efectivo del caso auditado fue:
+
+- `Desarrollo y Diseño <info@desarrolloydisenio.com.ar>`.
+
+Por lo tanto, los temas abiertos ya no corresponden a un bug bloqueante del flujo principal Email de esta etapa, sino a la siguiente fase de evolución arquitectónica y operativa.
+
+**Estado de la etapa:** cerrada.  
+**Resultado:** flujo Email persistido validado end-to-end para cliente 52.  
+**Siguiente fase recomendada:** desacople operativo WhatsApp/Email y soporte de tandas progresivas con reanudación explícita de pendientes.
+
+## 13. Pendientes para próxima etapa
+
+Los próximos pasos recomendados, ya fuera del cierre funcional de esta etapa, son:
+
+- separación de flags WhatsApp / Email;
+- mejora de observabilidad del scheduler Email;
+- soporte de tandas progresivas para campañas Email;
+- incorporación de una acción explícita de reanudación de pendientes (`resume-pending` o equivalente);
+- posible desacople operativo en PM2 entre API, scheduler Email y scheduler WhatsApp.
+
+Estos puntos no invalidan el cierre de la etapa actual: describen la fase siguiente de arquitectura/operación recomendada.

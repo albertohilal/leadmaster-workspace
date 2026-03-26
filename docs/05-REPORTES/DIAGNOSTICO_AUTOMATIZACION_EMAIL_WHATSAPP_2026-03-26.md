@@ -1047,3 +1047,17 @@ Estado documental del hallazgo:
 - **AS-IS IMPLEMENTADO:** schedulers distintos, mismo proceso, flag global sólo consumido por WhatsApp, Email preparado vía endpoint real y procesado por scheduler.
 - **DESALINEADO / RIESGO OPERATIVO:** naming del flag y proceso único generan ambigüedad operacional.
 - **TARGET / PLANNED recomendado:** flags separados, procesos separados y una acción explícita de reanudación de pendientes (`resume-pending`) para Email.
+
+## 11. Estado actual del tema
+
+- **Estado de la etapa:** cerrada.
+- **Resultado:** validación E2E exitosa del flujo actual de campañas Email persistidas para cliente `52`.
+- **Incidente puntual de envío:** no quedó confirmado como bug persistente del flujo principal Email.
+- **Próxima fase:** desacople operativo WhatsApp/Email y soporte de tandas progresivas con reanudación explícita de pendientes.
+
+En términos editoriales y operativos, este diagnóstico también puede darse por cerrado para esta etapa:
+
+- el flujo Email persistido quedó validado end-to-end;
+- el incidente puntual no quedó abierto como falla confirmada de envío;
+- lo pendiente pasa a ser una nueva etapa de implementación recomendada, centrada en arquitectura, observabilidad y modelo operativo de campañas progresivas.
+
