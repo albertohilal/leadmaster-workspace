@@ -23,6 +23,7 @@ Se aplicó un refactor acotado y reutilizable:
 - se extendió el endpoint existente `/api/sender/prospectos/filtrar` para soportar un modo sin `campania_id`;
 - se corrigió la selección canónica de filas en ese modo Email para no perder emails válidos por un `MAX(rowid)` ciego;
 - se corrigió además la semántica del **Estado** visual en la grilla Email para que dependa de `ll_envios_email` de la campaña seleccionada;
+- se corrigió el flujo de **“Preparar envío Email”** para que, en el contexto de Campañas Email, use la campaña persistida y no un composer manual ad hoc;
 - se mantuvieron sin romperse los flujos de:
   - filtros locales;
   - selección múltiple;
@@ -95,21 +96,26 @@ En el ajuste final de Email, este endpoint acepta además `email_campaign_id` op
 
 - `GET /api/email/campaigns`
 - `POST /api/email/campaigns/:id/recipients`
+- `POST /api/email/campaigns/:id/prepare`
 
 #### Campañas WhatsApp / destinatarios
 
 - `POST /api/sender/destinatarios/campania/:campaniaId/agregar`
 
-#### Flujo actual de “Preparar envío Email”
+#### Flujo corregido de “Preparar envío Email”
 
-El flujo conectado en esta pantalla **no prepara una campaña backend**. Abre un modal y ejecuta envíos por destinatario usando:
+En el contexto de Campañas Email, el flujo corregido ya no abre un composer manual. Ahora usa el endpoint real:
 
-- `POST /mailer/send`
+- `POST /api/email/campaigns/:id/prepare`
 
-desde:
+Ese endpoint:
 
-- `services/central-hub/frontend/src/components/destinatarios/EmailCampaignFormModal.jsx`
-- `services/central-hub/frontend/src/services/email.js`
+- toma asunto/body persistidos de `ll_campanias_email`;
+- opera sobre los recipients persistidos en `ll_envios_email`;
+- deja la campaña en estado `pendiente`;
+- agenda el primer envío para que el scheduler real continúe la cadena técnica.
+
+El composer manual vía `/mailer/send` queda fuera de este flujo principal de campañas persistidas.
 
 ### 2.5 Causa exacta de la dependencia de “Campaña base de prospectos”
 
@@ -143,7 +149,7 @@ Se aplicó el siguiente plan mínimo:
 1. mantener `GestionDestinatariosPage` como pieza compartida;
 2. remover únicamente la dependencia funcional de campaña base en modo Email;
 3. reutilizar el endpoint existente de prospectos, ampliándolo en lugar de crear uno nuevo;
-4. preservar todos los flujos actuales ya conectados.
+4. preservar los flujos correctos ya conectados y retirar del contexto de Campañas Email el composer manual engañoso.
 
 No se inventaron:
 
@@ -167,9 +173,12 @@ Archivo modificado:
 	- si `useEmailCampaignSelector` es `true`, la pantalla ahora ejecuta `cargarProspectos()` al entrar;
 	- en modo WhatsApp se mantiene la carga dependiente de `campaniaSeleccionada`.
 
+
 2. **Fetch de prospectos desacoplado**
-	- en modo Email ahora se llama `prospectosService.filtrarProspectos({})`;
-	- en modo WhatsApp se sigue llamando con `campania_id`.
+   - en modo Email la llamada ya no depende de `campania_id`;
+   - cuando no hay campaña Email seleccionada, el endpoint devuelve el universo Email del cliente;
+   - cuando hay campaña Email seleccionada, la UI envía `email_campaign_id` para enriquecer el estado real contra `ll_envios_email`;
+   - en modo WhatsApp se sigue llamando con `campania_id`.
 
 3. **Eliminación de UI obsoleta**
 	- se eliminó el dropdown **“Campaña base de prospectos”**;
@@ -177,6 +186,12 @@ Archivo modificado:
 
 4. **Texto contextual actualizado**
 	- se reemplazó la referencia a “base origen” por mensajes que indican que la grilla usa el universo del cliente autenticado.
+
+5. **Corrección del flujo de preparación/envío de campaña**
+	- en el contexto `useEmailCampaignSelector`, el botón **“Preparar envío Email”** ya no abre `EmailCampaignFormModal`;
+	- ahora llama al endpoint real `POST /api/email/campaigns/:id/prepare`;
+	- el flujo usa asunto/cuerpo/remitente/recipients persistidos de la campaña seleccionada;
+	- el modal manual queda reservado para contextos manuales aislados y no para el flujo principal de Campañas Email.
 
 #### Lo que se mantuvo intacto
 
@@ -188,8 +203,12 @@ Archivo modificado:
   - canal disponible
 - selección múltiple
 - `Agregar a Campaña`
-- `Preparar envío Email`
-- modal de envío Email
+- `Preparar envío Email` como acción visible de la pantalla
+
+#### Lo que cambió deliberadamente
+
+- en el flujo principal de Campañas Email, `Preparar envío Email` dejó de ser un envío manual ad hoc;
+- `EmailCampaignFormModal` deja de ser el flujo principal de `/email/campaigns/:campaignId/prospects`, aunque el componente manual aislado puede seguir existiendo para otros contextos.
 
 ### 4.2 Frontend — `prospectos.js`
 
@@ -201,7 +220,21 @@ Archivo modificado:
 
 Se dejó explícito que `campania_id` es opcional, porque en Email ahora el endpoint puede devolver el universo del cliente autenticado sin necesidad de campaña base.
 
-### 4.3 Backend — `prospectosController.js`
+### 4.3 Frontend — `email.js`
+
+Archivo modificado:
+
+- `services/central-hub/frontend/src/services/email.js`
+
+#### Cambio realizado
+
+Se agregó soporte para invocar el endpoint real de preparación de campañas persistidas:
+
+- `prepareCampaign(campaignId, payload = {})`
+
+Esto evita reutilizar `/mailer/send` para el flujo principal de Campañas Email.
+
+### 4.4 Backend — `prospectosController.js`
 
 Archivo modificado:
 
@@ -298,6 +331,19 @@ No hizo falta crear uno nuevo porque:
 - el cambio era una ampliación de contrato, no un caso nuevo aislado;
 - así se evitó duplicar lógica de selección de prospectos por cliente.
 
+### 4.5 Backend real de preparación/envío Email ya existente
+
+Durante la revisión se verificó que el backend real para campañas persistidas ya existía y estaba operativo:
+
+- ruta: `POST /api/email/campaigns/:id/prepare`
+- controller: `emailCampaigns.controller.prepare`
+- servicio: `emailCampaignPrepare.service.prepareCampaign`
+- ejecución técnica posterior: `emailCampaigns.scheduler`
+
+El scheduler arranca desde `src/index.js` y procesa campañas en estado `pendiente` o `en_progreso`.
+
+Por lo tanto, la corrección requerida no consistía en inventar un endpoint nuevo, sino en conectar correctamente el frontend al backend ya implementado.
+
 ---
 
 ## 5. Flujo funcional resultante
@@ -318,7 +364,9 @@ No hizo falta crear uno nuevo porque:
 12. elige la campaña Email destino;
 13. `Agregar a Campaña` llama `POST /api/email/campaigns/:id/recipients`;
 14. al recargar la grilla, el estado ya refleja el recipient real en `ll_envios_email`;
-15. `Preparar envío Email` sigue abriendo el modal existente y usando `/mailer/send` por destinatario válido.
+15. `Preparar envío Email` ya no pide reescribir asunto/cuerpo manualmente;
+16. el botón invoca `POST /api/email/campaigns/:id/prepare` para la campaña seleccionada;
+17. la campaña queda preparada en backend y el scheduler real puede continuar el envío técnico.
 
 ### 5.2 Flujo WhatsApp posterior al cambio
 
@@ -357,9 +405,9 @@ No cambió:
 
 **Cumplido.** No se alteró el flujo de agregado a campaña Email.
 
-### 7. “Preparar envío Email” sigue funcionando
+### 7. “Preparar envío Email” usa la campaña persistida
 
-**Cumplido.** No se alteró el flujo del modal ni el fanout existente a `/mailer/send`.
+**Cumplido.** En el contexto de Campañas Email, el botón ya no abre un modal para redactar un correo nuevo. Usa la campaña persistida y el endpoint real `POST /api/email/campaigns/:id/prepare`.
 
 ### 8. El comportamiento queda alineado con la pantalla de selección de prospectos de WhatsApp
 
@@ -378,7 +426,14 @@ No cambió:
 	- `campania_id` documentado como opcional
 	- soporte de `email_campaign_id` opcional
 
-3. `services/central-hub/src/modules/sender/controllers/prospectosController.js`
+3. `services/central-hub/frontend/src/services/email.js`
+	- agregado `prepareCampaign(campaignId, payload = {})`
+
+4. `services/central-hub/frontend/src/components/destinatarios/EmailCampaignFormModal.jsx`
+	- marcado explícitamente como flujo manual aislado
+	- fuera del flujo principal de Campañas Email persistidas
+
+5. `services/central-hub/src/modules/sender/controllers/prospectosController.js`
 	- soporte para universo del cliente autenticado sin `campania_id`
 	- deduplicación híbrida por teléfono o email normalizado
 	- priorización de filas con email válido dentro de cada grupo
@@ -422,10 +477,10 @@ No cambió:
 	- el badge de estado ahora depende de `ll_envios_email` sólo cuando hay campaña Email seleccionada.
 	- conviene validar manualmente los estados reales usados por el scheduler (`PENDING`, `SENT`, `FAILED` y cualquier otro futuro).
 
-5. **Flujo de envío Email actual**
-	- sigue siendo el flujo real ya conectado: modal + fanout a `/mailer/send`.
-	- no se migró a `POST /api/email/campaigns/:id/prepare` porque no es el flujo operativo que esta pantalla estaba usando hoy.
-	- este cambio resuelve el selector/recipients Email, no un pipeline técnico nuevo de prepare/send backend.
+5. **Preparación vs envío efectivo**
+	- el botón de la pantalla ahora prepara correctamente la campaña persistida en backend;
+	- el envío efectivo posterior depende del scheduler de campañas Email ya implementado y de la configuración real de mailer/smtp del entorno.
+	- conviene validar manualmente el ciclo completo: `borrador` → `pendiente` → `en_progreso` / `enviado` / `error`, según el comportamiento operativo del entorno.
 
 ---
 
@@ -445,7 +500,10 @@ No cambió:
 7. seleccionar uno o varios prospectos;
 8. elegir una campaña Email en el selector de campaña;
 9. presionar **Agregar a Campaña** y verificar respuesta correcta;
-10. presionar **Preparar envío Email**, completar asunto y cuerpo, y verificar que el flujo continúa funcionando;
+10. presionar **Preparar envío Email** y verificar que:
+	- no se abre modal para escribir un asunto/cuerpo nuevo;
+	- la UI confirma la preparación de la campaña persistida;
+	- el backend deja la campaña en `pendiente` y agenda al menos el primer recipient;
 11. repetir la prueba con una campaña Email concreta desde `/email/campaigns/:campaignId/prospects`.
 
 ---
@@ -467,6 +525,7 @@ La pantalla de destinatarios Email ahora:
 - conserva los filtros actuales;
 - conserva la selección múltiple;
 - conserva el agregado a campaña;
-- conserva el flujo de preparación/envío Email hoy conectado.
+- usa el flujo real de campaña persistida para preparar el envío Email;
+- deja fuera de este contexto el composer manual ad hoc vía `/mailer/send`.
 
 Estado del resultado: **alineado con el objetivo funcional solicitado para el selector Email**.

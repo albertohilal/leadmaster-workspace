@@ -54,6 +54,11 @@ async function addCampaignRecipients(campaignId, recipients) {
   return response?.data?.data || null;
 }
 
+async function prepareCampaign(campaignId, payload = {}) {
+  const response = await apiService.post(`/email/campaigns/${campaignId}/prepare`, payload);
+  return response?.data?.data || null;
+}
+
 async function sendSelectionFanout({ recipients, subject, text }) {
   const attempts = await Promise.allSettled(
     recipients.map(async (recipient) => {
@@ -117,6 +122,7 @@ const emailService = {
   createCampaign,
   listCampaigns,
   addCampaignRecipients,
+  prepareCampaign,
   send,
   sendSelectionFanout
 };

@@ -95,6 +95,86 @@ const INITIAL_CLASIFICACION = {
   detalle: ''
 };
 
+const POST_ENVIO_ESTADOS = [
+  { value: 'CONTACTO_VALIDO_SIN_INTERES', label: 'Contacto válido sin interés' },
+  { value: 'PARA_DERIVAR', label: 'Para derivar' },
+  { value: 'PENDIENTE_SIN_RESPUESTA', label: 'Pendiente sin respuesta' },
+  { value: 'NUMERO_INEXISTENTE', label: 'Número inexistente' },
+  { value: 'NUMERO_CAMBIO_DUEÑO', label: 'Número cambió de dueño' },
+  { value: 'TERCERO_NO_RESPONSABLE', label: 'Tercero no responsable' },
+  { value: 'ATENDIO_MENOR_DE_EDAD', label: 'Atendió menor de edad' },
+  { value: 'NO_ENTREGADO_ERROR_ENVIO', label: 'No entregado / error de envío' }
+];
+
+const POST_ENVIO_ACCIONES = [
+  { value: 'DERIVAR', label: 'Derivar' },
+  { value: 'FOLLOWUP_1', label: 'Follow-up 1' },
+  { value: 'CERRAR', label: 'Cerrar' },
+  { value: 'INVALIDAR_TELEFONO', label: 'Invalidar teléfono' },
+  { value: 'REINTENTO_TECNICO', label: 'Reintento técnico' },
+  { value: 'NO_CONTACTAR', label: 'No contactar' }
+];
+
+function traducirEstado(estado) {
+  if (typeof estado === 'string' && estado.startsWith('email_status:')) {
+    return estado.replace('email_status:', '').replaceAll('_', ' ');
+  }
+
+  switch (estado) {
+    case 'seleccionar_campana':
+      return 'Seleccionar campaña';
+    case 'sin_envio':
+      return 'No incluido';
+    case 'pendiente':
+      return 'Pendiente';
+    case 'enviado':
+      return 'Enviado';
+    case 'error':
+      return 'Error';
+    case 'CONTACTO_VALIDO_SIN_INTERES':
+      return 'Contacto válido sin interés';
+    case 'PARA_DERIVAR':
+      return 'Para derivar';
+    case 'PENDIENTE_SIN_RESPUESTA':
+      return 'Pendiente sin respuesta';
+    case 'NUMERO_INEXISTENTE':
+      return 'Número inexistente';
+    case 'NUMERO_CAMBIO_DUEÑO':
+      return 'Número cambió de dueño';
+    case 'TERCERO_NO_RESPONSABLE':
+      return 'Tercero no responsable';
+    case 'ATENDIO_MENOR_DE_EDAD':
+      return 'Atendió menor de edad';
+    case 'NO_ENTREGADO_ERROR_ENVIO':
+      return 'No entregado / error de envío';
+    default:
+      return estado;
+  }
+}
+
+function badgeEstado(estado) {
+  if (typeof estado === 'string' && estado.startsWith('email_status:')) {
+    const raw = estado.replace('email_status:', '');
+    if (raw === 'PENDING') return 'bg-yellow-100 text-yellow-800';
+    if (raw === 'SENT') return 'bg-green-100 text-green-800';
+    if (raw === 'FAILED' || raw === 'ERROR') return 'bg-red-100 text-red-800';
+    return 'bg-gray-100 text-gray-800';
+  }
+
+  switch (estado) {
+    case 'seleccionar_campana':
+      return 'bg-slate-100 text-slate-700';
+    case 'enviado':
+      return 'bg-green-100 text-green-800';
+    case 'pendiente':
+      return 'bg-yellow-100 text-yellow-800';
+    case 'error':
+      return 'bg-red-100 text-red-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
+}
+
 const GestionDestinatariosPage = ({
   hideHeader = false,
   backPath = '/campaigns',
@@ -218,7 +298,7 @@ const GestionDestinatariosPage = ({
     if (!useEmailCampaignSelector) return;
     setSeleccionados([]);
     resetEmailModalState();
-  }, [emailCampaignSeleccionada, emailCampaigns, useEmailCampaignSelector]);
+  }, [emailCampaignSeleccionada, emailCampaigns, resetEmailModalState, useEmailCampaignSelector]);
 
   const cargarCampanas = async () => {
     try {
@@ -493,25 +573,49 @@ const GestionDestinatariosPage = ({
     resetEmailModalState();
   };
 
-  const prepararEnvioWhatsAppSeleccionado = async () => {
-    if (resumenSeleccion.total === 0) {
-      alert('Selecciona al menos un prospecto');
+  const prepararEnvioEmailCampania = async () => {
+    if (!useEmailCampaignSelector) {
+      abrirModalEmail();
       return;
     }
 
-    if (resumenSeleccion.whatsappListos.length === 0) {
-      alert('No hay prospectos seleccionados listos para reutilizar el flujo actual de WhatsApp');
+    if (!emailCampaignSeleccionada) {
+      alert('Selecciona una campaña Email para preparar su envío');
       return;
     }
 
-    if (resumenSeleccion.whatsappListos.length > 1) {
+    const campaignName = emailCampaignContexto?.nombre || `#${emailCampaignSeleccionada}`;
+    const confirmed = window.confirm(
+      `Se va a preparar el envío técnico de la campaña Email "${campaignName}" usando el asunto, cuerpo y destinatarios persistidos. ¿Continuar?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setLoadingEmail(true);
+
+    try {
+      const response = await emailService.prepareCampaign(emailCampaignSeleccionada);
+      const campaign = response?.campaign || {};
+      const stats = response?.stats || {};
+
+      await cargarProspectos();
+
       alert(
-        'El flujo actual de WhatsApp se reutiliza de a un prospecto por vez. Selecciona solo uno para continuar.'
+        `Campaña Email preparada correctamente. Estado: ${campaign.estado || 'pendiente'}. Próximo envío: ${campaign.next_envio_id || 'N/D'}. Destinatarios pendientes: ${stats.total_pendientes ?? 'N/D'}.`
       );
-      return;
+    } catch (error) {
+      console.error('Error preparando campaña Email:', error);
+      alert(
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        'No se pudo preparar la campaña Email'
+      );
+    } finally {
+      setLoadingEmail(false);
     }
-
-    await handleAbrirModalWhatsApp(resumenSeleccion.whatsappListos[0]);
   };
 
   const enviarEmailSeleccion = async ({ subject, text, recipients }) => {
@@ -540,64 +644,25 @@ const GestionDestinatariosPage = ({
     }
   };
 
-  const traducirEstado = (estado) => {
-    if (typeof estado === 'string' && estado.startsWith('email_status:')) {
-      return estado.replace('email_status:', '').replaceAll('_', ' ');
+  const prepararEnvioWhatsAppSeleccionado = async () => {
+    if (resumenSeleccion.total === 0) {
+      alert('Selecciona al menos un prospecto');
+      return;
     }
 
-    switch (estado) {
-      case 'seleccionar_campana':
-        return 'Seleccionar campaña';
-      case 'sin_envio':
-        return 'No incluido';
-      case 'pendiente':
-        return 'Pendiente';
-      case 'enviado':
-        return 'Enviado';
-      case 'error':
-        return 'Error';
-      case 'CONTACTO_VALIDO_SIN_INTERES':
-        return 'Contacto válido sin interés';
-      case 'PARA_DERIVAR':
-        return 'Para derivar';
-      case 'PENDIENTE_SIN_RESPUESTA':
-        return 'Pendiente sin respuesta';
-      case 'NUMERO_INEXISTENTE':
-        return 'Número inexistente';
-      case 'NUMERO_CAMBIO_DUEÑO':
-        return 'Número cambió de dueño';
-      case 'TERCERO_NO_RESPONSABLE':
-        return 'Tercero no responsable';
-      case 'ATENDIO_MENOR_DE_EDAD':
-        return 'Atendió menor de edad';
-      case 'NO_ENTREGADO_ERROR_ENVIO':
-        return 'No entregado / error de envío';
-      default:
-        return estado;
-    }
-  };
-
-  const badgeEstado = (estado) => {
-    if (typeof estado === 'string' && estado.startsWith('email_status:')) {
-      const raw = estado.replace('email_status:', '');
-      if (raw === 'PENDING') return 'bg-yellow-100 text-yellow-800';
-      if (raw === 'SENT') return 'bg-green-100 text-green-800';
-      if (raw === 'FAILED' || raw === 'ERROR') return 'bg-red-100 text-red-800';
-      return 'bg-gray-100 text-gray-800';
+    if (resumenSeleccion.whatsappListos.length === 0) {
+      alert('No hay prospectos seleccionados listos para reutilizar el flujo actual de WhatsApp');
+      return;
     }
 
-    switch (estado) {
-      case 'seleccionar_campana':
-        return 'bg-slate-100 text-slate-700';
-      case 'enviado':
-        return 'bg-green-100 text-green-800';
-      case 'pendiente':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'error':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+    if (resumenSeleccion.whatsappListos.length > 1) {
+      alert(
+        'El flujo actual de WhatsApp se reutiliza de a un prospecto por vez. Selecciona solo uno para continuar.'
+      );
+      return;
     }
+
+    await handleAbrirModalWhatsApp(resumenSeleccion.whatsappListos[0]);
   };
 
   /**
@@ -711,26 +776,6 @@ const GestionDestinatariosPage = ({
   const cancelarEnvio = () => {
     resetWhatsappModalState();
   };
-
-  const POST_ENVIO_ESTADOS = [
-    { value: 'CONTACTO_VALIDO_SIN_INTERES', label: 'Contacto válido sin interés' },
-    { value: 'PARA_DERIVAR', label: 'Para derivar' },
-    { value: 'PENDIENTE_SIN_RESPUESTA', label: 'Pendiente sin respuesta' },
-    { value: 'NUMERO_INEXISTENTE', label: 'Número inexistente' },
-    { value: 'NUMERO_CAMBIO_DUEÑO', label: 'Número cambió de dueño' },
-    { value: 'TERCERO_NO_RESPONSABLE', label: 'Tercero no responsable' },
-    { value: 'ATENDIO_MENOR_DE_EDAD', label: 'Atendió menor de edad' },
-    { value: 'NO_ENTREGADO_ERROR_ENVIO', label: 'No entregado / error de envío' }
-  ];
-
-  const POST_ENVIO_ACCIONES = [
-    { value: 'DERIVAR', label: 'Derivar' },
-    { value: 'FOLLOWUP_1', label: 'Follow-up 1' },
-    { value: 'CERRAR', label: 'Cerrar' },
-    { value: 'INVALIDAR_TELEFONO', label: 'Invalidar teléfono' },
-    { value: 'REINTENTO_TECNICO', label: 'Reintento técnico' },
-    { value: 'NO_CONTACTAR', label: 'No contactar' }
-  ];
 
   const abrirModalClasificar = (prospecto) => {
     if (!prospecto?.envio_id) {
@@ -1038,7 +1083,7 @@ const GestionDestinatariosPage = ({
                   <div className="text-sm font-medium text-gray-900">Acciones sobre seleccionados</div>
                   <div className="text-sm text-gray-600">
                     {hideWhatsappActions
-                      ? `${resumenSeleccion.total} seleccionados. Prepará y enviá Email sobre la selección común.`
+                      ? `${resumenSeleccion.total} seleccionados. Agregá destinatarios a la campaña y luego prepará el envío técnico real de esa campaña.`
                       : `${resumenSeleccion.total} seleccionados. WhatsApp reutiliza el flujo actual y se prepara de a un prospecto por vez. Email usa la selección común.`}
                   </div>
                 </div>
@@ -1072,12 +1117,12 @@ const GestionDestinatariosPage = ({
                   )}
 
                   <button
-                    onClick={abrirModalEmail}
-                    disabled={resumenSeleccion.total === 0 || loadingEmail}
+                    onClick={prepararEnvioEmailCampania}
+                    disabled={useEmailCampaignSelector ? !emailCampaignSeleccionada || loadingEmail : resumenSeleccion.total === 0 || loadingEmail}
                     className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:bg-gray-300"
                   >
                     <SendHorizontal className="h-4 w-4" />
-                    Preparar envío Email
+                    {loadingEmail ? 'Preparando campaña...' : 'Preparar envío Email'}
                   </button>
                 </div>
               </div>
@@ -1207,14 +1252,16 @@ const GestionDestinatariosPage = ({
         </div>
       </div>
 
-      <EmailCampaignFormModal
-        isOpen={mostrarModalEmail}
-        onClose={cerrarModalEmail}
-        selectedProspects={seleccionados}
-        onSubmit={enviarEmailSeleccion}
-        loading={loadingEmail}
-        result={resultadoEmail}
-      />
+      {!useEmailCampaignSelector && (
+        <EmailCampaignFormModal
+          isOpen={mostrarModalEmail}
+          onClose={cerrarModalEmail}
+          selectedProspects={seleccionados}
+          onSubmit={enviarEmailSeleccion}
+          loading={loadingEmail}
+          result={resultadoEmail}
+        />
+      )}
 
       {mostrarModalWhatsApp && prospectoSeleccionado && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
