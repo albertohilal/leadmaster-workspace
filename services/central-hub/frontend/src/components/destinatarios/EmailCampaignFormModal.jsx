@@ -5,6 +5,9 @@ import emailService from '../../services/email';
 
 const PREVIEW_LIMIT = 6;
 
+// Componente reservado para envíos manuales aislados.
+// No debe usarse como flujo principal del módulo de Campañas Email persistidas.
+
 const EmailCampaignFormModal = ({
   isOpen,
   onClose,
@@ -85,7 +88,7 @@ const EmailCampaignFormModal = ({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Preparar envío Email" size="large">
+    <Modal isOpen={isOpen} onClose={onClose} title="Envío manual Email" size="large">
       <form className="space-y-6" onSubmit={handleSubmit}>
         <div className="grid gap-3 md:grid-cols-3">
           <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
@@ -115,7 +118,7 @@ const EmailCampaignFormModal = ({
         </div>
 
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-          Este flujo usa el endpoint existente /mailer/send por cada destinatario válido. Queda separado del futuro envío masivo backend.
+          Este flujo usa el endpoint existente /mailer/send por cada destinatario válido. Es un envío manual aislado y no corresponde al flujo principal de Campañas Email persistidas.
         </div>
 
         <div>

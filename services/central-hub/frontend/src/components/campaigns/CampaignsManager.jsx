@@ -368,28 +368,17 @@ const CampaignsManager = () => {
           </p>
         </div>
         <div className="flex gap-3">
+          <Link
+            to="/prospectos"
+            className="inline-flex items-center justify-center rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50"
+          >
+            Seleccionar destinatarios
+          </Link>
           <Button variant="primary" onClick={handleCreateCampaign}>
             + Nueva Campaña WhatsApp
           </Button>
         </div>
       </div>
-
-      <Card className="border border-sky-200 bg-sky-50">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-1">
-            <p className="text-sm font-semibold text-sky-900">Nuevo frente Email</p>
-            <p className="text-sm text-sky-800">
-              La creación de campañas Email ya tiene pantalla propia y sigue separada del flujo actual de campañas WhatsApp. Este panel no funciona todavía como gestor multicanal completo.
-            </p>
-          </div>
-          <Link
-            to="/email/campaigns/new"
-            className="inline-flex items-center justify-center rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700"
-          >
-            Ir a creación de campaña Email
-          </Link>
-        </div>
-      </Card>
 
       {/* Estadísticas Generales */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">

@@ -1,7 +1,9 @@
 # Phase 4B — Email Prospecting Channel
 
-**Status:** IN PROGRESS  
+**Status:** PARTIALLY COMPLETED  
 **Date:** 2026-03-15  
+**Last Reviewed:** 2026-03-22  
+**Implemented In:** feature/campaigns-by-channel-alignment  
 **Owner:** Alberto Hilal  
 **Workspace:** LeadMaster  
 **Depends on:** ADR-001 / Contratos HTTP Email / Arquitectura Canal Email / Cierre end-to-end 2026-03-15
@@ -82,6 +84,10 @@ Capacidades actualmente disponibles:
 - visualización de disponibilidad de email
 - preparación inicial de envío Email
 - envío manual en modo prueba sobre selección actual
+- persistencia de recipients por campaña Email
+- prepare de campaña Email para pasar de borrador a operación controlada
+- scheduler secuencial de campañas Email
+- operación uno a uno por destinatario
 
 ### 3.4 Base de configuración SMTP por cliente
 
@@ -94,6 +100,14 @@ Uso real implementado:
 Uso real implementado:
 
 - registro técnico del envío en `ll_envios_email`
+- reutilización de la misma fila técnica mediante `envio_email_id` en la integración con `leadmaster-mailer`
+
+### 3.6 Tests reales del flujo backend
+
+Uso real implementado:
+
+- tests reales en `central-hub` para recipients, prepare, stats, scheduler y compatibilidad con `POST /api/email/send`
+- tests reales en `services/mailer` para `emailLogRepository`, `mailerService` y compatibilidad con `envio_email_id`
 
 ---
 
@@ -115,6 +129,7 @@ Durante la fase quedaron validadas las siguientes condiciones técnicas:
 Resultado práctico:
 
 - la cadena UI → `central-hub` → `leadmaster-mailer` → SMTP quedó funcional
+- el backend de campañas Email por destinatario quedó operativo con prepare, scheduler y persistencia por fila
 
 ---
 
@@ -133,7 +148,7 @@ La subfase técnica efectivamente cerrada comprende:
 Conclusión de cierre parcial:
 
 - el transporte y la integración técnica del canal quedaron resueltos para esta etapa
-- la fase ya no debe ser leída como “solo fundacional/documental”
+- el flujo backend de campañas Email ya no debe ser leído como “solo transporte + prueba manual”
 
 ---
 
@@ -146,8 +161,8 @@ Pendientes reales:
 - cobertura útil de emails en la base operativa de prospectos
 - adquisición y enriquecimiento de emails
 - normalización e higiene de datos email
-- mayor robustez operativa sobre la UI inicial
-- evolución desde envío manual de prueba hacia operación más controlada
+- madurez operativa/comercial de la experiencia más allá del flujo backend ya cerrado
+- endurecimiento semántico y robustez final de UI sobre la operación por canal
 
 Pendientes explícitamente fuera del cierre técnico actual:
 
@@ -227,6 +242,12 @@ Hoy el proyecto ya tiene:
 - auditoría de envíos
 - UI inicial para operar Email en modo prueba
 - validación con envío real
+- recipients persistidos por campaña
+- prepare de campaña Email
+- scheduler secuencial por destinatario
+- operación uno a uno con delays y retries básicos
+- soporte `envio_email_id` entre `central-hub` y `leadmaster-mailer`
+- tests reales en `central-hub` y `mailer` para este flujo
 
 Sin embargo, la fase completa todavía no debe considerarse terminada.
 

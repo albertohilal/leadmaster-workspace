@@ -31,15 +31,32 @@ async function send({ to, subject, text }) {
   return response.data;
 }
 
-async function createCampaign({ channel = 'EMAIL', nombre, subject, text }) {
+async function createCampaign({ nombre, subject, text }) {
   const response = await apiService.post('/email/campaigns', {
-    channel,
     nombre,
     subject,
     text
   });
 
   return response.data;
+}
+
+async function listCampaigns() {
+  const response = await apiService.get('/email/campaigns');
+  return response?.data?.data?.campaigns || [];
+}
+
+async function addCampaignRecipients(campaignId, recipients) {
+  const response = await apiService.post(`/email/campaigns/${campaignId}/recipients`, {
+    recipients
+  });
+
+  return response?.data?.data || null;
+}
+
+async function prepareCampaign(campaignId, payload = {}) {
+  const response = await apiService.post(`/email/campaigns/${campaignId}/prepare`, payload);
+  return response?.data?.data || null;
 }
 
 async function sendSelectionFanout({ recipients, subject, text }) {
@@ -103,6 +120,9 @@ const emailService = {
   normalizeEmail,
   isValidEmail,
   createCampaign,
+  listCampaigns,
+  addCampaignRecipients,
+  prepareCampaign,
   send,
   sendSelectionFanout
 };

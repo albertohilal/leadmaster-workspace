@@ -50,6 +50,74 @@ async function getOwnedCampaignById({ cliente_id, campaign_id }) {
   return rows[0] || null;
 }
 
+async function listEmailCampaigns({ cliente_id }) {
+  const [rows] = await db.execute(
+    `SELECT
+       id,
+       nombre,
+       asunto,
+       estado,
+       updated_at
+     FROM ll_campanias_email
+     WHERE cliente_id = ?
+     ORDER BY id DESC`,
+    [cliente_id]
+  );
+
+  return rows.map((row) => ({
+    id: row.id,
+    nombre: row.nombre,
+    subject: row.asunto,
+    estado: row.estado,
+    updatedAt: row.updated_at
+  }));
+}
+
+async function getActiveClientEmailConfig({ cliente_id }) {
+  const [rows] = await db.execute(
+    `SELECT
+       id,
+       cliente_id,
+       from_email,
+       from_name,
+       reply_to_email
+     FROM ll_clientes_email_config
+     WHERE cliente_id = ?
+       AND is_active = 1
+     ORDER BY id DESC
+     LIMIT 1`,
+    [cliente_id]
+  );
+
+  return rows[0] || null;
+}
+
+async function updateCampaignSenderFields({
+  cliente_id,
+  campaign_id,
+  email_from,
+  name_from,
+  reply_to_email
+}) {
+  await db.execute(
+    `UPDATE ll_campanias_email
+     SET
+       email_from = ?,
+       name_from = ?,
+       reply_to_email = ?,
+       updated_at = NOW()
+     WHERE id = ? AND cliente_id = ?
+     LIMIT 1`,
+    [email_from, name_from, reply_to_email, campaign_id, cliente_id]
+  );
+
+  return {
+    email_from,
+    name_from,
+    reply_to_email
+  };
+}
+
 async function createEmailCampaign({ cliente_id, request }) {
   const sql = `
     INSERT INTO ll_campanias_email (
@@ -73,17 +141,17 @@ async function createEmailCampaign({ cliente_id, request }) {
   const params = [
     cliente_id,
     request.nombre,
-    request.asunto,
-    request.body,
+    request.subject,
+    request.text,
     'borrador',
-    toMySqlDateTime(request.fecha_programada),
-    request.email_from,
-    request.name_from,
-    request.reply_to_email,
+    null,
+    null,
+    null,
+    null,
     0,
     0,
     0,
-    request.observaciones
+    null
   ];
 
   const [result] = await db.execute(sql, params);
@@ -92,13 +160,17 @@ async function createEmailCampaign({ cliente_id, request }) {
     id: result.insertId,
     cliente_id,
     nombre: request.nombre,
-    asunto: request.asunto,
+    subject: request.subject,
+    text: request.text,
     estado: 'borrador'
   };
 }
 
 module.exports = {
   createEmailCampaign,
+  getActiveClientEmailConfig,
   getOwnedCampaignById,
+  listEmailCampaigns,
+  updateCampaignSenderFields,
   toMySqlDateTime
 };

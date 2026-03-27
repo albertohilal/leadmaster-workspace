@@ -1,7 +1,7 @@
 # LeadMaster — Official Project Status
 
 **Version:** 3.0  
-**Last Updated:** 2026-03-10  
+**Last Updated:** 2026-03-22  
 **Environment:** Production (Contabo VPS)  
 **Strategic Model:** Service-first (Prospect Generation)  
 **Classification:** Constitutional Document  
@@ -90,6 +90,12 @@ This phase improves internal efficiency but does not change core value.
 ## Phase 4B — Email Prospecting Channel (Foundational Documentation)
 Formal definition of the email prospecting channel (operation model, architecture, requirements, and mailer HTTP contract).  
 Status: ✅ Approved (documentation package)
+
+AS-IS update (2026-03-22):
+- Email campaigns now have operational per-recipient persistence using `ll_campanias_email` + `ll_envios_email`
+- The backend flow already includes prepare, sequential scheduler, and mailer integration through `envio_email_id`
+- This aligns backend execution with the channel-based campaign model
+- Full UI/commercial maturity and broader email data coverage remain pending
 
 Documents:
 - `docs/01-CONSTITUCIONAL/ADR-001-CANAL-EMAIL-PROSPECCION-OPERADO-POR-LEADMASTER.md`

@@ -1,7 +1,9 @@
 # Phase 4B — Campaigns by Channel Alignment Plan
 
-**Status:** IN PROGRESS  
+**Status:** PARTIALLY COMPLETED  
 **Date:** 2026-03-19  
+**Last Reviewed:** 2026-03-22  
+**Implemented In:** feature/campaigns-by-channel-alignment  
 **Owner:** Alberto Hilal  
 **Workspace:** LeadMaster  
 **Depends on:** Arquitectura Canal Email / Phase 4B Email Prospecting Channel / Contratos HTTP Email / Reporte de integración end-to-end 2026-03-15 / Reporte de realineamiento campañas por canal 2026-03-19
@@ -28,6 +30,36 @@ La desalineación está en cómo puede interpretarse la operación actual:
 - ese modelo incorrecto es leer la campaña como neutra respecto del canal y resolver el contenido recién al final de la operación
 
 Si esa lectura se consolida, la UI terminaría habilitando una operación que contradice la decisión documental ya asumida.
+
+## Estado de implementación
+
+### Realizado
+
+- persistencia operativa de campañas Email sobre `ll_campanias_email` como cabecera
+- persistencia operativa por destinatario sobre `ll_envios_email`
+- uso de `ll_envios_email` como:
+	- seleccionados persistidos
+	- cola operativa
+	- resultado final del envío
+- endpoint de recipients para agregar destinatarios por campaña Email
+- endpoint de prepare para dejar la campaña en estado operativo y agendar el primer destinatario
+- stats de campaña sincronizados desde `ll_envios_email`
+- scheduler secuencial de campañas Email
+- envío uno a uno con delays random entre destinatarios
+- retries básicos con límite e identificación de errores transitorios/permanentes
+- integración con `leadmaster-mailer` usando `envio_email_id` para reutilizar la fila existente de `ll_envios_email`
+
+### Pendiente
+
+- endurecimiento semántico completo de la UI compartida si no quedó totalmente cerrado en todas las pantallas y affordances
+- cierre comercial completo del canal Email dentro de la operación diaria
+- cobertura, enriquecimiento y adquisición de emails útiles
+- reporting comercial y capacidades operativas/comerciales más avanzadas
+
+### Criterio de cierre documental
+
+- este documento podrá pasar a `COMPLETED` cuando la alineación por canal quede cerrada también en la semántica completa de UI y operación diaria, sin depender de lecturas transicionales
+- si en el futuro es reemplazado por un documento más canónico de estado operativo por canal, deberá marcarse como `SUPERSEDED` preservando su valor histórico
 
 ## Principio rector
 

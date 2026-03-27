@@ -1,13 +1,15 @@
 import apiService from './api';
 
 export const prospectosService = {
-  // Obtener prospectos filtrados
+  // Obtener prospectos del cliente autenticado; si se informa campania_id,
+  // devuelve el universo vinculado a esa campaña WhatsApp.
   async filtrarProspectos(filtros = {}) {
     try {
       const queryParams = new URLSearchParams();
       
-      // ✅ CRÍTICO: Incluir campania_id (obligatorio)
+      // campania_id es opcional: Email carga el universo completo del cliente.
       if (filtros.campania_id) queryParams.append('campania_id', filtros.campania_id);
+      if (filtros.email_campaign_id) queryParams.append('email_campaign_id', filtros.email_campaign_id);
       
       // Filtros simplificados
       if (filtros.estado) queryParams.append('estado', filtros.estado);

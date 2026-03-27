@@ -86,6 +86,45 @@ docs/06-FASES/PHASE-3-PROSPECT-QUALITY.md
 docs/06-FASES/PHASE-4-SESSION-AUTOMATION.md
 ```
 
+### Required Metadata for Phase / Plan / Status Documents
+
+Every phase, plan, or status-oriented document should declare, when applicable:
+
+- `Status: DRAFT | IN PROGRESS | PARTIALLY COMPLETED | COMPLETED | SUPERSEDED`
+- `Last Reviewed: YYYY-MM-DD`
+- `Implemented In: branch / PR / commit(s)`
+
+Rules:
+
+- `Status` expresses documentary and implementation maturity, not only author intent
+- `Last Reviewed` must be updated whenever the document is materially realigned against code or runtime evidence
+- `Implemented In` must reference real implementation evidence when available
+- If there is no verified implementation yet, `Implemented In` should be omitted rather than guessed
+
+### Standard Section for Phase / Plan Documents
+
+Phase and plan documents should include this section structure, adapted to their existing style:
+
+```markdown
+## Estado de implementación
+
+### Realizado
+- ...
+
+### Pendiente
+- ...
+
+### Criterio de cierre documental
+- ...
+```
+
+Normative guidance:
+
+- `Realizado` must describe only verified implementation or verified documentary closure
+- `Pendiente` must isolate what still blocks closure or full maturity
+- `Criterio de cierre documental` must explain when the document can move to `COMPLETED` or `SUPERSEDED`
+- If a document already contains equivalent sections, adapt them instead of duplicating structure mechanically
+
 ---
 
 ## Constitutional Documents

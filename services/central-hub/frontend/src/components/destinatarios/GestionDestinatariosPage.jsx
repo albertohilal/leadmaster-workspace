@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CheckCircle2, Mail, MessageCircle, Phone, SendHorizontal, XCircle } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import prospectosService from '../../services/prospectos';
 import campanasService from '../../services/campanas';
 import destinatariosService from '../../services/destinatarios';
@@ -89,11 +89,108 @@ function matchesCanalDisponibleFilter(prospecto, canalDisponibleFiltro) {
   }
 }
 
-const GestionDestinatariosPage = () => {
+const INITIAL_CLASIFICACION = {
+  post_envio_estado: '',
+  accion_siguiente: '',
+  detalle: ''
+};
+
+const POST_ENVIO_ESTADOS = [
+  { value: 'CONTACTO_VALIDO_SIN_INTERES', label: 'Contacto válido sin interés' },
+  { value: 'PARA_DERIVAR', label: 'Para derivar' },
+  { value: 'PENDIENTE_SIN_RESPUESTA', label: 'Pendiente sin respuesta' },
+  { value: 'NUMERO_INEXISTENTE', label: 'Número inexistente' },
+  { value: 'NUMERO_CAMBIO_DUEÑO', label: 'Número cambió de dueño' },
+  { value: 'TERCERO_NO_RESPONSABLE', label: 'Tercero no responsable' },
+  { value: 'ATENDIO_MENOR_DE_EDAD', label: 'Atendió menor de edad' },
+  { value: 'NO_ENTREGADO_ERROR_ENVIO', label: 'No entregado / error de envío' }
+];
+
+const POST_ENVIO_ACCIONES = [
+  { value: 'DERIVAR', label: 'Derivar' },
+  { value: 'FOLLOWUP_1', label: 'Follow-up 1' },
+  { value: 'CERRAR', label: 'Cerrar' },
+  { value: 'INVALIDAR_TELEFONO', label: 'Invalidar teléfono' },
+  { value: 'REINTENTO_TECNICO', label: 'Reintento técnico' },
+  { value: 'NO_CONTACTAR', label: 'No contactar' }
+];
+
+function traducirEstado(estado) {
+  if (typeof estado === 'string' && estado.startsWith('email_status:')) {
+    return estado.replace('email_status:', '').replaceAll('_', ' ');
+  }
+
+  switch (estado) {
+    case 'seleccionar_campana':
+      return 'Seleccionar campaña';
+    case 'sin_envio':
+      return 'No incluido';
+    case 'pendiente':
+      return 'Pendiente';
+    case 'enviado':
+      return 'Enviado';
+    case 'error':
+      return 'Error';
+    case 'CONTACTO_VALIDO_SIN_INTERES':
+      return 'Contacto válido sin interés';
+    case 'PARA_DERIVAR':
+      return 'Para derivar';
+    case 'PENDIENTE_SIN_RESPUESTA':
+      return 'Pendiente sin respuesta';
+    case 'NUMERO_INEXISTENTE':
+      return 'Número inexistente';
+    case 'NUMERO_CAMBIO_DUEÑO':
+      return 'Número cambió de dueño';
+    case 'TERCERO_NO_RESPONSABLE':
+      return 'Tercero no responsable';
+    case 'ATENDIO_MENOR_DE_EDAD':
+      return 'Atendió menor de edad';
+    case 'NO_ENTREGADO_ERROR_ENVIO':
+      return 'No entregado / error de envío';
+    default:
+      return estado;
+  }
+}
+
+function badgeEstado(estado) {
+  if (typeof estado === 'string' && estado.startsWith('email_status:')) {
+    const raw = estado.replace('email_status:', '');
+    if (raw === 'PENDING') return 'bg-yellow-100 text-yellow-800';
+    if (raw === 'SENT') return 'bg-green-100 text-green-800';
+    if (raw === 'FAILED' || raw === 'ERROR') return 'bg-red-100 text-red-800';
+    return 'bg-gray-100 text-gray-800';
+  }
+
+  switch (estado) {
+    case 'seleccionar_campana':
+      return 'bg-slate-100 text-slate-700';
+    case 'enviado':
+      return 'bg-green-100 text-green-800';
+    case 'pendiente':
+      return 'bg-yellow-100 text-yellow-800';
+    case 'error':
+      return 'bg-red-100 text-red-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
+}
+
+const GestionDestinatariosPage = ({
+  hideHeader = false,
+  backPath = '/campaigns',
+  title = 'Seleccionar Prospectos',
+  campaignId,
+  defaultCanalDisponibleFiltro = 'todos',
+  hideWhatsappActions = false,
+  useEmailCampaignSelector = false,
+  emailCampaigns = []
+}) => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [campanas, setCampanas] = useState([]);
   const [campaniaSeleccionada, setCampaniaSeleccionada] = useState('');
+  const [emailCampaignSeleccionada, setEmailCampaignSeleccionada] = useState('');
   const [prospectos, setProspectos] = useState([]);
   const [seleccionados, setSeleccionados] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -102,7 +199,7 @@ const GestionDestinatariosPage = () => {
   const [estadoFiltro, setEstadoFiltro] = useState('todos');
   const [tipoSocieteFiltro, setTipoSocieteFiltro] = useState('todos');
   const [carteraOrigenFiltro, setCarteraOrigenFiltro] = useState('todos');
-  const [canalDisponibleFiltro, setCanalDisponibleFiltro] = useState('todos');
+  const [canalDisponibleFiltro, setCanalDisponibleFiltro] = useState(defaultCanalDisponibleFiltro);
   const [q, setQ] = useState('');
 
   // Estados para envío manual (flujo 2 fases)
@@ -120,21 +217,88 @@ const GestionDestinatariosPage = () => {
   const [mostrarModalClasificar, setMostrarModalClasificar] = useState(false);
   const [prospectoClasificar, setProspectoClasificar] = useState(null);
   const [loadingClasificacion, setLoadingClasificacion] = useState(false);
-  const [clasificacion, setClasificacion] = useState({
-    post_envio_estado: '',
-    accion_siguiente: '',
-    detalle: ''
-  });
+  const [clasificacion, setClasificacion] = useState(INITIAL_CLASIFICACION);
 
-  useEffect(() => {
-    cargarCampanas();
+  const resetWhatsappModalState = useCallback(() => {
+    setMostrarModalWhatsApp(false);
+    setProspectoSeleccionado(null);
+    setDatosEnvioPreparado(null);
+    setLoadingEnvio(false);
+    setWhatsappAbierto(false);
   }, []);
 
+  const resetEmailModalState = useCallback(() => {
+    setMostrarModalEmail(false);
+    setLoadingEmail(false);
+    setResultadoEmail(null);
+  }, []);
+
+  const resetClasificacionState = useCallback(() => {
+    setMostrarModalClasificar(false);
+    setProspectoClasificar(null);
+    setClasificacion(INITIAL_CLASIFICACION);
+    setLoadingClasificacion(false);
+  }, []);
+
+  const resetTransientUiState = useCallback(() => {
+    resetWhatsappModalState();
+    resetEmailModalState();
+    resetClasificacionState();
+  }, [resetClasificacionState, resetEmailModalState, resetWhatsappModalState]);
+
   useEffect(() => {
-    if (campaniaSeleccionada) {
+    if (useEmailCampaignSelector) {
+      return;
+    }
+
+    cargarCampanas();
+  }, [useEmailCampaignSelector]);
+
+  useEffect(() => {
+    if (!useEmailCampaignSelector) return;
+    cargarProspectos();
+  }, [useEmailCampaignSelector, emailCampaignSeleccionada]);
+
+  useEffect(() => {
+    if (!useEmailCampaignSelector && campaniaSeleccionada) {
       cargarProspectos();
     }
-  }, [campaniaSeleccionada]);
+  }, [campaniaSeleccionada, useEmailCampaignSelector]);
+
+  useEffect(() => {
+    resetTransientUiState();
+  }, [location.pathname, campaniaSeleccionada, emailCampaignSeleccionada, resetTransientUiState]);
+
+  const hasCampaignMatch = !useEmailCampaignSelector && Boolean(campaignId) && campanas.some(
+    (c) => String(c.id) === String(campaignId)
+  );
+
+  useEffect(() => {
+    if (hasCampaignMatch) {
+      setCampaniaSeleccionada(String(campaignId));
+    }
+  }, [campaignId, hasCampaignMatch]);
+
+  useEffect(() => {
+    if (!useEmailCampaignSelector) return;
+    if (!campaignId) return;
+
+    const exists = emailCampaigns.some((c) => String(c.id) === String(campaignId));
+    if (exists) {
+      setEmailCampaignSeleccionada(String(campaignId));
+    }
+  }, [campaignId, emailCampaigns, useEmailCampaignSelector]);
+
+  const emailCampaignContexto = useMemo(
+    () => emailCampaigns.find((c) => String(c.id) === String(emailCampaignSeleccionada)) || null,
+    [emailCampaignSeleccionada, emailCampaigns]
+  );
+
+  useEffect(() => {
+    if (!useEmailCampaignSelector) return;
+    setSeleccionados([]);
+    resetEmailModalState();
+  }, [emailCampaignSeleccionada, emailCampaigns, resetEmailModalState, useEmailCampaignSelector]);
 
   const cargarCampanas = async () => {
     try {
@@ -155,19 +319,24 @@ const GestionDestinatariosPage = () => {
       setLoading(true);
       setError(null);
 
-      const response = await prospectosService.filtrarProspectos({
-        campania_id: campaniaSeleccionada
-      });
+      const response = await prospectosService.filtrarProspectos(
+        useEmailCampaignSelector
+          ? {
+              email_campaign_id: emailCampaignSeleccionada || undefined
+            }
+          : {
+              campania_id: campaniaSeleccionada
+            }
+      );
 
       const lista = response?.data || [];
       setProspectos(lista);
       setSeleccionados([]);
-      setResultadoEmail(null);
-      setMostrarModalEmail(false);
+      resetTransientUiState();
       setEstadoFiltro('todos');
       setTipoSocieteFiltro('todos');
       setCarteraOrigenFiltro('todos');
-      setCanalDisponibleFiltro('todos');
+      setCanalDisponibleFiltro(defaultCanalDisponibleFiltro);
       setQ('');
     } catch (err) {
       console.error('Error cargando prospectos:', err);
@@ -177,10 +346,67 @@ const GestionDestinatariosPage = () => {
     }
   };
 
+  function normalizeEmailRecipientStatus(status) {
+    if (status === undefined || status === null) return null;
+
+    const normalized = String(status).trim().toUpperCase();
+    if (!normalized) return null;
+
+    switch (normalized) {
+      case 'PENDING':
+        return 'pendiente';
+      case 'SENT':
+        return 'enviado';
+      case 'FAILED':
+      case 'ERROR':
+        return 'error';
+      default:
+        return `email_status:${normalized}`;
+    }
+  }
+
   function estadoPrincipal(prospecto) {
+    if (useEmailCampaignSelector) {
+      if (!emailCampaignSeleccionada) {
+        return 'seleccionar_campana';
+      }
+
+      return normalizeEmailRecipientStatus(prospecto?.email_recipient_status) || 'sin_envio';
+    }
+
     return prospecto?.post_envio_estado || prospecto?.estado_campania || 'sin_envio';
   }
 
+  const estadoOptions = useMemo(() => {
+    if (useEmailCampaignSelector) {
+      if (!emailCampaignSeleccionada) {
+        return [{ value: 'seleccionar_campana', label: 'Seleccionar campaña' }];
+      }
+
+      const preferredOrder = ['sin_envio', 'pendiente', 'enviado', 'error'];
+      const presentes = Array.from(new Set(prospectos.map((p) => estadoPrincipal(p))));
+      const ordered = preferredOrder.filter((value) => presentes.includes(value));
+      const extra = presentes
+        .filter((value) => !preferredOrder.includes(value))
+        .sort((a, b) => traducirEstado(a).localeCompare(traducirEstado(b), 'es'));
+
+      return [...ordered, ...extra].map((value) => ({
+        value,
+        label: traducirEstado(value)
+      }));
+    }
+
+    return [
+      'sin_envio',
+      'pendiente',
+      'enviado',
+      'error',
+      ...POST_ENVIO_ESTADOS.map((opt) => opt.value)
+    ].map((value) => ({
+      value,
+      label: traducirEstado(value)
+    }));
+  }, [useEmailCampaignSelector, emailCampaignSeleccionada, prospectos]);
   const prospectosFiltrados = useMemo(() => {
     let filtrados = [...prospectos];
 
@@ -275,28 +501,58 @@ const GestionDestinatariosPage = () => {
   };
 
   const agregarACampania = async () => {
-    if (!campaniaSeleccionada || seleccionados.length === 0) {
-      alert('Selecciona campaña y prospectos');
-      return;
-    }
-
     try {
       setLoading(true);
 
-      const destinatarios = seleccionados.map((p) => ({
-        telefono_wapp: p.telefono_wapp,
-        nombre_destino: p.nombre,
-        lugar_id: p.prospecto_id
-      }));
+      if (useEmailCampaignSelector) {
+        if (!emailCampaignSeleccionada || seleccionados.length === 0) {
+          alert('Selecciona campaña Email y prospectos');
+          return;
+        }
 
-      await destinatariosService.agregarDestinatarios(campaniaSeleccionada, destinatarios);
+        const recipients = seleccionados
+          .filter(hasEmailDisponible)
+          .map((p) => ({
+            to_email: emailService.normalizeEmail(p.email),
+            nombre_destino: p.nombre || null,
+            lugar_id: p.prospecto_id || null
+          }));
 
-      alert(`Se agregaron ${destinatarios.length} prospectos`);
+        const omitidosSinEmail = seleccionados.length - recipients.length;
+
+        if (recipients.length === 0) {
+          alert('Los prospectos seleccionados no tienen email válido');
+          return;
+        }
+
+        const data = await emailService.addCampaignRecipients(emailCampaignSeleccionada, recipients);
+        const summary = data?.summary || {};
+
+        alert(
+          `Destinatarios Email procesados. Insertados: ${summary.inserted || 0}. Reencolados: ${summary.requeued || 0}. Ya pendientes: ${summary.already_pending || 0}. Omitidos sin email válido: ${omitidosSinEmail}.`
+        );
+      } else {
+        if (!campaniaSeleccionada || seleccionados.length === 0) {
+          alert('Selecciona campaña y prospectos');
+          return;
+        }
+
+        const destinatarios = seleccionados.map((p) => ({
+          telefono_wapp: p.telefono_wapp,
+          nombre_destino: p.nombre,
+          lugar_id: p.prospecto_id
+        }));
+
+        await destinatariosService.agregarDestinatarios(campaniaSeleccionada, destinatarios);
+
+        alert(`Se agregaron ${destinatarios.length} prospectos`);
+      }
+
       setSeleccionados([]);
       cargarProspectos();
     } catch (err) {
       console.error('Error agregando destinatarios:', err);
-      alert('Error al agregar destinatarios');
+      alert('Error al agregar destinatarios: ' + (err.response?.data?.message || err.message));
     } finally {
       setLoading(false);
     }
@@ -308,34 +564,57 @@ const GestionDestinatariosPage = () => {
       return;
     }
 
-    setResultadoEmail(null);
+    resetEmailModalState();
     setMostrarModalEmail(true);
   };
 
   const cerrarModalEmail = () => {
-    if (loadingEmail) return;
-    setMostrarModalEmail(false);
+    resetEmailModalState();
   };
 
-  const prepararEnvioWhatsAppSeleccionado = async () => {
-    if (resumenSeleccion.total === 0) {
-      alert('Selecciona al menos un prospecto');
+  const prepararEnvioEmailCampania = async () => {
+    if (!useEmailCampaignSelector) {
+      abrirModalEmail();
       return;
     }
 
-    if (resumenSeleccion.whatsappListos.length === 0) {
-      alert('No hay prospectos seleccionados listos para reutilizar el flujo actual de WhatsApp');
+    if (!emailCampaignSeleccionada) {
+      alert('Selecciona una campaña Email para preparar su envío');
       return;
     }
 
-    if (resumenSeleccion.whatsappListos.length > 1) {
+    const campaignName = emailCampaignContexto?.nombre || `#${emailCampaignSeleccionada}`;
+    const confirmed = window.confirm(
+      `Se va a preparar el envío técnico de la campaña Email "${campaignName}" usando el asunto, cuerpo y destinatarios persistidos. ¿Continuar?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setLoadingEmail(true);
+
+    try {
+      const response = await emailService.prepareCampaign(emailCampaignSeleccionada);
+      const campaign = response?.campaign || {};
+      const stats = response?.stats || {};
+
+      await cargarProspectos();
+
       alert(
-        'El flujo actual de WhatsApp se reutiliza de a un prospecto por vez. Selecciona solo uno para continuar.'
+        `Campaña Email preparada correctamente. Estado: ${campaign.estado || 'pendiente'}. Próximo envío: ${campaign.next_envio_id || 'N/D'}. Destinatarios pendientes: ${stats.total_pendientes ?? 'N/D'}.`
       );
-      return;
+    } catch (error) {
+      console.error('Error preparando campaña Email:', error);
+      alert(
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        'No se pudo preparar la campaña Email'
+      );
+    } finally {
+      setLoadingEmail(false);
     }
-
-    await handleAbrirModalWhatsApp(resumenSeleccion.whatsappListos[0]);
   };
 
   const enviarEmailSeleccion = async ({ subject, text, recipients }) => {
@@ -364,50 +643,26 @@ const GestionDestinatariosPage = () => {
     }
   };
 
-  const traducirEstado = (estado) => {
-    switch (estado) {
-      case 'sin_envio':
-        return 'No incluido';
-      case 'pendiente':
-        return 'Pendiente';
-      case 'enviado':
-        return 'Enviado';
-      case 'error':
-        return 'Error';
-      case 'CONTACTO_VALIDO_SIN_INTERES':
-        return 'Contacto válido sin interés';
-      case 'PARA_DERIVAR':
-        return 'Para derivar';
-      case 'PENDIENTE_SIN_RESPUESTA':
-        return 'Pendiente sin respuesta';
-      case 'NUMERO_INEXISTENTE':
-        return 'Número inexistente';
-      case 'NUMERO_CAMBIO_DUEÑO':
-        return 'Número cambió de dueño';
-      case 'TERCERO_NO_RESPONSABLE':
-        return 'Tercero no responsable';
-      case 'ATENDIO_MENOR_DE_EDAD':
-        return 'Atendió menor de edad';
-      case 'NO_ENTREGADO_ERROR_ENVIO':
-        return 'No entregado / error de envío';
-      default:
-        return estado;
+  const prepararEnvioWhatsAppSeleccionado = async () => {
+    if (resumenSeleccion.total === 0) {
+      alert('Selecciona al menos un prospecto');
+      return;
     }
-  };
 
-  const badgeEstado = (estado) => {
-    switch (estado) {
-      case 'enviado':
-        return 'bg-green-100 text-green-800';
-      case 'pendiente':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'error':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+    if (resumenSeleccion.whatsappListos.length === 0) {
+      alert('No hay prospectos seleccionados listos para reutilizar el flujo actual de WhatsApp');
+      return;
     }
-  };
 
+    if (resumenSeleccion.whatsappListos.length > 1) {
+      alert(
+        'El flujo actual de WhatsApp se reutiliza de a un prospecto por vez. Selecciona solo uno para continuar.'
+      );
+      return;
+    }
+
+    await handleAbrirModalWhatsApp(resumenSeleccion.whatsappListos[0]);
+  };
   /**
    * FASE 1: Preparar envío manual
    * Obtiene el mensaje personalizado de la campaña desde el backend
@@ -517,31 +772,8 @@ const GestionDestinatariosPage = () => {
   };
 
   const cancelarEnvio = () => {
-    setMostrarModalWhatsApp(false);
-    setProspectoSeleccionado(null);
-    setDatosEnvioPreparado(null);
-    setWhatsappAbierto(false);
+    resetWhatsappModalState();
   };
-
-  const POST_ENVIO_ESTADOS = [
-    { value: 'CONTACTO_VALIDO_SIN_INTERES', label: 'Contacto válido sin interés' },
-    { value: 'PARA_DERIVAR', label: 'Para derivar' },
-    { value: 'PENDIENTE_SIN_RESPUESTA', label: 'Pendiente sin respuesta' },
-    { value: 'NUMERO_INEXISTENTE', label: 'Número inexistente' },
-    { value: 'NUMERO_CAMBIO_DUEÑO', label: 'Número cambió de dueño' },
-    { value: 'TERCERO_NO_RESPONSABLE', label: 'Tercero no responsable' },
-    { value: 'ATENDIO_MENOR_DE_EDAD', label: 'Atendió menor de edad' },
-    { value: 'NO_ENTREGADO_ERROR_ENVIO', label: 'No entregado / error de envío' }
-  ];
-
-  const POST_ENVIO_ACCIONES = [
-    { value: 'DERIVAR', label: 'Derivar' },
-    { value: 'FOLLOWUP_1', label: 'Follow-up 1' },
-    { value: 'CERRAR', label: 'Cerrar' },
-    { value: 'INVALIDAR_TELEFONO', label: 'Invalidar teléfono' },
-    { value: 'REINTENTO_TECNICO', label: 'Reintento técnico' },
-    { value: 'NO_CONTACTAR', label: 'No contactar' }
-  ];
 
   const abrirModalClasificar = (prospecto) => {
     if (!prospecto?.envio_id) {
@@ -558,10 +790,7 @@ const GestionDestinatariosPage = () => {
   };
 
   const cerrarModalClasificar = () => {
-    setMostrarModalClasificar(false);
-    setProspectoClasificar(null);
-    setClasificacion({ post_envio_estado: '', accion_siguiente: '', detalle: '' });
-    setLoadingClasificacion(false);
+    resetClasificacionState();
   };
 
   const onChangePostEnvioEstado = (nuevoEstado) => {
@@ -637,20 +866,22 @@ const GestionDestinatariosPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col overflow-x-hidden">
-      <div className="bg-white border-b px-6 py-4 flex justify-between items-center">
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={() => navigate('/campaigns')}
-            className="flex items-center text-gray-600 hover:text-gray-800"
-          >
-            <ArrowLeft className="h-5 w-5 mr-1" />
-            Volver
-          </button>
-          <h1 className="text-2xl font-bold">Seleccionar Prospectos</h1>
-        </div>
+      {!hideHeader && (
+        <div className="bg-white border-b px-6 py-4 flex justify-between items-center">
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => navigate(backPath)}
+              className="flex items-center text-gray-600 hover:text-gray-800"
+            >
+              <ArrowLeft className="h-5 w-5 mr-1" />
+              Volver
+            </button>
+            <h1 className="text-2xl font-bold">{title}</h1>
+          </div>
 
-        <div className="text-sm text-gray-600">{resumenSeleccion.total} seleccionados</div>
-      </div>
+          <div className="text-sm text-gray-600">{resumenSeleccion.total} seleccionados</div>
+        </div>
+      )}
 
       <div className="flex-1 p-4 md:p-6 overflow-hidden">
         <div className="bg-white rounded-lg shadow h-full overflow-y-auto overflow-x-hidden">
@@ -658,13 +889,21 @@ const GestionDestinatariosPage = () => {
             <div className="grid gap-4 border-b px-6 py-5 md:grid-cols-3">
               <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
                 <div className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                  Campaña / base actual
+                  {useEmailCampaignSelector ? 'Campaña Email actual' : 'Campaña / base actual'}
                 </div>
                 <div className="mt-2 text-lg font-semibold text-gray-900">
-                  {contextoCampania?.nombre || 'Seleccionar campaña'}
+                  {useEmailCampaignSelector
+                    ? emailCampaignContexto?.nombre || 'Seleccionar campaña Email'
+                    : contextoCampania?.nombre || 'Seleccionar campaña'}
                 </div>
                 <div className="mt-1 text-sm text-gray-500">
-                  {campaniaSeleccionada ? `ID ${campaniaSeleccionada}` : 'Sin campaña seleccionada'}
+                  {useEmailCampaignSelector
+                    ? emailCampaignSeleccionada
+                      ? 'Mostrando el universo de prospectos del cliente autenticado'
+                      : 'La tabla carga el universo del cliente aunque aún no elijas campaña Email'
+                    : campaniaSeleccionada
+                      ? `ID ${campaniaSeleccionada}`
+                      : 'Sin campaña seleccionada'}
                 </div>
               </div>
 
@@ -686,32 +925,72 @@ const GestionDestinatariosPage = () => {
                   {resumenSeleccion.total}
                 </div>
                 <div className="mt-1 text-sm text-emerald-700">
-                  {resumenSeleccion.conWhatsapp} con WhatsApp, {resumenSeleccion.conEmail} con email
+                  {hideWhatsappActions
+                    ? `emails válidos: ${resumenSeleccion.conEmail}, sin email: ${resumenSeleccion.sinEmail}`
+                    : `${resumenSeleccion.conWhatsapp} con WhatsApp, ${resumenSeleccion.conEmail} con email`}
                 </div>
               </div>
             </div>
 
             <div className="px-6 py-4">
               <div className="flex flex-wrap items-end gap-3">
-                <div className="min-w-[240px] flex-1">
-                  <label className="block text-sm font-medium mb-1">Campaña de destino</label>
-                  <select
-                    value={campaniaSeleccionada}
-                    onChange={(e) => setCampaniaSeleccionada(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg"
-                  >
-                    <option value="">Seleccionar campaña...</option>
-                    {campanas.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {useEmailCampaignSelector ? (
+                  <div className="min-w-[240px] flex-1">
+                    <label className="block text-sm font-medium mb-1">Campaña Email</label>
+                    <select
+                      value={emailCampaignSeleccionada}
+                      onChange={(e) => setEmailCampaignSeleccionada(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-lg"
+                    >
+                      <option value="">Seleccionar campaña Email...</option>
+                      {emailCampaigns.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.nombre}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-xs text-gray-500">
+                      La grilla usa automáticamente todos los prospectos del cliente autenticado.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="min-w-[240px] flex-1">
+                    <label className="block text-sm font-medium mb-1">Campaña de destino</label>
+                    <>
+                      <select
+                        value={campaniaSeleccionada}
+                        onChange={(e) => setCampaniaSeleccionada(e.target.value)}
+                        disabled={hasCampaignMatch}
+                        className="w-full px-3 py-2 border rounded-lg disabled:bg-gray-100 disabled:text-gray-600"
+                      >
+                        <option value="">Seleccionar campaña...</option>
+                        {campanas.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.nombre}
+                          </option>
+                        ))}
+                      </select>
+                      {hasCampaignMatch && (
+                        <p className="mt-1 text-xs text-blue-600">
+                          Campaña fijada por contexto del módulo Email.
+                        </p>
+                      )}
+                      {!useEmailCampaignSelector && campaignId && !hasCampaignMatch && (
+                        <p className="mt-1 text-xs text-amber-600">
+                          Esta campaña Email aún no está vinculada a una campaña operativa. Seleccioná una campaña para continuar.
+                        </p>
+                      )}
+                    </>
+                  </div>
+                )}
 
                 <button
                   onClick={agregarACampania}
-                  disabled={!campaniaSeleccionada || resumenSeleccion.total === 0}
+                  disabled={
+                    (useEmailCampaignSelector
+                      ? !emailCampaignSeleccionada
+                      : !campaniaSeleccionada) || resumenSeleccion.total === 0
+                  }
                   className="px-4 py-2 bg-slate-700 text-white rounded-lg disabled:bg-gray-300"
                 >
                   Agregar a Campaña
@@ -725,15 +1004,9 @@ const GestionDestinatariosPage = () => {
                     className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
                   >
                     <option value="todos">Todos</option>
-                    {[
-                      'sin_envio',
-                      'pendiente',
-                      'enviado',
-                      'error',
-                      ...POST_ENVIO_ESTADOS.map((opt) => opt.value)
-                    ].map((value) => (
-                      <option key={value} value={value}>
-                        {traducirEstado(value)}
+                    {estadoOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
                       </option>
                     ))}
                   </select>
@@ -807,8 +1080,9 @@ const GestionDestinatariosPage = () => {
                 <div>
                   <div className="text-sm font-medium text-gray-900">Acciones sobre seleccionados</div>
                   <div className="text-sm text-gray-600">
-                    {resumenSeleccion.total} seleccionados. WhatsApp reutiliza el flujo actual y se
-                    prepara de a un prospecto por vez. Email usa la selección común.
+                    {hideWhatsappActions
+                      ? `${resumenSeleccion.total} seleccionados. Agregá destinatarios a la campaña y luego prepará el envío técnico real de esa campaña.`
+                      : `${resumenSeleccion.total} seleccionados. WhatsApp reutiliza el flujo actual y se prepara de a un prospecto por vez. Email usa la selección común.`}
                   </div>
                 </div>
 
@@ -825,26 +1099,28 @@ const GestionDestinatariosPage = () => {
                       : 'Seleccionar todos'}
                   </button>
 
-                  <button
-                    onClick={prepararEnvioWhatsAppSeleccionado}
-                    disabled={
-                      resumenSeleccion.total === 0 ||
-                      resumenSeleccion.whatsappListos.length === 0 ||
-                      loadingEnvio
-                    }
-                    className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-white hover:bg-green-700 disabled:bg-gray-300"
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                    Preparar envío WhatsApp
-                  </button>
+                  {!hideWhatsappActions && (
+                    <button
+                      onClick={prepararEnvioWhatsAppSeleccionado}
+                      disabled={
+                        resumenSeleccion.total === 0 ||
+                        resumenSeleccion.whatsappListos.length === 0 ||
+                        loadingEnvio
+                      }
+                      className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-white hover:bg-green-700 disabled:bg-gray-300"
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                      Preparar envío WhatsApp
+                    </button>
+                  )}
 
                   <button
-                    onClick={abrirModalEmail}
-                    disabled={resumenSeleccion.total === 0 || loadingEmail}
+                    onClick={prepararEnvioEmailCampania}
+                    disabled={useEmailCampaignSelector ? !emailCampaignSeleccionada || loadingEmail : resumenSeleccion.total === 0 || loadingEmail}
                     className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:bg-gray-300"
                   >
                     <SendHorizontal className="h-4 w-4" />
-                    Preparar envío Email
+                    {loadingEmail ? 'Preparando campaña...' : 'Preparar envío Email'}
                   </button>
                 </div>
               </div>
@@ -857,7 +1133,9 @@ const GestionDestinatariosPage = () => {
             <thead className="bg-gray-50 text-xs uppercase text-gray-500">
               <tr>
                 <th className="px-6 py-3 text-left w-[24%]">Empresa</th>
-                <th className="px-6 py-3 text-left w-[16%]">WhatsApp</th>
+                {!hideWhatsappActions && (
+                  <th className="px-6 py-3 text-left w-[16%]">WhatsApp</th>
+                )}
                 <th className="px-6 py-3 text-left w-[16%]">Email</th>
                 <th className="px-6 py-3 text-left w-[12%]">Estado</th>
                 <th className="px-6 py-3 text-left w-[20%]">Dirección</th>
@@ -868,13 +1146,13 @@ const GestionDestinatariosPage = () => {
             <tbody className="divide-y">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="p-6 text-center">
+                  <td colSpan={hideWhatsappActions ? 5 : 6} className="p-6 text-center">
                     Cargando...
                   </td>
                 </tr>
               ) : prospectosFiltrados.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-6 text-center">
+                  <td colSpan={hideWhatsappActions ? 5 : 6} className="p-6 text-center">
                     {prospectos.length === 0 ? 'No hay prospectos' : 'No hay prospectos con este filtro'}
                   </td>
                 </tr>
@@ -899,14 +1177,16 @@ const GestionDestinatariosPage = () => {
                         </div>
                       </td>
 
-                      <td className="px-6 py-5 text-sm text-gray-700">
-                        <Indicator
-                          enabled={hasWhatsappDisponible(p)}
-                          label={hasWhatsappDisponible(p) ? 'Disponible' : 'Sin WhatsApp'}
-                          detail={p.telefono_wapp || 'Sin teléfono'}
-                          icon={Phone}
-                        />
-                      </td>
+                      {!hideWhatsappActions && (
+                        <td className="px-6 py-5 text-sm text-gray-700">
+                          <Indicator
+                            enabled={hasWhatsappDisponible(p)}
+                            label={hasWhatsappDisponible(p) ? 'Disponible' : 'Sin WhatsApp'}
+                            detail={p.telefono_wapp || 'Sin teléfono'}
+                            icon={Phone}
+                          />
+                        </td>
+                      )}
 
                       <td className="px-6 py-5 text-sm text-gray-700">
                         <Indicator
@@ -935,7 +1215,7 @@ const GestionDestinatariosPage = () => {
 
                       <td className="px-6 py-5">
                         <div className="flex flex-wrap gap-2">
-                          {p.estado_campania === 'pendiente' && p.telefono_wapp && (
+                          {!hideWhatsappActions && p.estado_campania === 'pendiente' && p.telefono_wapp && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -970,14 +1250,16 @@ const GestionDestinatariosPage = () => {
         </div>
       </div>
 
-      <EmailCampaignFormModal
-        isOpen={mostrarModalEmail}
-        onClose={cerrarModalEmail}
-        selectedProspects={seleccionados}
-        onSubmit={enviarEmailSeleccion}
-        loading={loadingEmail}
-        result={resultadoEmail}
-      />
+      {!useEmailCampaignSelector && (
+        <EmailCampaignFormModal
+          isOpen={mostrarModalEmail}
+          onClose={cerrarModalEmail}
+          selectedProspects={seleccionados}
+          onSubmit={enviarEmailSeleccion}
+          loading={loadingEmail}
+          result={resultadoEmail}
+        />
+      )}
 
       {mostrarModalWhatsApp && prospectoSeleccionado && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

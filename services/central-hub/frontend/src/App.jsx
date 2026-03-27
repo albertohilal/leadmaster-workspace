@@ -13,7 +13,9 @@ import AdminSessions from './components/admin/AdminSessions';
 import CampaignsManager from './components/campaigns/CampaignsManager';
 import ConfigPanel from './components/config/ConfigPanel';
 import GestionDestinatariosPage from './components/destinatarios/GestionDestinatariosPage';
+import EmailCampaignsManager from './components/email/EmailCampaignsManager';
 import EmailCampaignCreatePage from './components/email/EmailCampaignCreatePage';
+import EmailCampaignProspectsPage from './components/email/EmailCampaignProspectsPage';
 
 // Componente para manejar redirección si ya está autenticado
 const PublicRoute = ({ children }) => {
@@ -113,11 +115,41 @@ function App() {
             }
           />
           <Route
+            path="/email/campaigns"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <EmailCampaignsManager />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/email/campaigns/new"
             element={
               <ProtectedRoute>
                 <Layout>
                   <EmailCampaignCreatePage />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/email/campaigns/prospects"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <EmailCampaignProspectsPage />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/email/campaigns/:campaignId/prospects"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <EmailCampaignProspectsPage />
                 </Layout>
               </ProtectedRoute>
             }

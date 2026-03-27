@@ -3,7 +3,8 @@ jest.mock('../services/emailCampaigns.service', () => ({
     id: 987,
     cliente_id: 25,
     nombre: 'Campana test',
-    asunto: 'Asunto test',
+    subject: 'Subject test',
+    text: 'Texto test',
     estado: 'borrador'
   })
 }));
@@ -36,8 +37,8 @@ describe('emailCampaigns.controller.create', () => {
       user: { id: 1, tipo: 'admin' },
       body: {
         nombre: 'Campana test',
-        asunto: 'Asunto test',
-        body: '<h1>Texto test</h1>'
+        subject: 'Subject test',
+        text: 'Texto test'
       }
     };
     const res = createRes();
@@ -58,13 +59,8 @@ describe('emailCampaigns.controller.create', () => {
       user: { id: 1, tipo: 'admin', cliente_id: 25 },
       body: {
         nombre: 'Campana test',
-        asunto: 'Asunto test',
-        body: '<h1>Texto test</h1>',
-        fecha_programada: null,
-        email_from: 'marketing@dominio.com',
-        name_from: 'Marketing',
-        reply_to_email: 'respuesta@dominio.com',
-        observaciones: 'Prueba inicial'
+        subject: 'Subject test',
+        text: 'Texto test'
       }
     };
     const res = createRes();
@@ -75,13 +71,8 @@ describe('emailCampaigns.controller.create', () => {
       cliente_id: 25,
       request: {
         nombre: 'Campana test',
-        asunto: 'Asunto test',
-        body: '<h1>Texto test</h1>',
-        fecha_programada: null,
-        email_from: 'marketing@dominio.com',
-        name_from: 'Marketing',
-        reply_to_email: 'respuesta@dominio.com',
-        observaciones: 'Prueba inicial'
+        subject: 'Subject test',
+        text: 'Texto test'
       }
     });
 
@@ -92,7 +83,8 @@ describe('emailCampaigns.controller.create', () => {
         id: 987,
         cliente_id: 25,
         nombre: 'Campana test',
-        asunto: 'Asunto test',
+        subject: 'Subject test',
+        text: 'Texto test',
         estado: 'borrador'
       }
     });
