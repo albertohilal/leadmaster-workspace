@@ -74,13 +74,8 @@ describe('POST /api/email/campaigns', () => {
   test('crea la campana email en borrador y responde 201', async () => {
     const response = await makeRequest(server, {
       nombre: 'Campana Email Marzo',
-      asunto: 'Promocion especial',
-      body: '<h1>Hola</h1>',
-      fecha_programada: null,
-      email_from: 'marketing@dominio.com',
-      name_from: 'Marketing',
-      reply_to_email: 'respuesta@dominio.com',
-      observaciones: 'Prueba inicial'
+      subject: 'Promocion especial',
+      text: '<h1>Hola</h1>'
     });
 
     expect(response.status).toBe(201);
@@ -93,13 +88,13 @@ describe('POST /api/email/campaigns', () => {
       '<h1>Hola</h1>',
       'borrador',
       null,
-      'marketing@dominio.com',
-      'Marketing',
-      'respuesta@dominio.com',
+      null,
+      null,
+      null,
       0,
       0,
       0,
-      'Prueba inicial'
+      null
     ]);
     expect(response.body).toEqual({
       success: true,
@@ -107,7 +102,8 @@ describe('POST /api/email/campaigns', () => {
         id: 321,
         cliente_id: 77,
         nombre: 'Campana Email Marzo',
-        asunto: 'Promocion especial',
+        subject: 'Promocion especial',
+        text: '<h1>Hola</h1>',
         estado: 'borrador'
       }
     });
@@ -115,7 +111,8 @@ describe('POST /api/email/campaigns', () => {
 
   test('rechaza falta de nombre', async () => {
     const response = await makeRequest(server, {
-      asunto: 'Promocion especial'
+      subject: 'Promocion especial',
+      text: '<h1>Hola</h1>'
     });
 
     expect(response.status).toBe(400);
@@ -123,9 +120,33 @@ describe('POST /api/email/campaigns', () => {
     expect(response.body.details).toEqual({ field: 'nombre' });
   });
 
-  test('rechaza falta de asunto', async () => {
+  test('rechaza falta de subject', async () => {
     const response = await makeRequest(server, {
-      nombre: 'Campana Email Marzo'
+      nombre: 'Campana Email Marzo',
+      text: '<h1>Hola</h1>'
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('VALIDATION_ERROR');
+    expect(response.body.details).toEqual({ field: 'subject' });
+  });
+
+  test('rechaza falta de text', async () => {
+    const response = await makeRequest(server, {
+      nombre: 'Campana Email Marzo',
+      subject: 'Promocion especial'
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('VALIDATION_ERROR');
+    expect(response.body.details).toEqual({ field: 'text' });
+  });
+
+  test('rechaza asunto del contrato viejo', async () => {
+    const response = await makeRequest(server, {
+      nombre: 'Campana Email Marzo',
+      asunto: 'Promocion especial',
+      text: '<h1>Hola</h1>'
     });
 
     expect(response.status).toBe(400);
@@ -133,11 +154,24 @@ describe('POST /api/email/campaigns', () => {
     expect(response.body.details).toEqual({ field: 'asunto' });
   });
 
-  test('rechaza email_from invalido', async () => {
+  test('rechaza body del contrato viejo', async () => {
     const response = await makeRequest(server, {
       nombre: 'Campana Email Marzo',
-      asunto: 'Promocion especial',
-      email_from: 'no-es-email'
+      subject: 'Promocion especial',
+      body: '<h1>Hola</h1>'
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('VALIDATION_ERROR');
+    expect(response.body.details).toEqual({ field: 'body' });
+  });
+
+  test('rechaza email_from no permitido en create minimal', async () => {
+    const response = await makeRequest(server, {
+      nombre: 'Campana Email Marzo',
+      subject: 'Promocion especial',
+      text: '<h1>Hola</h1>',
+      email_from: 'marketing@dominio.com'
     });
 
     expect(response.status).toBe(400);
@@ -145,10 +179,11 @@ describe('POST /api/email/campaigns', () => {
     expect(response.body.details).toEqual({ field: 'email_from' });
   });
 
-  test('rechaza channel del contrato viejo', async () => {
+  test('rechaza channel no permitido', async () => {
     const response = await makeRequest(server, {
       nombre: 'Campana Email Marzo',
-      asunto: 'Promocion especial',
+      subject: 'Promocion especial',
+      text: '<h1>Hola</h1>',
       channel: 'EMAIL'
     });
 
@@ -160,7 +195,8 @@ describe('POST /api/email/campaigns', () => {
   test('rechaza estado controlado por servidor', async () => {
     const response = await makeRequest(server, {
       nombre: 'Campana Email Marzo',
-      asunto: 'Promocion especial',
+      subject: 'Promocion especial',
+      text: '<h1>Hola</h1>',
       estado: 'pendiente'
     });
 
@@ -169,22 +205,11 @@ describe('POST /api/email/campaigns', () => {
     expect(response.body.details).toEqual({ field: 'estado' });
   });
 
-  test('rechaza fecha_programada invalida', async () => {
-    const response = await makeRequest(server, {
-      nombre: 'Campana Email Marzo',
-      asunto: 'Promocion especial',
-      fecha_programada: 'fecha-no-valida'
-    });
-
-    expect(response.status).toBe(400);
-    expect(response.body.error).toBe('VALIDATION_ERROR');
-    expect(response.body.details).toEqual({ field: 'fecha_programada' });
-  });
-
   test('rechaza campo desconocido', async () => {
     const response = await makeRequest(server, {
       nombre: 'Campana Email Marzo',
-      asunto: 'Promocion especial',
+      subject: 'Promocion especial',
+      text: '<h1>Hola</h1>',
       html: '<p>HTML</p>'
     });
 
