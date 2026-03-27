@@ -574,7 +574,8 @@ const GestionDestinatariosPage = ({
 
   const prepararEnvioEmailCampania = async () => {
     if (!useEmailCampaignSelector) {
-      abrirModalEmail();
+      // Flujo de campaña Email no aplica en este modo;
+      // el envío manual se dispara directamente desde abrirModalEmail.
       return;
     }
 
@@ -1078,11 +1079,17 @@ const GestionDestinatariosPage = ({
             <div className="border-t px-6 py-4">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <div className="text-sm font-medium text-gray-900">Acciones sobre seleccionados</div>
+                  <div className="text-sm font-medium text-gray-900">
+                    {useEmailCampaignSelector
+                      ? 'Acciones de campaña Email'
+                      : 'Acciones sobre seleccionados'}
+                  </div>
                   <div className="text-sm text-gray-600">
-                    {hideWhatsappActions
-                      ? `${resumenSeleccion.total} seleccionados. Agregá destinatarios a la campaña y luego prepará el envío técnico real de esa campaña.`
-                      : `${resumenSeleccion.total} seleccionados. WhatsApp reutiliza el flujo actual y se prepara de a un prospecto por vez. Email usa la selección común.`}
+                    {useEmailCampaignSelector
+                      ? `${resumenSeleccion.total} seleccionados. Agregá destinatarios a la campaña Email y luego prepará el envío técnico de esa campaña.`
+                      : hideWhatsappActions
+                        ? `${resumenSeleccion.total} seleccionados.`
+                        : `${resumenSeleccion.total} seleccionados. WhatsApp reutiliza el flujo actual y se prepara de a un prospecto por vez.`}
                   </div>
                 </div>
 
@@ -1114,16 +1121,33 @@ const GestionDestinatariosPage = ({
                     </button>
                   )}
 
-                  <button
-                    onClick={prepararEnvioEmailCampania}
-                    disabled={useEmailCampaignSelector ? !emailCampaignSeleccionada || loadingEmail : resumenSeleccion.total === 0 || loadingEmail}
-                    className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:bg-gray-300"
-                  >
-                    <SendHorizontal className="h-4 w-4" />
-                    {loadingEmail ? 'Preparando campaña...' : 'Preparar envío Email'}
-                  </button>
+                  {useEmailCampaignSelector ? (
+                    <button
+                      onClick={prepararEnvioEmailCampania}
+                      disabled={!emailCampaignSeleccionada || loadingEmail}
+                      className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:bg-gray-300"
+                    >
+                      <SendHorizontal className="h-4 w-4" />
+                      {loadingEmail ? 'Preparando campaña...' : 'Preparar envío de campaña'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={abrirModalEmail}
+                      disabled={resumenSeleccion.total === 0 || loadingEmail}
+                      className="flex items-center gap-2 rounded-lg border border-blue-300 bg-blue-50 px-4 py-2 text-blue-700 hover:bg-blue-100 disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400"
+                    >
+                      <Mail className="h-4 w-4" />
+                      Envío manual Email (sin campaña)
+                    </button>
+                  )}
                 </div>
               </div>
+
+              {!useEmailCampaignSelector && !hideWhatsappActions && (
+                <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800">
+                  <strong>Envío manual Email:</strong> abre un formulario para redactar y enviar un correo puntual sin asociarlo a ninguna campaña Email persistida. Para trabajar con campañas Email, usá el <a href="/email/campaigns" className="underline font-medium">módulo de Campañas Email</a>.
+                </div>
+              )}
 
               {error && <div className="mt-3 text-sm text-red-600">{error}</div>}
             </div>
