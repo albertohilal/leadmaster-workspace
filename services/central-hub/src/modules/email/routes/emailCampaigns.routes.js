@@ -5,7 +5,6 @@ const emailCampaignsController = require('../controllers/emailCampaigns.controll
 
 // GET /api/email/campaigns
 router.get('/', emailCampaignsController.list);
-
 // POST /api/email/campaigns
 router.post('/', emailCampaignsController.create);
 

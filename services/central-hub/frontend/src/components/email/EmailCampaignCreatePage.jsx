@@ -112,6 +112,9 @@ const EmailCampaignCreatePage = () => {
             Este flujo no usa <span className="font-mono">/sender/campaigns</span> ni reemplaza
             <span className="font-mono"> /mailer/send</span>. Email y WhatsApp siguen separados por canal.
           </p>
+          <p>
+            La cuenta remitente no se elige en este formulario mínimo: se resuelve por configuración del cliente en backend, preservando el contexto multi-tenant.
+          </p>
           <p>Destinatarios, preparación y programación siguen fuera del alcance de este formulario.</p>
         </div>
       </Card>

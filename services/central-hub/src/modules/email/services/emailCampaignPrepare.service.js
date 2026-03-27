@@ -207,8 +207,8 @@ async function prepareCampaign({ cliente_id, campaign_id, request }) {
 
   return {
     campaign: {
-      id: resolvedCampaign.id,
-      nombre: resolvedCampaign.nombre,
+    id: resolvedCampaign.id,
+    nombre: resolvedCampaign.nombre,
       estado: 'pendiente',
       fecha_programada: scheduledFor,
       next_envio_id: nextRows[0].id,

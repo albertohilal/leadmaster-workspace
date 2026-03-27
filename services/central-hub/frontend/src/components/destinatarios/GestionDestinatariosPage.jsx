@@ -407,7 +407,6 @@ const GestionDestinatariosPage = ({
       label: traducirEstado(value)
     }));
   }, [useEmailCampaignSelector, emailCampaignSeleccionada, prospectos]);
-
   const prospectosFiltrados = useMemo(() => {
     let filtrados = [...prospectos];
 
@@ -664,7 +663,6 @@ const GestionDestinatariosPage = ({
 
     await handleAbrirModalWhatsApp(resumenSeleccion.whatsappListos[0]);
   };
-
   /**
    * FASE 1: Preparar envío manual
    * Obtiene el mensaje personalizado de la campaña desde el backend

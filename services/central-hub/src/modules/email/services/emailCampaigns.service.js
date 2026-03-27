@@ -56,7 +56,8 @@ async function listEmailCampaigns({ cliente_id }) {
        id,
        nombre,
        asunto,
-       estado
+       estado,
+       updated_at
      FROM ll_campanias_email
      WHERE cliente_id = ?
      ORDER BY id DESC`,
@@ -67,7 +68,8 @@ async function listEmailCampaigns({ cliente_id }) {
     id: row.id,
     nombre: row.nombre,
     subject: row.asunto,
-    estado: row.estado
+    estado: row.estado,
+    updatedAt: row.updated_at
   }));
 }
 
