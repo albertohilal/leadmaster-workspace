@@ -96,7 +96,7 @@ const EmailCampaignCreatePage = () => {
         </Link>
         <h1 className="text-3xl font-bold text-gray-800">Crear campaña Email</h1>
         <p className="mt-1 text-gray-600">
-          Alta mínima y separada del dominio actual de campañas WhatsApp.
+          Crea un borrador de campaña Email persistida. Destinatarios, programación y envío se gestionan en pasos posteriores.
         </p>
       </div>
 

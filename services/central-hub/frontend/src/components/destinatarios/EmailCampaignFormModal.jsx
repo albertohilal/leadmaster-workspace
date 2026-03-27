@@ -88,7 +88,7 @@ const EmailCampaignFormModal = ({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Envío manual Email" size="large">
+    <Modal isOpen={isOpen} onClose={onClose} title="Envío manual Email (sin campaña)" size="large">
       <form className="space-y-6" onSubmit={handleSubmit}>
         <div className="grid gap-3 md:grid-cols-3">
           <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
@@ -118,7 +118,7 @@ const EmailCampaignFormModal = ({
         </div>
 
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-          Este flujo usa el endpoint existente /mailer/send por cada destinatario válido. Es un envío manual aislado y no corresponde al flujo principal de Campañas Email persistidas.
+          <strong>Envío manual aislado.</strong> Este flujo envía un correo puntual por cada destinatario válido usando /mailer/send. No crea ni usa una campaña Email persistida. Para envíos asociados a campañas, usá el módulo de Campañas Email.
         </div>
 
         <div>
@@ -234,7 +234,7 @@ const EmailCampaignFormModal = ({
             className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:bg-gray-300"
           >
             {loading ? <Mail className="h-4 w-4 animate-pulse" /> : <Send className="h-4 w-4" />}
-            {loading ? 'Enviando...' : 'Enviar Email'}
+            {loading ? 'Enviando...' : 'Enviar Email manual'}
           </button>
         </div>
       </form>
