@@ -1,7 +1,7 @@
 # LeadMaster — Official Project Status
 
-**Version:** 3.0  
-**Last Updated:** 2026-03-22  
+**Version:** 3.1  
+**Last Updated:** 2026-03-28  
 **Environment:** Production (Contabo VPS)  
 **Strategic Model:** Service-first (Prospect Generation)  
 **Classification:** Constitutional Document  
@@ -87,22 +87,34 @@ This phase improves internal efficiency but does not change core value.
 
 ---
 
-## Phase 4B — Email Prospecting Channel (Foundational Documentation)
-Formal definition of the email prospecting channel (operation model, architecture, requirements, and mailer HTTP contract).  
-Status: ✅ Approved (documentation package)
+## Phase 4B — Email Prospecting Channel
+Email prospecting channel: architecture, operation model, mailer HTTP contract, and campaign-based E2E flow.  
+Status: ✅ E2E validated (2026-03-28) — channel technically operational; commercial maturity and data coverage remain pending
 
-AS-IS update (2026-03-22):
-- Email campaigns now have operational per-recipient persistence using `ll_campanias_email` + `ll_envios_email`
-- The backend flow already includes prepare, sequential scheduler, and mailer integration through `envio_email_id`
-- This aligns backend execution with the channel-based campaign model
+AS-IS update (2026-03-28):
+- The primary Email campaign flow was validated end-to-end on 2026-03-28 with real delivery confirmed:
+  create campaign → addRecipients → prepare → sequential scheduler → mailer (SMTP) → SENT → automatic finalization
+- Campaign id=4, 2 recipients, 2 SENT, 0 failed, reception confirmed in Gmail
+- Per-recipient persistence using `ll_campanias_email` + `ll_envios_email` is operational
+- Prepare resolves sender from `ll_clientes_email_config` when missing in campaign
+- Scheduler processes one recipient at a time with random delays and basic retries
+- Integration with `leadmaster-mailer` uses `envio_email_id` to reuse existing `ll_envios_email` rows
+- Campaign auto-finalizes when all recipients are processed
+- The campaigns-by-channel alignment subfase (Phase 4B Alignment Plan) is considered COMPLETED
+- Residual follow-ups (not blocking E2E closure):
+  - UI affordances polish (minor semantic refinements)
+  - timezone alignment between Node.js process and remote MySQL
+  - email data coverage and enrichment for commercial scale
 - Full UI/commercial maturity and broader email data coverage remain pending
 
 Documents:
 - `docs/01-CONSTITUCIONAL/ADR-001-CANAL-EMAIL-PROSPECCION-OPERADO-POR-LEADMASTER.md`
 - `docs/06-FASES/PHASE-4B-EMAIL-PROSPECTING-PLAN.md`
+- `docs/06-FASES/PHASE-4B-CAMPAIGNS-BY-CHANNEL-ALIGNMENT-PLAN.md`
 - `docs/04-INTEGRACION/ARQUITECTURA-CANAL-EMAIL.md`
 - `docs/05-REPORTES/OPS/REQUISITOS-MINIMOS-CANAL-EMAIL.md`
 - `docs/07-CONTRATOS/Contratos-HTTP-Mailer.md`
+- `docs/05-REPORTES/2026-03/REPORTE-CIERRE-E2E-CAMPANAS-EMAIL-2026-03-28.md`
 
 ---
 
@@ -198,9 +210,11 @@ Validation before scaling.
 
 ## Immediate Execution Focus
 
-Within the current project framework, the immediate execution priority is to complete Email as an operational end-to-end MVP capability.
+Within the current project framework, the immediate execution priority was to complete Email as an operational end-to-end MVP capability. That primary E2E flow was validated on 2026-03-28 (see `docs/05-REPORTES/2026-03/REPORTE-CIERRE-E2E-CAMPANAS-EMAIL-2026-03-28.md`).
 
-This does not replace the current phase structure. It defines the immediate execution focus within that framework and avoids opening a broader product scope before consolidating an already active line of work.
+The remaining work on the Email channel focuses on data coverage, enrichment, and operational maturity — not on the core technical flow, which is now validated.
+
+This does not replace the current phase structure. It reflects the transition from initial technical validation toward consolidation and scaling of the channel.
 
 There is also a subsequent product objective already defined in agenda: a client dashboard for visualization only. That dashboard is not the current priority and must not divert execution focus from completing Email.
 

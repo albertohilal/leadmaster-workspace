@@ -304,6 +304,31 @@ Conclusión de estado:
 - el canal Email está técnicamente operativo end-to-end en modo prueba
 - el canal no debe describirse todavía como operación comercial escalada
 
+### AS-IS validación operativa 2026-03-28
+
+Además de la integración de transporte validada al 2026-03-15, el flujo de campañas Email por destinatario quedó validado end-to-end el 2026-03-28 con la siguiente cadena ejecutada en operación real:
+
+```
+create campaña → addRecipients → prepare → scheduler secuencial → mailer (SMTP) → SENT → finalize campaña
+```
+
+Componentes adicionales validados que complementan la arquitectura documentada en este archivo:
+
+- persistencia de campaña Email en `ll_campanias_email` como cabecera operativa
+- persistencia por destinatario en `ll_envios_email` como cola operativa y resultado final
+- prepare que resuelve sender desde `ll_clientes_email_config` y agenda el primer destinatario
+- scheduler secuencial que procesa uno a uno con delays random y retries básicos
+- integración con `leadmaster-mailer` reutilizando `envio_email_id` de la fila existente en `ll_envios_email`
+- transición real PENDING → SENT confirmada en ambos envíos
+- finalización automática de campaña y sincronización de stats
+- recepción real confirmada en bandejas controladas vía Gmail
+
+Evidencia: campaña id=4 ("E2E Persistencia Email 2026-03-28"), 2 destinatarios, 2 SENT, 0 fallidos.
+
+Hallazgo residual: se observó desalineación de ~1h entre timestamps de DB y hora local percibida por el operador. Diagnóstico preliminar y follow-up documentados en `docs/05-REPORTES/2026-03/REPORTE-CIERRE-E2E-CAMPANAS-EMAIL-2026-03-28.md`.
+
+Las limitaciones de cobertura de datos email y madurez comercial documentadas en las secciones 8 y 9 de este documento siguen vigentes.
+
 ---
 
 ## 8. Limitaciones actuales
@@ -344,7 +369,7 @@ Regla de evolución:
 
 ## 10. Conclusión
 
-La arquitectura del canal Email ya no debe leerse como una intención conceptual futura. Debe leerse como una arquitectura implementada y validada en modo prueba.
+La arquitectura del canal Email ya no debe leerse como una intención conceptual futura. Debe leerse como una arquitectura implementada y validada operativamente.
 
 Hoy el sistema ya cuenta con:
 
@@ -353,11 +378,12 @@ Hoy el sistema ya cuenta con:
 - servicio standalone `leadmaster-mailer`
 - resolución SMTP multi-tenant por cliente
 - auditoría/persistencia técnica de envíos
-- validación real del flujo end-to-end
+- validación real del flujo end-to-end de transporte (2026-03-15)
+- validación real del flujo end-to-end de campañas Email persistidas con scheduler, finalización automática y recepción confirmada (2026-03-28)
 
 El punto real de esta arquitectura es claro:
 
-- canal técnicamente operativo en modo prueba
-- pendiente de escala por datos
+- canal técnicamente operativo con capacidad E2E validada
+- pendiente de escala por datos y madurez comercial
 
 La siguiente etapa correcta no consiste en reinventar el transporte, sino en resolver la disponibilidad y el enriquecimiento de emails para que el canal pueda convertirse en una operación realmente explotable a escala.
