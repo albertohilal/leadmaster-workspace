@@ -78,7 +78,7 @@ const EmailCampaignsManager = () => {
               to="/email/campaigns/prospects"
               className="inline-flex items-center rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-50"
             >
-              Seleccionar destinatarios
+              Agregar destinatarios a campaña
             </Link>
           </div>
 
