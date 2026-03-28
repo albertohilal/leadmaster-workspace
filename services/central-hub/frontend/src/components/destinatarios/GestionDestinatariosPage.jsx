@@ -121,8 +121,8 @@ function traducirEstado(estado) {
   }
 
   switch (estado) {
-    case 'seleccionar_campana':
-      return 'Seleccionar campaña';
+    case 'sin_contexto':
+      return 'Sin campaña seleccionada';
     case 'sin_envio':
       return 'No incluido';
     case 'pendiente':
@@ -162,7 +162,7 @@ function badgeEstado(estado) {
   }
 
   switch (estado) {
-    case 'seleccionar_campana':
+    case 'sin_contexto':
       return 'bg-slate-100 text-slate-700';
     case 'enviado':
       return 'bg-green-100 text-green-800';
@@ -368,7 +368,7 @@ const GestionDestinatariosPage = ({
   function estadoPrincipal(prospecto) {
     if (useEmailCampaignSelector) {
       if (!emailCampaignSeleccionada) {
-        return 'seleccionar_campana';
+        return 'sin_contexto';
       }
 
       return normalizeEmailRecipientStatus(prospecto?.email_recipient_status) || 'sin_envio';
@@ -380,7 +380,7 @@ const GestionDestinatariosPage = ({
   const estadoOptions = useMemo(() => {
     if (useEmailCampaignSelector) {
       if (!emailCampaignSeleccionada) {
-        return [{ value: 'seleccionar_campana', label: 'Seleccionar campaña' }];
+        return [{ value: 'sin_contexto', label: 'Sin campaña seleccionada' }];
       }
 
       const preferredOrder = ['sin_envio', 'pendiente', 'enviado', 'error'];
@@ -973,7 +973,7 @@ const GestionDestinatariosPage = ({
                       </select>
                       {hasCampaignMatch && (
                         <p className="mt-1 text-xs text-blue-600">
-                          Campaña fijada por contexto del módulo Email.
+                          Campaña fijada por contexto de navegación.
                         </p>
                       )}
                       {!useEmailCampaignSelector && campaignId && !hasCampaignMatch && (
@@ -994,7 +994,7 @@ const GestionDestinatariosPage = ({
                   }
                   className="px-4 py-2 bg-slate-700 text-white rounded-lg disabled:bg-gray-300"
                 >
-                  Agregar a Campaña
+                  {useEmailCampaignSelector ? 'Agregar destinatarios Email' : 'Agregar a Campaña'}
                 </button>
 
                 <div>
@@ -1252,7 +1252,7 @@ const GestionDestinatariosPage = ({
                             </button>
                           )}
 
-                          {p.envio_id && (
+                          {!useEmailCampaignSelector && p.envio_id && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();

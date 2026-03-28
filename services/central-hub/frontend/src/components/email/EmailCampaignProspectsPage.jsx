@@ -29,7 +29,7 @@ const EmailCampaignProspectsPage = () => {
   };
 
   useEffect(() => {
-    document.title = 'Seleccionar destinatarios Email | LeadMaster';
+    document.title = 'Destinatarios de campa\u00f1a Email | LeadMaster';
     loadCampaigns();
   }, []);
 
@@ -50,10 +50,16 @@ const EmailCampaignProspectsPage = () => {
             + Nueva campaña Email
           </Link>
         </div>
-        <h1 className="mt-2 text-3xl font-bold text-gray-800">Seleccionar destinatarios (Email)</h1>
+        <h1 className="mt-2 text-3xl font-bold text-gray-800">Destinatarios de campa\u00f1a Email</h1>
         {campaignId && (
-          <p className="mt-1 text-xs text-gray-500">Contexto campaña: {campaignId}</p>
+          <p className="mt-1 text-sm text-gray-600">
+            Campa\u00f1a: {emailCampaigns.find((c) => String(c.id) === String(campaignId))?.nombre || ''}{' '}
+            <span className="text-gray-400">#{campaignId}</span>
+          </p>
         )}
+        <p className="mt-1 text-sm text-gray-500">
+          Seleccion\u00e1 prospectos del universo del cliente y agregalos como destinatarios de una campa\u00f1a Email. Luego prepar\u00e1 el env\u00edo t\u00e9cnico para iniciar el despacho secuencial.
+        </p>
       </div>
 
       {loading ? (
