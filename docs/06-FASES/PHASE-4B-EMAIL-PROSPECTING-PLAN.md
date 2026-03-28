@@ -2,7 +2,7 @@
 
 **Status:** PARTIALLY COMPLETED  
 **Date:** 2026-03-15  
-**Last Reviewed:** 2026-03-22  
+**Last Reviewed:** 2026-03-28  
 **Implemented In:** feature/campaigns-by-channel-alignment  
 **Owner:** Alberto Hilal  
 **Workspace:** LeadMaster  
@@ -16,16 +16,24 @@ La Phase 4B ya no debe leerse como una fase solamente fundacional o documental.
 
 Estado real actual:
 
-- la subfase técnica de transporte e integración quedó resuelta
-- el canal Email quedó operativo end-to-end en modo prueba
+- la subfase técnica de transporte e integración quedó resuelta (2026-03-15)
+- el flujo principal de campañas Email quedó validado end-to-end con operación real el 2026-03-28: create → addRecipients → prepare → scheduler secuencial → mailer SMTP → SENT → finalización automática
+- la capacidad operativa E2E del canal Email está validada con evidencia directa (campaña id=4, 2 envíos SENT, recepción real confirmada)
 - la fase completa no puede considerarse cerrada comercialmente
-- el principal pendiente ya no es el transporte, sino la capa de datos email
+- el principal pendiente ya no es el transporte ni el flujo operativo básico, sino la capa de datos email
+
+Follow-ups residuales no bloqueantes:
+
+- affordances de UI: pulido semántico menor documentado en `ANALISIS-AFFORDANCES-UI-EMAIL-ETAPA5-2026-03-27.md`
+- desalineación de timezone entre proceso Node.js y MySQL remoto (diagnóstico preliminar en reporte de cierre E2E)
 
 Lectura correcta del estado:
 
-- fase técnicamente avanzada
-- cierre técnico parcial alcanzado
-- cierre funcional/comercial total aún pendiente
+- fase técnicamente validada en su flujo operativo principal
+- cierre funcional E2E alcanzado
+- cierre comercial/de escala aún pendiente por cobertura de datos email
+
+Reporte de cierre: `docs/05-REPORTES/2026-03/REPORTE-CIERRE-E2E-CAMPANAS-EMAIL-2026-03-28.md`
 
 ---
 
@@ -231,7 +239,7 @@ Importante:
 
 ## 10. Conclusión
 
-La Phase 4B avanzó más allá de la etapa fundacional y ya cuenta con un cierre técnico efectivo de su subfase de integración y transporte.
+La Phase 4B avanzó más allá de la etapa fundacional y ya cuenta con un cierre técnico-operativo efectivo.
 
 Hoy el proyecto ya tiene:
 
@@ -240,7 +248,7 @@ Hoy el proyecto ya tiene:
 - resolución de `cliente_id` desde JWT
 - resolución SMTP por cliente
 - auditoría de envíos
-- UI inicial para operar Email en modo prueba
+- UI inicial para operar Email
 - validación con envío real
 - recipients persistidos por campaña
 - prepare de campaña Email
@@ -248,6 +256,7 @@ Hoy el proyecto ya tiene:
 - operación uno a uno con delays y retries básicos
 - soporte `envio_email_id` entre `central-hub` y `leadmaster-mailer`
 - tests reales en `central-hub` y `mailer` para este flujo
+- validación E2E del flujo completo de campañas el 2026-03-28 con recepción real confirmada
 
 Sin embargo, la fase completa todavía no debe considerarse terminada.
 
@@ -257,7 +266,9 @@ La razón es concreta:
 
 La lectura correcta del estado de la fase es entonces:
 
-- subfase técnica cerrada
-- fase completa aún abierta por limitación de datos
+- flujo operativo principal E2E validado (2026-03-28)
+- subfase de integración y transporte cerrada (2026-03-15)
+- subfase de alineación por canal cerrada (2026-03-28)
+- fase completa aún abierta por limitación de datos y madurez comercial
 
-Ese es el punto real del proyecto al 2026-03-15.
+Ese es el punto real del proyecto al 2026-03-28.

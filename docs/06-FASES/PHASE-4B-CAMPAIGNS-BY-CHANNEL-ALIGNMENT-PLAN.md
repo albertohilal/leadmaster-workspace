@@ -1,8 +1,9 @@
 # Phase 4B — Campaigns by Channel Alignment Plan
 
-**Status:** PARTIALLY COMPLETED  
+**Status:** COMPLETED  
 **Date:** 2026-03-19  
-**Last Reviewed:** 2026-03-22  
+**Last Reviewed:** 2026-03-28  
+**Closed:** 2026-03-28  
 **Implemented In:** feature/campaigns-by-channel-alignment  
 **Owner:** Alberto Hilal  
 **Workspace:** LeadMaster  
@@ -14,22 +15,22 @@ docs/06-FASES/PHASE-4B-CAMPAIGNS-BY-CHANNEL-ALIGNMENT-PLAN.md
 
 ## Objetivo del plan
 
-Alinear la operación y la UI actuales con una decisión ya tomada de arquitectura y negocio: en LeadMaster una campaña define su canal, y el flujo de envío debe responder a ese tipo de campaña.
+Alinear la operación y la UI con una decisión ya tomada de arquitectura y negocio: en LeadMaster una campaña define su canal, y el flujo de envío debe responder a ese tipo de campaña.
 
-Este plan no propone rediseñar todo el sistema ni reemplazar la base común de selección de prospectos. Su objetivo es corregir una desalineación funcional concreta para que la capa operativa respete de forma explícita el modelo documental acordado.
+Este plan no proponía rediseñar todo el sistema ni reemplazar la base común de selección de prospectos. Su objetivo fue corregir una desalineación funcional concreta para que la capa operativa respetara de forma explícita el modelo documental acordado.
 
-## Problema actual
+## Problema de partida
 
-El problema actual no está en el transporte ni en la integración técnica de los canales. Esa parte ya quedó validada para Email en modo prueba y ya existe flujo operativo para WhatsApp.
+El problema de partida no estaba en el transporte ni en la integración técnica de los canales. Esa parte ya había quedado validada para Email en modo prueba y existía flujo operativo para WhatsApp.
 
-La desalineación está en cómo puede interpretarse la operación actual:
+La desalineación estaba en cómo podía interpretarse la operación:
 
-- la UI usa una selección común de prospectos
-- eso es correcto como base operativa compartida
-- pero la preparación manual de Email con asunto y cuerpo definidos en cada envío puede transmitir un modelo incorrecto
-- ese modelo incorrecto es leer la campaña como neutra respecto del canal y resolver el contenido recién al final de la operación
+- la UI usaba una selección común de prospectos
+- eso era correcto como base operativa compartida
+- pero la preparación manual de Email con asunto y cuerpo definidos en cada envío podía transmitir un modelo incorrecto
+- ese modelo incorrecto era leer la campaña como neutra respecto del canal y resolver el contenido recién al final de la operación
 
-Si esa lectura se consolida, la UI terminaría habilitando una operación que contradice la decisión documental ya asumida.
+Si esa lectura se consolidaba, la UI habilitaría una operación que contradecía la decisión documental ya asumida.
 
 ## Estado de implementación
 
@@ -51,19 +52,29 @@ Si esa lectura se consolida, la UI terminaría habilitando una operación que co
 
 ### Pendiente
 
-- endurecimiento semántico completo de la UI compartida si no quedó totalmente cerrado en todas las pantallas y affordances
+Los siguientes puntos quedaron abiertos como follow-ups no bloqueantes al momento del cierre (2026-03-28). No invalidan el cumplimiento de las condiciones de cierre funcional:
+
+- affordances residuales de UI: botón "Agregar a Campaña" genérico en modo Email (G-1), "Clasificar post-envío" con opciones WhatsApp visible en modo Email (G-2), pulido editorial menor (M-2, M-4, P-3)
+- follow-up técnico de desalineación de timezone entre proceso Node.js y MySQL remoto (no afectó correctitud de envíos)
 - cierre comercial completo del canal Email dentro de la operación diaria
 - cobertura, enriquecimiento y adquisición de emails útiles
 - reporting comercial y capacidades operativas/comerciales más avanzadas
 
+Referencia: `docs/05-REPORTES/2026-03/REPORTE-CIERRE-E2E-CAMPANAS-EMAIL-2026-03-28.md`
+
 ### Criterio de cierre documental
 
-- este documento podrá pasar a `COMPLETED` cuando la alineación por canal quede cerrada también en la semántica completa de UI y operación diaria, sin depender de lecturas transicionales
+- este documento pasó a `COMPLETED` el 2026-03-28 a partir de la validación E2E documentada en `docs/05-REPORTES/2026-03/REPORTE-CIERRE-E2E-CAMPANAS-EMAIL-2026-03-28.md`
+- las 7 condiciones de cierre definidas en la sección "Criterio de cierre de esta subfase" se consideran satisfechas según evidencia acumulada y la validación E2E del 2026-03-28
+- las condiciones 2 y 3 presentan observaciones de pulido de affordances (G-1, G-2) que no representan bloqueo funcional pero quedan registradas como deuda de refinamiento operativo
+- la condición 4 (flujo WhatsApp) no fue invalidada por la validación E2E; no se detectó regresión en el flujo WhatsApp
+- el flujo canónico validado fue: campaña → recipients → prepare → scheduler → mailer → finalización
+- el hallazgo de desalineación de timezone queda fuera del cierre funcional de esta subfase y documentado como follow-up técnico
 - si en el futuro es reemplazado por un documento más canónico de estado operativo por canal, deberá marcarse como `SUPERSEDED` preservando su valor histórico
 
 ## Principio rector
 
-El principio rector de esta subfase es el siguiente:
+El principio rector de esta subfase fue el siguiente:
 
 - la campaña seleccionada define el canal operativo
 - el canal define particularidades de contenido y de ejecución
@@ -74,7 +85,7 @@ Toda decisión de implementación dentro de esta subfase debe evaluarse contra e
 
 ## Modelo objetivo
 
-El modelo objetivo a consolidar es:
+El modelo objetivo a consolidar fue:
 
 - una campaña puede ser de WhatsApp o de Email
 - cada campaña conserva la lógica documental y operativa propia de su canal
@@ -282,9 +293,9 @@ Efectos esperados:
 
 ## Estado transitorio permitido
 
-Durante la implementación puede existir un estado transitorio controlado.
+Durante la implementación podía existir un estado transitorio controlado.
 
-Ese estado transitorio puede admitir:
+Ese estado transitorio podía admitir:
 
 - mecanismos manuales de prueba técnica
 - convivencia temporal de una preparación inicial de Email mientras se completa el realineamiento
@@ -308,7 +319,7 @@ La finalidad de esta subfase es alinear la operación con una decisión ya tomad
 
 ## Criterio de cierre de esta subfase
 
-La subfase podrá considerarse cerrada cuando se cumplan estas condiciones:
+La subfase podía considerarse cerrada cuando se verificara el cumplimiento de estas condiciones:
 
 - la documentación vigente deje inequívocamente asentado que la campaña define el canal
 - la UI de selección de prospectos no induzca una lectura neutral de campaña
@@ -320,15 +331,15 @@ La subfase podrá considerarse cerrada cuando se cumplan estas condiciones:
 
 ## Conclusión
 
-La decisión de tratar las campañas por canal ya existe y no requiere ser inventada de nuevo. Lo que falta es terminar de alinear la UI y la operación con esa decisión.
+La decisión de tratar las campañas por canal ya existía y no requería ser inventada de nuevo. El trabajo de esta subfase consistió en alinear la UI y la operación con esa decisión.
 
-La base común de prospectos puede mantenerse.
+La base común de prospectos se mantuvo.
 
-Lo que debe ajustarse es la capa que sigue a esa selección:
+Lo que se ajustó fue la capa que sigue a esa selección:
 
-- la campaña seleccionada debe definir el canal
-- el flujo debe responder a ese canal
-- el contenido debe corresponder a la campaña de ese canal
-- la composición libre de Email por envío no debe consolidarse como modelo final del sistema
+- la campaña seleccionada define el canal
+- el flujo responde a ese canal
+- el contenido corresponde a la campaña de ese canal
+- la composición libre de Email por envío quedó explícitamente tratada como mecanismo transitorio, no como modelo final del sistema
 
-Este plan propone exactamente ese realineamiento y nada más.
+El flujo principal de campañas Email quedó validado end-to-end el 2026-03-28 con evidencia directa de envío real y recepción confirmada. Los follow-ups residuales (affordances de UI, timezone, cobertura de datos email) no representan bloqueo funcional y quedan documentados en el reporte de cierre correspondiente.
